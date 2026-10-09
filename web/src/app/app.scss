@@ -12,3 +12,14 @@
 .spacer {
   flex: 1;
 }
+
+mat-toolbar {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 56px;
+  padding: 0.25rem 0.75rem;
+}
+
+.active {
+  text-decoration: underline;
+}

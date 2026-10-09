@@ -3,6 +3,7 @@ using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using EduVibe.Modules.Classes.Endpoints;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,7 +22,6 @@ public sealed class ClassesModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // This module's endpoints are added in its sprint; see the sprint plan.
-        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Classes");
+        InstituteEndpoints.Map(endpoints.MapGroup($"/api/{ModuleName}").WithTags("Classes"));
     }
 }

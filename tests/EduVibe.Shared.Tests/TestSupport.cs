@@ -20,6 +20,9 @@ public sealed class Widget : Entity, ITenantOwned, IAuditable
 {
     public Guid TenantId { get; set; }
     public string Name { get; set; } = "";
+
+    [NotAudited]
+    public string Secret { get; set; } = "";
 }
 
 public sealed class TestDbContext(DbContextOptions<TestDbContext> options, ITenantContext tenant)

@@ -1,3 +1,4 @@
+using EduVibe.Modules.Classes.Domain;
 using EduVibe.Shared.Persistence;
 using EduVibe.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,9 @@ public sealed class ClassesDbContext(DbContextOptions<ClassesDbContext> options,
     : ModuleDbContext(options, tenant)
 {
     public override string Schema => ClassesModule.ModuleName;
+
+    public DbSet<Institute> Institutes => Set<Institute>();
+    public DbSet<InstituteTeacher> InstituteTeachers => Set<InstituteTeacher>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {
