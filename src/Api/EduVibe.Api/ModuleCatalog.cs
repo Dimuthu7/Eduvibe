@@ -1,4 +1,5 @@
 using EduVibe.Modules.Attendance;
+using EduVibe.Modules.Catalog;
 using EduVibe.Modules.Classes;
 using EduVibe.Modules.Exams;
 using EduVibe.Modules.Fees;
@@ -15,6 +16,7 @@ public static class ModuleCatalog
     public static IReadOnlyList<IModule> All { get; } =
     [
         new IdentityModule(),
+        new CatalogModule(),
         new ClassesModule(),
         new StudentsModule(),
         new FeesModule(),

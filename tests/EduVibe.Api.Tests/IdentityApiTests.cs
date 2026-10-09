@@ -7,9 +7,9 @@ namespace EduVibe.Api.Tests;
 
 public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
-    private record User(Guid Id, string Phone, string FullName, string[] Roles, bool MustChangePassword, Guid? TeacherId);
+    private record User(Guid Id, string Phone, string FullName, string[] Roles, bool MustChangePassword, Guid? TeacherId, string? District, Guid? StreamId, Guid[] SubjectIds);
     private record Session(string AccessToken, string RefreshToken, User User);
-    private record Teacher(Guid Id, string Phone, bool IsActive);
+    private record Teacher(Guid Id, string Phone, string FirstName, string LastName, string? District, Guid[] SubjectIds, bool IsActive);
     private record Created(Teacher Teacher, string OneTimePassword);
     private record Institute(Guid Id, string Name, Guid[] TeacherIds);
 
@@ -43,12 +43,20 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         return (await response.Content.ReadFromJsonAsync<Session>(Json))!;
     }
 
-    private static async Task<Created> CreateTeacher(HttpClient admin, string phone, string name = "Nimal Perera")
+    private async Task<Created> CreateTeacher(HttpClient admin, string phone, string firstName = "Nimal", string lastName = "Perera")
     {
-        var response = await admin.PostAsJsonAsync("/api/identity/teachers", new { fullName = name, phone, town = "Kandy", subjects = "Maths" });
+        var response = await admin.PostAsJsonAsync("/api/identity/teachers", TeacherRequest(phone, firstName, lastName));
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<Created>(Json))!;
     }
+
+    private object TeacherRequest(string? phone, string? firstName = "Nimal", string? lastName = "Perera", string? district = "Kandy", Guid? streamId = null, Guid[]? subjectIds = null) =>
+        new
+        {
+            firstName, lastName, phone, district,
+            streamId = streamId ?? factory.StreamId,
+            subjectIds = subjectIds ?? [factory.MathsId, factory.ScienceId],
+        };
 
     [Fact]
     public async Task Wrong_password_and_unknown_phone_get_the_same_answer()
@@ -115,13 +123,14 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var teacher = As(factory.CreateClient(), session.AccessToken);
 
         var response = await teacher.PutAsJsonAsync("/api/identity/me",
-            new { fullName = "Nimal P.", email = "nimal@example.com", language = "si", town = "Galle", subjects = "Science" });
+            new { firstName = "Nimal", lastName = "P.", email = "nimal@example.com", language = "si", district = "Galle", streamId = factory.StreamId, subjectIds = new[] { factory.ScienceId } });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var me = await teacher.GetFromJsonAsync<JsonElement>("/api/identity/me");
         Assert.Equal("Nimal P.", me.GetProperty("fullName").GetString());
         Assert.Equal("si", me.GetProperty("language").GetString());
-        Assert.Equal("Galle", me.GetProperty("town").GetString());
+        Assert.Equal("Galle", me.GetProperty("district").GetString());
+        Assert.Equal([factory.ScienceId], me.GetProperty("subjectIds").EnumerateArray().Select(e => e.GetGuid()));
     }
 
     [Fact]
@@ -131,7 +140,7 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var phone = NewPhone();
         await CreateTeacher(admin, phone);
 
-        var again = await admin.PostAsJsonAsync("/api/identity/teachers", new { fullName = "Other", phone = "0" + phone[3..] });
+        var again = await admin.PostAsJsonAsync("/api/identity/teachers", TeacherRequest("0" + phone[3..], "Other"));
 
         Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
     }
@@ -141,7 +150,7 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     {
         var admin = await AdminClient();
 
-        var response = await admin.PostAsJsonAsync("/api/identity/teachers", new { fullName = "Bad Phone", phone = "12345" });
+        var response = await admin.PostAsJsonAsync("/api/identity/teachers", TeacherRequest("12345"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -224,16 +233,107 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
     }
 
+    [Theory]
+    [InlineData("first_name_required", "", "Perera", "Kandy", true)]
+    [InlineData("last_name_required", "Nimal", " ", "Kandy", true)]
+    [InlineData("district_invalid", "Nimal", "Perera", "Atlantis", true)]
+    [InlineData("stream_invalid", "Nimal", "Perera", "Kandy", false)]
+    public async Task Teacher_rules_name_the_field_that_failed(string code, string first, string last, string district, bool validStream)
+    {
+        var admin = await AdminClient();
+
+        var response = await admin.PostAsJsonAsync("/api/identity/teachers",
+            TeacherRequest(NewPhone(), first, last, district, validStream ? factory.StreamId : Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(code, (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task A_teacher_needs_at_least_one_known_subject()
+    {
+        var admin = await AdminClient();
+
+        var none = await admin.PostAsJsonAsync("/api/identity/teachers", TeacherRequest(NewPhone(), subjectIds: []));
+        var unknown = await admin.PostAsJsonAsync("/api/identity/teachers", TeacherRequest(NewPhone(), subjectIds: [Guid.NewGuid()]));
+
+        Assert.Equal("subjects_required", (await none.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal("subject_invalid", (await unknown.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task The_teacher_list_returns_district_and_subjects()
+    {
+        var admin = await AdminClient();
+        var created = await CreateTeacher(admin, NewPhone(), "Kamal", "Fernando");
+
+        var list = await admin.GetFromJsonAsync<Teacher[]>("/api/identity/teachers", Json);
+
+        var teacher = Assert.Single(list!, t => t.Id == created.Teacher.Id);
+        Assert.Equal("Kandy", teacher.District);
+        Assert.Equivalent(new[] { factory.MathsId, factory.ScienceId }, teacher.SubjectIds);
+    }
+
+    [Fact]
+    public async Task Districts_come_from_one_list_of_25()
+    {
+        var admin = await AdminClient();
+
+        var districts = await admin.GetFromJsonAsync<string[]>("/api/system/districts");
+
+        Assert.Equal(25, districts!.Length);
+        Assert.Contains("Nuwara Eliya", districts);
+    }
+
+    [Fact]
+    public async Task Super_admin_adds_a_subject_and_everyone_signed_in_can_pick_it()
+    {
+        var admin = await AdminClient();
+        var name = $"Robotics {Guid.NewGuid():N}"[..20];
+
+        var created = await admin.PostAsJsonAsync("/api/catalog/subjects", new { name });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var duplicate = await admin.PostAsJsonAsync("/api/catalog/subjects", new { name = name.ToUpperInvariant() });
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+
+        var teacher = await CreateTeacher(admin, NewPhone());
+        var session = await ChangePassword(await Login(teacher.Teacher.Phone, teacher.OneTimePassword), teacher.OneTimePassword, "My-new-pass-1");
+        var asTeacher = As(factory.CreateClient(), session.AccessToken);
+        var subjects = await asTeacher.GetFromJsonAsync<JsonElement>("/api/catalog/subjects");
+        Assert.Contains(subjects.EnumerateArray(), s => s.GetProperty("name").GetString() == name);
+
+        var forbidden = await asTeacher.PostAsJsonAsync("/api/catalog/subjects", new { name = "Nope" });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_deactivated_subject_disappears_from_the_list_and_cannot_be_chosen()
+    {
+        var admin = await AdminClient();
+        var created = await admin.PostAsJsonAsync("/api/catalog/subjects", new { name = $"Retired {Guid.NewGuid():N}"[..20] });
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        await admin.PutAsJsonAsync($"/api/catalog/subjects/{id}", new { isActive = false });
+
+        var active = await admin.GetFromJsonAsync<JsonElement>("/api/catalog/subjects");
+        Assert.DoesNotContain(active.EnumerateArray(), s => s.GetProperty("id").GetGuid() == id);
+        var response = await admin.PostAsJsonAsync("/api/identity/teachers", TeacherRequest(NewPhone(), subjectIds: [id]));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task Institutes_are_managed_by_super_admin_and_seen_by_their_teachers()
     {
         var admin = await AdminClient();
         var linked = await CreateTeacher(admin, NewPhone());
-        var other = await CreateTeacher(admin, NewPhone(), "Kamala Silva");
+        var other = await CreateTeacher(admin, NewPhone(), "Kamala", "Silva");
 
-        var created = await admin.PostAsJsonAsync("/api/classes/institutes", new { name = "Bright Minds", town = "Kandy" });
+        var created = await admin.PostAsJsonAsync("/api/classes/institutes", new { name = "Bright Minds", district = "Kandy", town = "Peradeniya" });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var institute = (await created.Content.ReadFromJsonAsync<Institute>(Json))!;
+
+        var noDistrict = await admin.PostAsJsonAsync("/api/classes/institutes", new { name = "No District" });
+        Assert.Equal(HttpStatusCode.BadRequest, noDistrict.StatusCode);
 
         var assign = await admin.PutAsJsonAsync($"/api/classes/institutes/{institute.Id}/teachers", new { teacherIds = new[] { linked.Teacher.Id } });
         Assert.Equal(HttpStatusCode.NoContent, assign.StatusCode);

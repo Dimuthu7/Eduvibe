@@ -12,14 +12,17 @@ const API = 'http://api.test';
 const user = (overrides: Partial<User> = {}): User => ({
   id: 'u1',
   phone: '+94771234567',
-  fullName: 'Nimal',
+  firstName: 'Nimal',
+  lastName: 'Perera',
+  fullName: 'Nimal Perera',
   email: null,
   language: 'en',
   roles: ['Teacher'],
   mustChangePassword: false,
   teacherId: 't1',
-  town: null,
-  subjects: null,
+  district: null,
+  streamId: null,
+  subjectIds: [],
   ...overrides,
 });
 
@@ -57,7 +60,7 @@ describe('AuthService', () => {
     expect(request.request.body).toEqual({ phone: '0771234567', password: 'secret' });
     request.flush(session());
 
-    expect(auth.user()?.fullName).toBe('Nimal');
+    expect(auth.user()?.fullName).toBe('Nimal Perera');
     expect(auth.accessToken).toBe('access-1');
     expect(localStorage.getItem('eduvibe.session')).toContain('refresh-1');
   });

@@ -5,7 +5,7 @@ App for private tuition teachers in Sri Lanka: classes, students, fees, attendan
 ## Layout
 
 - `src/Api/EduVibe.Api` — the ASP.NET Core host. Only wires modules together; `ModuleCatalog.cs` lists them.
-- `src/Modules/<Name>/EduVibe.Modules.<Name>` — one project per feature area (Identity, Classes, Students, Fees, Attendance, Exams, Plans). Each owns its PostgreSQL schema, entities, endpoints and migrations.
+- `src/Modules/<Name>/EduVibe.Modules.<Name>` — one project per feature area (Identity, Catalog, Classes, Students, Fees, Attendance, Exams, Plans). Each owns its PostgreSQL schema, entities, endpoints and migrations.
 - `src/Shared/EduVibe.Shared` — tenancy, auditing, base entity, module interface and persistence wiring.
 - `web/` — Angular PWA (standalone components, signals, Angular Material).
 - `tests/` — xUnit tests. `web/**/*.spec.ts` — Vitest unit tests.

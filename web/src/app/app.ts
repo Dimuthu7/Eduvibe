@@ -26,6 +26,7 @@ const TEACHER_NAV: NavItem[] = [{ route: '/home', label: 'nav.home', icon: 'home
 const ADMIN_NAV: NavItem[] = [
   { route: '/admin/teachers', label: 'nav.teachers', icon: 'school' },
   { route: '/admin/institutes', label: 'nav.institutes', icon: 'apartment' },
+  { route: '/admin/catalog', label: 'nav.catalog', icon: 'tune' },
 ];
 
 const THEMES: { value: ThemePreference; label: string; icon: string }[] = [

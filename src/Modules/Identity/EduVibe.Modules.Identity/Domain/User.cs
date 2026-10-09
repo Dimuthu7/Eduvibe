@@ -7,7 +7,8 @@ namespace EduVibe.Modules.Identity.Domain;
 public sealed class User : Entity, IAuditable
 {
     public required string Phone { get; set; }
-    public required string FullName { get; set; }
+    public required string FirstName { get; set; }
+    public required string LastName { get; set; }
     public string? Email { get; set; }
     public string Language { get; set; } = "en";
     public bool IsActive { get; set; } = true;
@@ -27,6 +28,8 @@ public sealed class User : Entity, IAuditable
     [NotAudited]
     public DateTimeOffset? LastLoginAt { get; set; }
 
+    public string FullName => $"{FirstName} {LastName}".Trim();
+
     public List<UserRole> Roles { get; set; } = [];
 }
 
@@ -43,8 +46,21 @@ public sealed class UserRole : Entity
 public sealed class Teacher : Entity, IAuditable
 {
     public Guid UserId { get; set; }
-    public string? Town { get; set; }
-    public string? Subjects { get; set; }
+
+    /// <summary>One of the districts in <c>SriLankaDistricts</c>.</summary>
+    public string? District { get; set; }
+
+    /// <summary>The teaching stream (O/L, A/L, ...) from the Catalog module. Only the id is kept here.</summary>
+    public Guid? StreamId { get; set; }
+
+    public List<TeacherSubject> Subjects { get; set; } = [];
+}
+
+/// <summary>A subject a teacher teaches. SubjectId belongs to the Catalog module.</summary>
+public sealed class TeacherSubject : Entity
+{
+    public Guid TeacherId { get; set; }
+    public Guid SubjectId { get; set; }
 }
 
 public sealed class RefreshToken : Entity

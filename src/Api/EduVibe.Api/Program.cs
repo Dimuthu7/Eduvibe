@@ -1,5 +1,6 @@
 using EduVibe.Api;
 using EduVibe.Shared.Auditing;
+using EduVibe.Shared.Geography;
 using EduVibe.Shared.Persistence;
 using EduVibe.Shared.Tenancy;
 using System.Threading.RateLimiting;
@@ -70,6 +71,8 @@ app.MapGet("/api/system/info", () => new SystemInfo(
         modules.Select(m => m.Name).ToArray()))
     .WithTags("System")
     .AllowAnonymous();
+
+app.MapGet("/api/system/districts", () => SriLankaDistricts.All).WithTags("System");
 
 foreach (var module in modules)
 {

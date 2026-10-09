@@ -27,24 +27,33 @@ internal static class TeacherAdminEndpoints
         var rows = await (
             from t in db.Teachers
             join u in db.Users on t.UserId equals u.Id
-            orderby u.FullName
-            select new TeacherDto(t.Id, u.FullName, u.Phone, u.Email, t.Town, t.Subjects, u.IsActive, u.MustChangePassword))
-            .ToListAsync(ct);
-        return Results.Ok(rows);
+            orderby u.FirstName, u.LastName
+            select new
+            {
+                t.Id, u.FirstName, u.LastName, u.Phone, u.Email, t.District, t.StreamId,
+                SubjectIds = t.Subjects.Select(s => s.SubjectId).ToList(),
+                u.IsActive, u.MustChangePassword,
+            }).ToListAsync(ct);
+
+        return Results.Ok(rows.Select(r => new TeacherDto(
+            r.Id, r.FirstName, r.LastName, $"{r.FirstName} {r.LastName}".Trim(), r.Phone, r.Email,
+            r.District, r.StreamId, [.. r.SubjectIds], r.IsActive, r.MustChangePassword)).ToList());
     }
 
-    private static async Task<IResult> Create(CreateTeacherRequest request, IdentityDbContext db, PasswordService passwords, CancellationToken ct)
+    private static async Task<IResult> Create(
+        CreateTeacherRequest request, IdentityDbContext db, PasswordService passwords, TeacherProfileRules rules, CancellationToken ct)
     {
-        var name = request.FullName?.Trim();
-        if (string.IsNullOrEmpty(name) || name.Length > 120)
-        {
-            return Problem(StatusCodes.Status400BadRequest, "name_required");
-        }
-
         var phone = PhoneNumber.Normalize(request.Phone);
         if (phone is null)
         {
             return Problem(StatusCodes.Status400BadRequest, "phone_invalid");
+        }
+
+        var (profile, error) = await rules.ValidateAsync(
+            request.FirstName, request.LastName, request.District, request.StreamId, request.SubjectIds, ct);
+        if (profile is null)
+        {
+            return Problem(StatusCodes.Status400BadRequest, error!);
         }
 
         if (await db.Users.AnyAsync(u => u.Phone == phone, ct))
@@ -53,15 +62,22 @@ internal static class TeacherAdminEndpoints
         }
 
         var otp = PasswordService.NewOneTimePassword();
-        var user = new User { Phone = phone, FullName = name, Email = Clean(request.Email), MustChangePassword = true };
+        var user = new User
+        {
+            Phone = phone, FirstName = profile.FirstName, LastName = profile.LastName,
+            Email = Clean(request.Email), MustChangePassword = true,
+        };
         user.PasswordHash = passwords.Hash(user, otp);
         user.Roles.Add(new UserRole { Role = Roles.Teacher });
-        var teacher = new Teacher { UserId = user.Id, Town = Clean(request.Town), Subjects = Clean(request.Subjects) };
+        var teacher = new Teacher { UserId = user.Id, District = profile.District, StreamId = profile.StreamId };
+        teacher.Subjects.AddRange(profile.SubjectIds.Select(id => new TeacherSubject { SubjectId = id }));
         db.Users.Add(user);
         db.Teachers.Add(teacher);
         await db.SaveChangesAsync(ct);
 
-        var dto = new TeacherDto(teacher.Id, user.FullName, user.Phone, user.Email, teacher.Town, teacher.Subjects, user.IsActive, true);
+        var dto = new TeacherDto(
+            teacher.Id, user.FirstName, user.LastName, user.FullName, user.Phone, user.Email,
+            teacher.District, teacher.StreamId, [.. profile.SubjectIds], user.IsActive, true);
         return Results.Created($"/api/identity/teachers/{teacher.Id}", new TeacherCreatedDto(dto, otp));
     }
 

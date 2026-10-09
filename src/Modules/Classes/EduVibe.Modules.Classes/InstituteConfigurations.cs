@@ -10,6 +10,7 @@ internal sealed class InstituteConfiguration : IEntityTypeConfiguration<Institut
     {
         builder.ToTable("institutes");
         builder.Property(i => i.Name).HasMaxLength(120);
+        builder.Property(i => i.District).HasMaxLength(40);
         builder.Property(i => i.Town).HasMaxLength(80);
         builder.Property(i => i.Address).HasMaxLength(250);
         builder.Property(i => i.Phone).HasMaxLength(20);

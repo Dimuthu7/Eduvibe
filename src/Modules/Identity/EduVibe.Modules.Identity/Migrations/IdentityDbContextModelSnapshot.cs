@@ -80,15 +80,14 @@ namespace EduVibe.Modules.Identity.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<string>("Subjects")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("subjects");
+                    b.Property<string>("District")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("district");
 
-                    b.Property<string>("Town")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("town");
+                    b.Property<Guid?>("StreamId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stream_id");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -106,6 +105,42 @@ namespace EduVibe.Modules.Identity.Migrations
                         .HasDatabaseName("ix_teachers_user_id");
 
                     b.ToTable("teachers", "identity");
+                });
+
+            modelBuilder.Entity("EduVibe.Modules.Identity.Domain.TeacherSubject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_id");
+
+                    b.Property<Guid>("TeacherId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("teacher_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_teacher_subjects");
+
+                    b.HasIndex("SubjectId")
+                        .HasDatabaseName("ix_teacher_subjects_subject_id");
+
+                    b.HasIndex("TeacherId", "SubjectId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_teacher_subjects_teacher_id_subject_id");
+
+                    b.ToTable("teacher_subjects", "identity");
                 });
 
             modelBuilder.Entity("EduVibe.Modules.Identity.Domain.User", b =>
@@ -128,11 +163,11 @@ namespace EduVibe.Modules.Identity.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("failed_login_count");
 
-                    b.Property<string>("FullName")
+                    b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("full_name");
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("first_name");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
@@ -147,6 +182,12 @@ namespace EduVibe.Modules.Identity.Migrations
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_at");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("last_name");
 
                     b.Property<DateTimeOffset?>("LockedUntil")
                         .HasColumnType("timestamp with time zone")
@@ -295,6 +336,16 @@ namespace EduVibe.Modules.Identity.Migrations
                         .HasConstraintName("fk_teachers_users_user_id");
                 });
 
+            modelBuilder.Entity("EduVibe.Modules.Identity.Domain.TeacherSubject", b =>
+                {
+                    b.HasOne("EduVibe.Modules.Identity.Domain.Teacher", null)
+                        .WithMany("Subjects")
+                        .HasForeignKey("TeacherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_teacher_subjects_teachers_teacher_id");
+                });
+
             modelBuilder.Entity("EduVibe.Modules.Identity.Domain.UserRole", b =>
                 {
                     b.HasOne("EduVibe.Modules.Identity.Domain.User", null)
@@ -303,6 +354,11 @@ namespace EduVibe.Modules.Identity.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_roles_users_user_id");
+                });
+
+            modelBuilder.Entity("EduVibe.Modules.Identity.Domain.Teacher", b =>
+                {
+                    b.Navigation("Subjects");
                 });
 
             modelBuilder.Entity("EduVibe.Modules.Identity.Domain.User", b =>

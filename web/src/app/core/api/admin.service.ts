@@ -4,26 +4,32 @@ import { AppConfig } from '../config/app-config';
 
 export interface TeacherSummary {
   id: string;
+  firstName: string;
+  lastName: string;
   fullName: string;
   phone: string;
   email: string | null;
-  town: string | null;
-  subjects: string | null;
+  district: string | null;
+  streamId: string | null;
+  subjectIds: string[];
   isActive: boolean;
   mustChangePassword: boolean;
 }
 
 export interface NewTeacher {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email?: string;
-  town?: string;
-  subjects?: string;
+  district: string;
+  streamId: string;
+  subjectIds: string[];
 }
 
 export interface Institute {
   id: string;
   name: string;
+  district: string | null;
   town: string | null;
   address: string | null;
   phone: string | null;
@@ -31,7 +37,7 @@ export interface Institute {
   teacherIds: string[];
 }
 
-export type InstituteInput = Pick<Institute, 'name'> & Partial<Pick<Institute, 'town' | 'address' | 'phone' | 'isActive'>>;
+export type InstituteInput = Pick<Institute, 'name' | 'district'> & Partial<Pick<Institute, 'town' | 'address' | 'phone' | 'isActive'>>;
 
 /** Super Admin calls: teachers and institutes. */
 @Injectable({ providedIn: 'root' })
