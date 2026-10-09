@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/EduVibe.Api/EduVibe.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Attendance/">
+    <Project Path="src/Modules/Attendance/EduVibe.Modules.Attendance/EduVibe.Modules.Attendance.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Classes/">
+    <Project Path="src/Modules/Classes/EduVibe.Modules.Classes/EduVibe.Modules.Classes.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Exams/">
+    <Project Path="src/Modules/Exams/EduVibe.Modules.Exams/EduVibe.Modules.Exams.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Fees/">
+    <Project Path="src/Modules/Fees/EduVibe.Modules.Fees/EduVibe.Modules.Fees.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/EduVibe.Modules.Identity/EduVibe.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Plans/">
+    <Project Path="src/Modules/Plans/EduVibe.Modules.Plans/EduVibe.Modules.Plans.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Students/">
+    <Project Path="src/Modules/Students/EduVibe.Modules.Students/EduVibe.Modules.Students.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/EduVibe.Shared/EduVibe.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EduVibe.Api.Tests/EduVibe.Api.Tests.csproj" />
+    <Project Path="tests/EduVibe.Shared.Tests/EduVibe.Shared.Tests.csproj" />
+  </Folder>
+</Solution>

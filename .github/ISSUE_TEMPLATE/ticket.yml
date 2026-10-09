@@ -1,0 +1,33 @@
+name: Sprint ticket
+description: A planned piece of work from the sprint plan
+labels: ["ticket"]
+body:
+  - type: input
+    id: ticket-id
+    attributes:
+      label: Ticket id
+      placeholder: S1-2
+    validations:
+      required: true
+  - type: input
+    id: requirement
+    attributes:
+      label: Requirement id
+      description: From the requirements doc
+      placeholder: ID-1, ID-2
+  - type: dropdown
+    id: points
+    attributes:
+      label: Points
+      options: ["1", "2", "3", "5", "8"]
+  - type: textarea
+    id: description
+    attributes:
+      label: What and why
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Done when
+      description: What the demo will show
