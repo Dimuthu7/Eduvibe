@@ -1,25 +1,57 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex: none;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+}
+
 .brand {
+  margin-left: 0.5rem;
   color: inherit;
   font-weight: 600;
   text-decoration: none;
-}
-
-.link {
-  color: inherit;
-  font-size: 0.875rem;
 }
 
 .spacer {
   flex: 1;
 }
 
-mat-toolbar {
-  flex-wrap: wrap;
-  height: auto;
-  min-height: 56px;
-  padding: 0.25rem 0.75rem;
+.status-link {
+  color: inherit;
 }
 
-.active {
-  text-decoration: underline;
+.account {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1rem;
+}
+
+// Reserve the bar's height so the page does not jump when loading starts and stops.
+.progress {
+  flex: none;
+  height: 4px;
+}
+
+.container {
+  flex: 1;
+  background: transparent;
+}
+
+mat-sidenav {
+  width: 15rem;
+}
+
+main {
+  min-height: 100%;
 }
