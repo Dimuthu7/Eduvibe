@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { SearchSelect } from '../../../shared/search-select';
 import { AdminService, Institute } from '../../../core/api/admin.service';
 import { CatalogStore } from '../../../core/api/catalog.service';
 import { errorCode, inlineError } from '../../../core/api/problem';
@@ -23,7 +23,7 @@ import { SubmitButton } from '../../../shared/submit-button';
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
+    SearchSelect,
     TranslatePipe,
   ],
   template: `
@@ -39,15 +39,7 @@ import { SubmitButton } from '../../../shared/submit-button';
             <input matInput formControlName="name" autocomplete="off" maxlength="120" required />
             <mat-error>{{ key('name') | t }}</mat-error>
           </mat-form-field>
-          <mat-form-field>
-            <mat-label>{{ 'person.district' | t }}</mat-label>
-            <mat-select formControlName="district" required>
-              @for (district of catalog.districts(); track district) {
-                <mat-option [value]="district">{{ district }}</mat-option>
-              }
-            </mat-select>
-            <mat-error>{{ key('district') | t }}</mat-error>
-          </mat-form-field>
+          <app-search-select formControlName="district" [label]="'person.district' | t" [options]="catalog.districtOptions()" required />
           <mat-form-field>
             <mat-label>{{ 'profile.town' | t }}</mat-label>
             <input matInput formControlName="town" maxlength="80" />

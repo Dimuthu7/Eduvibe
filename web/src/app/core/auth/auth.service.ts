@@ -7,6 +7,9 @@ import { ProfileInput, Role, Session, User } from './auth.models';
 
 const STORAGE_KEY = 'eduvibe.session';
 
+/** True while the person must still replace a one-time password or choose a username. */
+export const needsSetup = (user: User): boolean => user.mustChangePassword || user.mustChooseUsername;
+
 interface StoredSession {
   accessToken: string;
   refreshToken: string;
@@ -41,19 +44,21 @@ export class AuthService {
   homeRoute(): string {
     const user = this.user();
     if (!user) return '/login';
-    if (user.mustChangePassword) return '/change-password';
+    if (needsSetup(user)) return '/change-password';
     return this.hasRole('SuperAdmin') ? '/admin/teachers' : '/home';
   }
 
-  login(phone: string, password: string) {
+  /** The username, or the phone number for an account that has not chosen a username yet. */
+  login(username: string, password: string) {
     return this.http
-      .post<Session>(this.url('/api/identity/login'), { phone, password })
+      .post<Session>(this.url('/api/identity/login'), { username, password })
       .pipe(tap((session) => this.accept(session)));
   }
 
-  changePassword(currentPassword: string, newPassword: string) {
+  /** Sets a new password and, for a first sign-in, the username. Either can be left out when not needed. */
+  changePassword(currentPassword: string, newPassword: string, username?: string) {
     return this.http
-      .post<Session>(this.url('/api/identity/change-password'), { currentPassword, newPassword })
+      .post<Session>(this.url('/api/identity/change-password'), { currentPassword, newPassword: newPassword || null, username })
       .pipe(tap((session) => this.accept(session)));
   }
 

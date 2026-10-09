@@ -23,8 +23,9 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
       <mat-card-content>
         <form class="stack form" [formGroup]="form" (ngSubmit)="submit()">
           <mat-form-field>
-            <mat-label>{{ 'login.phone' | t }}</mat-label>
-            <input matInput type="tel" inputmode="tel" autocomplete="username" formControlName="phone" />
+            <mat-label>{{ 'login.username' | t }}</mat-label>
+            <input matInput autocomplete="username" autocapitalize="none" spellcheck="false" formControlName="username" />
+            <mat-hint>{{ 'login.first_time_hint' | t }}</mat-hint>
           </mat-form-field>
           <mat-form-field>
             <mat-label>{{ 'login.password' | t }}</mat-label>
@@ -49,7 +50,7 @@ export class Login {
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly form = inject(FormBuilder).nonNullable.group({
-    phone: ['', Validators.required],
+    username: ['', Validators.required],
     password: ['', Validators.required],
   });
 
@@ -57,8 +58,8 @@ export class Login {
     if (this.form.invalid) return;
     this.busy.set(true);
     this.error.set('');
-    const { phone, password } = this.form.getRawValue();
-    this.auth.login(phone, password).subscribe({
+    const { username, password } = this.form.getRawValue();
+    this.auth.login(username.trim(), password).subscribe({
       next: () => void this.router.navigateByUrl(this.auth.homeRoute()),
       error: (e) => {
         this.error.set(inlineError(e));

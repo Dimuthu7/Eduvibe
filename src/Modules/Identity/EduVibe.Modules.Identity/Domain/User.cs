@@ -3,10 +3,14 @@ using EduVibe.Shared.Auditing;
 
 namespace EduVibe.Modules.Identity.Domain;
 
-/// <summary>A person who can sign in. The phone number is the identity; email is optional contact detail.</summary>
+/// <summary>A person who can sign in. The phone number is the identity; the username is what they type to sign in. Email is optional contact detail.</summary>
 public sealed class User : Entity, IAuditable
 {
     public required string Phone { get; set; }
+
+    /// <summary>Lowercase sign-in name chosen at first sign-in. Null until then; the phone number is the username before that.</summary>
+    public string? Username { get; set; }
+
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
     public string? Email { get; set; }

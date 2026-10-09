@@ -28,7 +28,7 @@ Use the manual steps above when you are editing or debugging; they reload on eve
 
 Open http://localhost:4200/status to confirm the app can reach the API.
 
-In Development the first Super Admin is created for you: sign in with phone `0770000000` and password `ChangeMe123`, then choose a new password when asked. From there add a teacher on the Teachers screen and hand out the one-time password it shows.
+In Development the first Super Admin is created for you: sign in with your phone number `0770000000` and the one-time password `ChangeMe123`, then choose a username and a new password when asked. From then on you sign in with that username. Add a teacher on the Teachers screen and hand out the one-time password it shows; the teacher signs in with their phone number and that password the first time, then chooses a username of their own.
 
 ## Test
 

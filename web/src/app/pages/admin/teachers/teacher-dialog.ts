@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { SearchSelect } from '../../../shared/search-select';
 import { AdminService, TeacherSummary } from '../../../core/api/admin.service';
 import { CatalogStore } from '../../../core/api/catalog.service';
 import { errorCode, inlineError } from '../../../core/api/problem';
@@ -28,7 +28,7 @@ export interface CreatedTeacher {
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
-    MatSelectModule,
+    SearchSelect,
     TranslatePipe,
   ],
   template: `
@@ -60,33 +60,9 @@ export interface CreatedTeacher {
             <input matInput type="email" inputmode="email" formControlName="email" />
             <mat-error>{{ key('email') | t }}</mat-error>
           </mat-form-field>
-          <mat-form-field>
-            <mat-label>{{ 'person.district' | t }}</mat-label>
-            <mat-select formControlName="district" required>
-              @for (district of catalog.districts(); track district) {
-                <mat-option [value]="district">{{ district }}</mat-option>
-              }
-            </mat-select>
-            <mat-error>{{ key('district') | t }}</mat-error>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>{{ 'person.stream' | t }}</mat-label>
-            <mat-select formControlName="streamId" required>
-              @for (stream of catalog.streams(); track stream.id) {
-                <mat-option [value]="stream.id">{{ stream.name }}</mat-option>
-              }
-            </mat-select>
-            <mat-error>{{ key('streamId') | t }}</mat-error>
-          </mat-form-field>
-          <mat-form-field class="full">
-            <mat-label>{{ 'person.subjects' | t }}</mat-label>
-            <mat-select formControlName="subjectIds" multiple required>
-              @for (subject of catalog.subjects(); track subject.id) {
-                <mat-option [value]="subject.id">{{ subject.name }}</mat-option>
-              }
-            </mat-select>
-            <mat-error>{{ key('subjectIds') | t }}</mat-error>
-          </mat-form-field>
+          <app-search-select formControlName="district" [label]="'person.district' | t" [options]="catalog.districtOptions()" required />
+          <app-search-select formControlName="streamId" [label]="'person.stream' | t" [options]="catalog.streamOptions()" required />
+          <app-search-select class="full" formControlName="subjectIds" [label]="'person.subjects' | t" [options]="catalog.subjectOptions()" multiple required />
         </div>
       </mat-dialog-content>
       <mat-dialog-actions align="end">

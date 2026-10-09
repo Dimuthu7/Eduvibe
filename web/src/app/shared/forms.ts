@@ -17,6 +17,13 @@ export const phoneValidator: ValidatorFn = (control: AbstractControl): Validatio
   return { phone: true };
 };
 
+/** Same rule as the server (Usernames.Normalize): 4 to 30 letters, digits, dot, underscore or hyphen, with at least one letter. */
+export const usernameValidator: ValidatorFn = (control) => {
+  const text = String(control.value ?? '').trim();
+  if (!text) return null;
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{3,29}$/.test(text) && /[A-Za-z]/.test(text) ? null : { username: true };
+};
+
 /** Requires at least one selected value (for multi-selects). */
 export const nonEmptyArray: ValidatorFn = (control) =>
   Array.isArray(control.value) && control.value.length > 0 ? null : { required: true };
@@ -34,6 +41,9 @@ export function fieldErrorKey(control: AbstractControl): string {
   if (e['maxlength']) return 'validation.too_long';
   if (e['email']) return 'validation.email';
   if (e['phone']) return 'validation.phone';
+  if (e['username']) return 'validation.username';
+  if (e['minlength']) return 'validation.too_short';
+  if (e['mismatch']) return 'password.mismatch';
   return 'validation.invalid';
 }
 
@@ -49,6 +59,12 @@ const FIELD_FOR_CODE: Record<string, string> = {
   subject_invalid: 'subjectIds',
   name_required: 'name',
   name_taken: 'name',
+  username_required: 'username',
+  username_invalid: 'username',
+  username_taken: 'username',
+  wrong_password: 'currentPassword',
+  password_too_short: 'newPassword',
+  password_unchanged: 'newPassword',
 };
 
 /**

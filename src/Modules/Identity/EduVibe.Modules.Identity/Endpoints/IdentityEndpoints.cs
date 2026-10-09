@@ -28,13 +28,12 @@ internal static class IdentityEndpoints
 
     private static async Task<IResult> Login(LoginRequest request, AuthService auth, IdentityDbContext db, CancellationToken ct)
     {
-        var phone = PhoneNumber.Normalize(request.Phone);
-        if (phone is null || string.IsNullOrEmpty(request.Password))
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
         {
             return Problem(StatusCodes.Status400BadRequest, "invalid_request");
         }
 
-        var (tokens, error) = await auth.LoginAsync(phone, request.Password, ct);
+        var (tokens, error) = await auth.LoginAsync(request.Username, request.Password, ct);
         if (tokens is null)
         {
             return error == "locked"
@@ -42,7 +41,7 @@ internal static class IdentityEndpoints
                 : Problem(StatusCodes.Status401Unauthorized, "invalid_credentials");
         }
 
-        return Results.Ok(await ToSession(db, tokens, phone, ct));
+        return Results.Ok(await ToSession(db, tokens, ct));
     }
 
     private static async Task<IResult> Refresh(RefreshRequest request, AuthService auth, IdentityDbContext db, CancellationToken ct)
@@ -73,30 +72,59 @@ internal static class IdentityEndpoints
         return Results.NoContent();
     }
 
+    /// <summary>
+    /// Changes the password and, for a person who has not chosen one yet, sets the username. A one-time
+    /// password must be replaced; an older account only choosing its username may keep its password.
+    /// </summary>
     private static async Task<IResult> ChangePassword(
         ChangePasswordRequest request, ITenantContext tenant, IdentityDbContext db, PasswordService passwords, AuthService auth, CancellationToken ct)
     {
-        if (string.IsNullOrEmpty(request.CurrentPassword) || (request.NewPassword?.Length ?? 0) < PasswordService.MinimumLength)
+        var user = await db.Users.Include(u => u.Roles).SingleAsync(u => u.Id == tenant.UserId, ct);
+        var needsUsername = user.Username is null;
+        var passwordRequired = user.MustChangePassword || !needsUsername;
+        var newPassword = string.IsNullOrEmpty(request.NewPassword) && !passwordRequired ? null : request.NewPassword;
+
+        if (string.IsNullOrEmpty(request.CurrentPassword) || (newPassword is not null && newPassword.Length < PasswordService.MinimumLength)
+            || (newPassword is null && passwordRequired))
         {
             return Problem(StatusCodes.Status400BadRequest, "password_too_short");
         }
 
-        var user = await db.Users.Include(u => u.Roles).SingleAsync(u => u.Id == tenant.UserId, ct);
         if (!passwords.Verify(user, request.CurrentPassword))
         {
             return Problem(StatusCodes.Status400BadRequest, "wrong_password");
         }
 
-        if (request.NewPassword == request.CurrentPassword)
+        if (newPassword == request.CurrentPassword)
         {
             return Problem(StatusCodes.Status400BadRequest, "password_unchanged");
         }
 
-        user.PasswordHash = passwords.Hash(user, request.NewPassword!);
+        string? chosenUsername = null;
+        if (needsUsername)
+        {
+            chosenUsername = Usernames.Normalize(request.Username);
+            if (chosenUsername is null)
+            {
+                return Problem(StatusCodes.Status400BadRequest, string.IsNullOrWhiteSpace(request.Username) ? "username_required" : "username_invalid");
+            }
+
+            if (await db.Users.AnyAsync(u => u.Username == chosenUsername, ct))
+            {
+                return Problem(StatusCodes.Status409Conflict, "username_taken");
+            }
+        }
+
+        if (newPassword is not null)
+        {
+            user.PasswordHash = passwords.Hash(user, newPassword);
+        }
+
         user.MustChangePassword = false;
+        user.Username = chosenUsername ?? user.Username;
         await auth.RevokeAllAsync(user.Id, ct);
         var tokens = await auth.IssueAsync(user, ct);
-        return Results.Ok(await ToSession(db, tokens, user.Phone, ct));
+        return Results.Ok(await ToSession(db, tokens, ct));
     }
 
     private static async Task<IResult> GetMe(ITenantContext tenant, IdentityDbContext db, CancellationToken ct)
@@ -164,9 +192,9 @@ internal static class IdentityEndpoints
     internal static IResult Problem(int status, string code) =>
         Results.Problem(statusCode: status, title: code, extensions: new Dictionary<string, object?> { ["code"] = code });
 
-    private static async Task<SessionDto> ToSession(IdentityDbContext db, TokenPair tokens, string phone, CancellationToken ct)
+    private static async Task<SessionDto> ToSession(IdentityDbContext db, TokenPair tokens, CancellationToken ct)
     {
-        var id = await db.Users.Where(u => u.Phone == phone).Select(u => u.Id).SingleAsync(ct);
+        var id = Guid.Parse(new Microsoft.IdentityModel.JsonWebTokens.JsonWebToken(tokens.AccessToken).Subject);
         return new SessionDto(tokens.AccessToken, tokens.RefreshToken, tokens.AccessTokenExpiresAt, (await LoadUser(db, id, ct))!);
     }
 
@@ -177,7 +205,7 @@ internal static class IdentityEndpoints
             where u.Id == userId
             select new
             {
-                u.Id, u.Phone, u.FirstName, u.LastName, u.Email, u.Language, u.MustChangePassword,
+                u.Id, u.Phone, u.Username, u.FirstName, u.LastName, u.Email, u.Language, u.MustChangePassword,
                 Roles = u.Roles.Select(r => r.Role).ToList(),
                 Teacher = db.Teachers.Where(t => t.UserId == u.Id).Select(t => new
                 {
@@ -191,6 +219,6 @@ internal static class IdentityEndpoints
             : new UserDto(
                 row.Id, row.Phone, row.FirstName, row.LastName, $"{row.FirstName} {row.LastName}".Trim(), row.Email,
                 row.Language, [.. row.Roles], row.MustChangePassword, row.Teacher?.Id, row.Teacher?.District,
-                row.Teacher?.StreamId, [.. row.Teacher?.SubjectIds ?? []]);
+                row.Teacher?.StreamId, [.. row.Teacher?.SubjectIds ?? []], row.Username, row.Username is null);
     }
 }

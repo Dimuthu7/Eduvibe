@@ -40,6 +40,8 @@ describe('TeacherDialog', () => {
     const root = fixture.nativeElement as HTMLElement;
     const submit = () => {
       root.querySelector('form')!.dispatchEvent(new Event('submit'));
+      // The searchable dropdowns update their error state during the first pass and render it on the second.
+      fixture.detectChanges();
       fixture.detectChanges();
     };
     return { fixture, root, submit, form: fixture.componentInstance['form'] };

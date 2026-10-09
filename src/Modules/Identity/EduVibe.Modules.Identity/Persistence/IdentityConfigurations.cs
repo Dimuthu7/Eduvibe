@@ -17,6 +17,8 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Language).HasMaxLength(5);
         builder.Property(u => u.PasswordHash).HasMaxLength(300);
         builder.HasIndex(u => u.Phone).IsUnique();
+        builder.Property(u => u.Username).HasMaxLength(30);
+        builder.HasIndex(u => u.Username).IsUnique();
         builder.HasMany(u => u.Roles).WithOne().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
