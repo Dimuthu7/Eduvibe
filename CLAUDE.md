@@ -16,6 +16,7 @@ App for private tuition teachers in Sri Lanka: classes, students, fees, attendan
 - Teacher-owned entities implement `ITenantOwned`; do not write tenant filters by hand. Changes to fees, attendance, marks, enrolment and accounts implement `IAuditable`.
 - New feature = new module project, added to `ModuleCatalog`.
 - All UI text goes in `web/public/i18n/*.json` and is shown with the `t` pipe. Never hard-code text in templates.
+- Web UI uses Angular Material only, with theme tokens (`var(--mat-sys-*)`) so light and dark both work. Screens use the shared pieces: `page` classes, `app-submit-button`, `Loadable` for lists, `ToastService` for success and failure messages, `inlineError` for errors shown beside a form. The HTTP error interceptor and `GlobalErrorHandler` are the safety net; do not add try/catch toasts around them.
 - Money is `decimal` in LKR. Times are Asia/Colombo. Fee months are year-month.
 - Plans decide what a teacher can use. Gate new paid features on a plan feature key.
 

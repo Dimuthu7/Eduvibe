@@ -10,6 +10,7 @@ type State = { kind: 'loading' } | { kind: 'ok'; info: SystemInfo } | { kind: 'e
 /** Shows whether the API is reachable. Used to confirm each deployment end to end. */
 @Component({
   selector: 'app-status',
+  host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatButtonModule, MatCardModule, MatProgressBarModule, TranslatePipe],
   template: `
@@ -37,7 +38,7 @@ type State = { kind: 'loading' } | { kind: 'ok'; info: SystemInfo } | { kind: 'e
             }
           }
           @case ('error') {
-            <p class="error">{{ 'status.error' | t }}</p>
+            <p class="field-error">{{ 'status.error' | t }}</p>
             <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
           }
         }
@@ -45,12 +46,10 @@ type State = { kind: 'loading' } | { kind: 'ok'; info: SystemInfo } | { kind: 'e
     </mat-card>
   `,
   styles: `
-    :host { display: block; max-width: 28rem; margin: 2rem auto; padding: 0 1rem; }
     dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; margin: 0; }
-    dt { opacity: 0.7; }
+    dt { color: var(--mat-sys-on-surface-variant); }
     dd { margin: 0; }
     .ok { font-weight: 500; }
-    .error { color: var(--mat-sys-error); }
   `,
 })
 export class Status {

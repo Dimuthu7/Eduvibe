@@ -1,21 +1,72 @@
-<mat-toolbar color="primary">
+<mat-toolbar class="toolbar">
+  @if (menuVisible() && !wide()) {
+    <button mat-icon-button type="button" (click)="toggleMenu()" [attr.aria-label]="'nav.menu' | t">
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
   <a class="brand" routerLink="/">{{ 'app.name' | t }}</a>
   <span class="spacer"></span>
-  @if (auth.user(); as user) {
-    @if (!user.mustChangePassword) {
-      @if (auth.hasRole('SuperAdmin')) {
-        <a mat-button routerLink="/admin/teachers" routerLinkActive="active">{{ 'nav.teachers' | t }}</a>
-        <a mat-button routerLink="/admin/institutes" routerLinkActive="active">{{ 'nav.institutes' | t }}</a>
-      } @else {
-        <a mat-button routerLink="/home" routerLinkActive="active">{{ 'nav.home' | t }}</a>
-      }
-      <a mat-button routerLink="/profile" routerLinkActive="active">{{ 'nav.profile' | t }}</a>
+
+  <button mat-icon-button type="button" [matMenuTriggerFor]="themeMenu" [attr.aria-label]="'theme.title' | t">
+    <mat-icon>{{ currentTheme().icon }}</mat-icon>
+  </button>
+  <mat-menu #themeMenu="matMenu">
+    @for (option of themes; track option.value) {
+      <button mat-menu-item type="button" (click)="theme.set(option.value)">
+        <mat-icon>{{ option.icon }}</mat-icon>
+        <span>{{ option.label | t }}</span>
+      </button>
     }
-    <button mat-button type="button" (click)="logout()">{{ 'nav.logout' | t }}</button>
+  </mat-menu>
+
+  @if (auth.user(); as user) {
+    <button mat-icon-button type="button" [matMenuTriggerFor]="accountMenu" [attr.aria-label]="'nav.account' | t">
+      <mat-icon>account_circle</mat-icon>
+    </button>
+    <mat-menu #accountMenu="matMenu">
+      <div class="account" (click)="$event.stopPropagation()">
+        <strong>{{ user.fullName }}</strong>
+        <span class="muted">{{ user.phone }}</span>
+      </div>
+      <mat-divider />
+      @if (menuVisible()) {
+        <a mat-menu-item routerLink="/profile">
+          <mat-icon>person</mat-icon>
+          <span>{{ 'nav.profile' | t }}</span>
+        </a>
+      }
+      <button mat-menu-item type="button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>{{ 'nav.logout' | t }}</span>
+      </button>
+    </mat-menu>
   } @else {
-    <a class="link" routerLink="/status">{{ 'nav.status' | t }}</a>
+    <a mat-button class="status-link" routerLink="/status">{{ 'nav.status' | t }}</a>
   }
 </mat-toolbar>
-<main>
-  <router-outlet />
-</main>
+
+<div class="progress" aria-hidden="true">
+  @if (loading.busy()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+</div>
+
+<mat-sidenav-container class="container">
+  @if (menuVisible()) {
+    <mat-sidenav [mode]="wide() ? 'side' : 'over'" [opened]="wide()" [fixedInViewport]="!wide()" fixedTopGap="56">
+      <mat-nav-list>
+        @for (item of nav(); track item.route) {
+          <a mat-list-item [routerLink]="item.route" routerLinkActive="active" #link="routerLinkActive" [activated]="link.isActive">
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label | t }}</span>
+          </a>
+        }
+      </mat-nav-list>
+    </mat-sidenav>
+  }
+  <mat-sidenav-content>
+    <main>
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

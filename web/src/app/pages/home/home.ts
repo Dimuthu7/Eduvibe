@@ -1,47 +1,58 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, of } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
-import { AdminService } from '../../core/api/admin.service';
+import { MatIconModule } from '@angular/material/icon';
+import { MatListModule } from '@angular/material/list';
+import { AdminService, Institute } from '../../core/api/admin.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { Loadable } from '../../core/state/loadable';
 
 /** A teacher's start screen. Classes, fees and attendance are added here sprint by sprint. */
 @Component({
   selector: 'app-home',
+  host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatCardModule, TranslatePipe],
+  imports: [MatCardModule, MatIconModule, MatListModule, TranslatePipe],
   template: `
-    <h1>{{ 'home.welcome' | t }}, {{ auth.user()?.fullName }}</h1>
+    <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.fullName }}</h1>
     <mat-card appearance="outlined">
       <mat-card-header>
         <mat-card-title>{{ 'home.institutes' | t }}</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        @for (institute of institutes(); track institute.id) {
-          <p class="row">
-            <strong>{{ institute.name }}</strong>
-            @if (institute.town) {
-              <span class="muted">{{ institute.town }}</span>
-            }
-          </p>
-        } @empty {
-          <p class="muted">{{ 'home.no_institutes' | t }}</p>
+        @switch (institutes.status()) {
+          @case ('ready') {
+            <mat-list>
+              @for (institute of institutes.data(); track institute.id) {
+                <mat-list-item>
+                  <mat-icon matListItemIcon>apartment</mat-icon>
+                  <span matListItemTitle>{{ institute.name }}</span>
+                  @if (institute.town) {
+                    <span matListItemLine>{{ institute.town }}</span>
+                  }
+                </mat-list-item>
+              } @empty {
+                <p class="muted">{{ 'home.no_institutes' | t }}</p>
+              }
+            </mat-list>
+          }
+          @case ('error') {
+            <p class="muted">{{ 'error.load_failed' | t }}</p>
+          }
+          @default {
+            <div class="skeleton"></div>
+          }
         }
       </mat-card-content>
     </mat-card>
     <p class="muted">{{ 'home.more_soon' | t }}</p>
   `,
-  styles: `
-    :host { display: block; max-width: 40rem; margin: 1.5rem auto; padding: 0 1rem; }
-    .row { display: flex; gap: 0.75rem; align-items: baseline; margin: 0.5rem 0; }
-    .muted { opacity: 0.7; }
-  `,
 })
 export class Home {
   protected readonly auth = inject(AuthService);
-  protected readonly institutes = toSignal(
-    inject(AdminService).myInstitutes().pipe(catchError(() => of([]))),
-    { initialValue: [] },
-  );
+  protected readonly institutes = new Loadable<Institute[]>();
+
+  constructor() {
+    this.institutes.load(inject(AdminService).myInstitutes());
+  }
 }

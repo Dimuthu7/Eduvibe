@@ -30,6 +30,11 @@
               }
             ],
             "styles": [
+              "@fontsource/roboto/latin-300.css",
+              "@fontsource/roboto/latin-400.css",
+              "@fontsource/roboto/latin-500.css",
+              "@fontsource/roboto/latin-600.css",
+              "@fontsource/material-icons/index.css",
               "src/styles.scss"
             ],
             "serviceWorker": "ngsw-config.json"
@@ -39,7 +44,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "700kB",
                   "maximumError": "1MB"
                 },
                 {
