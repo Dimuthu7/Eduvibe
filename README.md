@@ -17,6 +17,15 @@ npm ci
 npm start                                 # app on http://localhost:4200
 ```
 
+To start everything in Docker for a demo, with no .NET SDK or Node needed:
+
+```bash
+docker compose --profile full up --build   # database, API on :5077 and web app on :4200
+docker compose --profile full down -v      # stop and wipe the demo data
+```
+
+Use the manual steps above when you are editing or debugging; they reload on every save.
+
 Open http://localhost:4200/status to confirm the app can reach the API.
 
 In Development the first Super Admin is created for you: sign in with phone `0770000000` and password `ChangeMe123`, then choose a new password when asked. From there add a teacher on the Teachers screen and hand out the one-time password it shows.
