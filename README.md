@@ -19,6 +19,8 @@ npm start                                 # app on http://localhost:4200
 
 Open http://localhost:4200/status to confirm the app can reach the API.
 
+In Development the first Super Admin is created for you: sign in with phone `0770000000` and password `ChangeMe123`, then choose a new password when asked. From there add a teacher on the Teachers screen and hand out the one-time password it shows.
+
 ## Test
 
 ```bash
@@ -45,5 +47,8 @@ See [docs](docs/README.md) for the plan and [CLAUDE.md](CLAUDE.md) for the conve
 | --- | --- | --- |
 | `ConnectionStrings__EduVibe` | API environment | PostgreSQL connection string |
 | `Database__MigrateOnStartup` | API environment | `true` applies migrations on start; on in Development |
+| `Jwt__SigningKey` | API environment | Secret of at least 32 characters; the API will not start without it. Development has a throwaway key in `appsettings.Development.json` |
+| `SuperAdmin__Phone`, `SuperAdmin__Password` | API environment | Creates the first Super Admin when none exists; the password must be changed at first sign-in |
+| `RateLimit__AuthPerMinute` | API environment | Sign-in attempts per address per minute (default 10) |
 | `Cors__AllowedOrigins__0` | API environment | Web app address allowed to call the API |
 | `apiBaseUrl` | `web/public/config.json` | Replaced per environment at deploy time |
