@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\EduVibe.Shared\EduVibe.Shared.csproj" />
     <ProjectReference Include="..\..\Modules\Identity\EduVibe.Modules.Identity\EduVibe.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Catalog\EduVibe.Modules.Catalog\EduVibe.Modules.Catalog.csproj" />
     <ProjectReference Include="..\..\Modules\Classes\EduVibe.Modules.Classes\EduVibe.Modules.Classes.csproj" />
     <ProjectReference Include="..\..\Modules\Students\EduVibe.Modules.Students\EduVibe.Modules.Students.csproj" />
     <ProjectReference Include="..\..\Modules\Fees\EduVibe.Modules.Fees\EduVibe.Modules.Fees.csproj" />

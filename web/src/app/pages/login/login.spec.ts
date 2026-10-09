@@ -69,7 +69,7 @@ describe('Login page', () => {
       accessToken: 'a',
       refreshToken: 'r',
       accessTokenExpiresAt: '2030-01-01T00:00:00Z',
-      user: { id: 'u', phone: '+94771234567', fullName: 'N', email: null, language: 'en', roles: ['Teacher'], mustChangePassword: false, teacherId: 't', town: null, subjects: null },
+      user: { id: 'u', phone: '+94771234567', firstName: 'N', lastName: 'P', fullName: 'N P', email: null, language: 'en', roles: ['Teacher'], mustChangePassword: false, teacherId: 't', district: null, streamId: null, subjectIds: [] },
     });
 
     expect(navigate).toHaveBeenCalledWith('/home');

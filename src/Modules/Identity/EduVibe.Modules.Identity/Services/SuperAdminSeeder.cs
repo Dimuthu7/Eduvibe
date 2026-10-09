@@ -33,7 +33,7 @@ internal sealed class SuperAdminSeeder(
         }
 
         var passwords = scope.ServiceProvider.GetRequiredService<PasswordService>();
-        var user = new User { Phone = phone, FullName = configuration["SuperAdmin:Name"] ?? "Super Admin", MustChangePassword = true };
+        var user = new User { Phone = phone, FirstName = configuration["SuperAdmin:FirstName"] ?? "Super", LastName = configuration["SuperAdmin:LastName"] ?? "Admin", MustChangePassword = true };
         user.PasswordHash = passwords.Hash(user, password);
         user.Roles.Add(new UserRole { Role = Roles.SuperAdmin });
         db.Users.Add(user);

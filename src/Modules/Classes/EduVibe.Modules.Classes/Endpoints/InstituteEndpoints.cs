@@ -1,4 +1,5 @@
 using EduVibe.Modules.Classes.Domain;
+using EduVibe.Shared.Geography;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Security;
 using EduVibe.Shared.Tenancy;
@@ -9,8 +10,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EduVibe.Modules.Classes.Endpoints;
 
-public sealed record InstituteRequest(string? Name, string? Town, string? Address, string? Phone, bool? IsActive);
-public sealed record InstituteDto(Guid Id, string Name, string? Town, string? Address, string? Phone, bool IsActive, Guid[] TeacherIds);
+public sealed record InstituteRequest(string? Name, string? District, string? Town, string? Address, string? Phone, bool? IsActive);
+public sealed record InstituteDto(Guid Id, string Name, string? District, string? Town, string? Address, string? Phone, bool IsActive, Guid[] TeacherIds);
 public sealed record SetTeachersRequest(Guid[]? TeacherIds);
 
 internal static class InstituteEndpoints
@@ -101,13 +102,22 @@ internal static class InstituteEndpoints
         return Results.Ok(rows.Select(i => ToDto(i, [])).ToList());
     }
 
-    private static IResult? Validate(InstituteRequest request) =>
-        string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120
-            ? Results.Problem(statusCode: 400, title: "name_required", extensions: new Dictionary<string, object?> { ["code"] = "name_required" })
-            : null;
+    private static IResult? Validate(InstituteRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120)
+        {
+            return Problem("name_required");
+        }
+
+        return SriLankaDistricts.Canonical(request.District) is null ? Problem("district_invalid") : null;
+    }
+
+    private static IResult Problem(string code) =>
+        Results.Problem(statusCode: 400, title: code, extensions: new Dictionary<string, object?> { ["code"] = code });
 
     private static void Apply(Institute institute, InstituteRequest request)
     {
+        institute.District = SriLankaDistricts.Canonical(request.District);
         institute.Town = Clean(request.Town);
         institute.Address = Clean(request.Address);
         institute.Phone = Clean(request.Phone);
@@ -117,6 +127,6 @@ internal static class InstituteEndpoints
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static InstituteDto ToDto(Institute i, IEnumerable<InstituteTeacher> links) =>
-        new(i.Id, i.Name, i.Town, i.Address, i.Phone, i.IsActive,
+        new(i.Id, i.Name, i.District, i.Town, i.Address, i.Phone, i.IsActive,
             [.. links.Where(l => l.InstituteId == i.Id).Select(l => l.TeacherId)]);
 }

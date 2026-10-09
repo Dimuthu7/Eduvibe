@@ -21,6 +21,7 @@ public sealed class IdentityModule : IModule
         services.AddModuleDbContext<IdentityDbContext>(configuration, ModuleName);
         services.AddSingleton<PasswordService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<TeacherProfileRules>();
         services.AddScoped<ITeacherDirectory, TeacherDirectory>();
         services.AddHostedService<SuperAdminSeeder>();
     }

@@ -14,7 +14,7 @@ import { Loadable } from '../../core/state/loadable';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatCardModule, MatIconModule, MatListModule, TranslatePipe],
   template: `
-    <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.fullName }}</h1>
+    <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
     <mat-card appearance="outlined">
       <mat-card-header>
         <mat-card-title>{{ 'home.institutes' | t }}</mat-card-title>
@@ -27,8 +27,8 @@ import { Loadable } from '../../core/state/loadable';
                 <mat-list-item>
                   <mat-icon matListItemIcon>apartment</mat-icon>
                   <span matListItemTitle>{{ institute.name }}</span>
-                  @if (institute.town) {
-                    <span matListItemLine>{{ institute.town }}</span>
+                  @if (institute.district) {
+                    <span matListItemLine>{{ institute.district }}</span>
                   }
                 </mat-list-item>
               } @empty {

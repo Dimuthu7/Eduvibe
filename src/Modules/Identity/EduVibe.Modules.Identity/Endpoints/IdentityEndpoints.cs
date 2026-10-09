@@ -105,30 +105,55 @@ internal static class IdentityEndpoints
         return user is null ? Results.Unauthorized() : Results.Ok(user);
     }
 
-    private static async Task<IResult> UpdateMe(UpdateProfileRequest request, ITenantContext tenant, IdentityDbContext db, CancellationToken ct)
+    private static async Task<IResult> UpdateMe(
+        UpdateProfileRequest request, ITenantContext tenant, IdentityDbContext db, TeacherProfileRules rules, CancellationToken ct)
     {
-        var name = request.FullName?.Trim();
-        if (string.IsNullOrEmpty(name) || name.Length > 120)
-        {
-            return Problem(StatusCodes.Status400BadRequest, "name_required");
-        }
-
         if (request.Language is not (null or "en" or "si" or "ta"))
         {
             return Problem(StatusCodes.Status400BadRequest, "language_unsupported");
         }
 
         var user = await db.Users.SingleAsync(u => u.Id == tenant.UserId, ct);
-        user.FullName = name;
+        var teacher = await db.Teachers.Include(t => t.Subjects).SingleOrDefaultAsync(t => t.UserId == user.Id, ct);
+
+        if (teacher is null)
+        {
+            var first = request.FirstName?.Trim();
+            var last = request.LastName?.Trim();
+            if (string.IsNullOrEmpty(first) || first.Length > TeacherProfileRules.MaxNameLength)
+            {
+                return Problem(StatusCodes.Status400BadRequest, "first_name_required");
+            }
+
+            if (string.IsNullOrEmpty(last) || last.Length > TeacherProfileRules.MaxNameLength)
+            {
+                return Problem(StatusCodes.Status400BadRequest, "last_name_required");
+            }
+
+            user.FirstName = first;
+            user.LastName = last;
+        }
+        else
+        {
+            var (profile, error) = await rules.ValidateAsync(
+                request.FirstName, request.LastName, request.District, request.StreamId, request.SubjectIds, ct);
+            if (profile is null)
+            {
+                return Problem(StatusCodes.Status400BadRequest, error!);
+            }
+
+            user.FirstName = profile.FirstName;
+            user.LastName = profile.LastName;
+            teacher.District = profile.District;
+            teacher.StreamId = profile.StreamId;
+            teacher.Subjects.RemoveAll(s => !profile.SubjectIds.Contains(s.SubjectId));
+            teacher.Subjects.AddRange(profile.SubjectIds
+                .Where(id => teacher.Subjects.All(s => s.SubjectId != id))
+                .Select(id => new TeacherSubject { SubjectId = id }));
+        }
+
         user.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
         user.Language = request.Language ?? user.Language;
-
-        var teacher = await db.Teachers.SingleOrDefaultAsync(t => t.UserId == user.Id, ct);
-        if (teacher is not null)
-        {
-            teacher.Town = Clean(request.Town);
-            teacher.Subjects = Clean(request.Subjects);
-        }
 
         await db.SaveChangesAsync(ct);
         return Results.Ok(await LoadUser(db, user.Id, ct));
@@ -152,14 +177,20 @@ internal static class IdentityEndpoints
             where u.Id == userId
             select new
             {
-                u.Id, u.Phone, u.FullName, u.Email, u.Language, u.MustChangePassword,
+                u.Id, u.Phone, u.FirstName, u.LastName, u.Email, u.Language, u.MustChangePassword,
                 Roles = u.Roles.Select(r => r.Role).ToList(),
-                Teacher = db.Teachers.Where(t => t.UserId == u.Id).Select(t => new { t.Id, t.Town, t.Subjects }).FirstOrDefault(),
+                Teacher = db.Teachers.Where(t => t.UserId == u.Id).Select(t => new
+                {
+                    t.Id, t.District, t.StreamId,
+                    SubjectIds = t.Subjects.Select(s => s.SubjectId).ToList(),
+                }).FirstOrDefault(),
             }).SingleOrDefaultAsync(ct);
 
         return row is null
             ? null
-            : new UserDto(row.Id, row.Phone, row.FullName, row.Email, row.Language, [.. row.Roles],
-                row.MustChangePassword, row.Teacher?.Id, row.Teacher?.Town, row.Teacher?.Subjects);
+            : new UserDto(
+                row.Id, row.Phone, row.FirstName, row.LastName, $"{row.FirstName} {row.LastName}".Trim(), row.Email,
+                row.Language, [.. row.Roles], row.MustChangePassword, row.Teacher?.Id, row.Teacher?.District,
+                row.Teacher?.StreamId, [.. row.Teacher?.SubjectIds ?? []]);
     }
 }

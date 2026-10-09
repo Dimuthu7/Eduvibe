@@ -6,6 +6,7 @@ namespace EduVibe.Modules.Classes.Domain;
 public sealed class Institute : Entity, IAuditable
 {
     public required string Name { get; set; }
+    public string? District { get; set; }
     public string? Town { get; set; }
     public string? Address { get; set; }
     public string? Phone { get; set; }

@@ -3,7 +3,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom, tap } from 'rxjs';
 import { AppConfig } from '../config/app-config';
-import { Role, Session, User } from './auth.models';
+import { ProfileInput, Role, Session, User } from './auth.models';
 
 const STORAGE_KEY = 'eduvibe.session';
 
@@ -57,7 +57,7 @@ export class AuthService {
       .pipe(tap((session) => this.accept(session)));
   }
 
-  updateProfile(profile: { fullName: string; email: string; town: string; subjects: string }) {
+  updateProfile(profile: ProfileInput) {
     return this.http
       .put<User>(this.url('/api/identity/me'), profile)
       .pipe(tap((user) => this.user.set(user)));

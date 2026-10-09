@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using EduVibe.Modules.Catalog;
+using EduVibe.Modules.Catalog.Domain;
 using EduVibe.Modules.Classes;
 using EduVibe.Modules.Identity;
 using EduVibe.Modules.Identity.Domain;
@@ -57,6 +59,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         }
     }
 
+    /// <summary>Catalog rows every test can use when it creates a teacher.</summary>
+    public Guid StreamId { get; private set; }
+    public Guid MathsId { get; private set; }
+    public Guid ScienceId { get; private set; }
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -66,10 +73,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Database:MigrateOnStartup", "false");
         builder.UseSetting("Jwt:SigningKey", "test-signing-key-test-signing-key-0123456789");
         builder.UseSetting("RateLimit:AuthPerMinute", "1000");
+        builder.UseSetting("Catalog:SeedOnStartup", "false");
 
         builder.ConfigureServices(services =>
         {
             UseSqlite<IdentityDbContext>(services);
+            UseSqlite<CatalogDbContext>(services);
             UseSqlite<ClassesDbContext>(services);
         });
     }
@@ -83,13 +92,25 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         var audit = new AuditDbContext(new DbContextOptionsBuilder<AuditDbContext>().UseSqlite(_connection).Options);
         audit.Database.EnsureCreated();
         scope.ServiceProvider.GetRequiredService<IdentityDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<CatalogDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<ClassesDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+
+        var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
+        var stream = new EducationStream { Name = "O/L", SortOrder = 10 };
+        var maths = new Subject { Name = "Mathematics", SortOrder = 10 };
+        var science = new Subject { Name = "Science", SortOrder = 20 };
+        catalog.Streams.Add(stream);
+        catalog.Subjects.AddRange(maths, science);
+        catalog.SaveChanges();
+        StreamId = stream.Id;
+        MathsId = maths.Id;
+        ScienceId = science.Id;
 
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         var passwords = scope.ServiceProvider.GetRequiredService<PasswordService>();
         foreach (var phone in new[] { AdminPhone, FreshAdminPhone })
         {
-            var admin = new User { Phone = phone, FullName = "Test Admin", MustChangePassword = true };
+            var admin = new User { Phone = phone, FirstName = "Test", LastName = "Admin", MustChangePassword = true };
             admin.PasswordHash = passwords.Hash(admin, AdminPassword);
             admin.Roles.Add(new UserRole { Role = Roles.SuperAdmin });
             db.Users.Add(admin);
