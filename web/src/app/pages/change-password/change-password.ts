@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { errorKey } from '../../core/api/problem';
+import { inlineError } from '../../core/api/problem';
+import { SubmitButton } from '../../shared/submit-button';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 
@@ -17,8 +17,9 @@ const sameAsNew = (group: AbstractControl): ValidationErrors | null =>
 /** Shown after signing in with a one-time password, and reachable from the profile to change it later. */
 @Component({
   selector: 'app-change-password',
+  host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule, TranslatePipe],
+  imports: [ReactiveFormsModule, SubmitButton, MatCardModule, MatFormFieldModule, MatInputModule, TranslatePipe],
   template: `
     <mat-card appearance="outlined">
       <mat-card-header>
@@ -28,7 +29,7 @@ const sameAsNew = (group: AbstractControl): ValidationErrors | null =>
         }
       </mat-card-header>
       <mat-card-content>
-        <form class="form" [formGroup]="form" (ngSubmit)="submit()">
+        <form class="stack form" [formGroup]="form" (ngSubmit)="submit()">
           <mat-form-field>
             <mat-label>{{ (mustChange() ? 'password.one_time' : 'password.current') | t }}</mat-label>
             <input matInput type="password" autocomplete="current-password" formControlName="currentPassword" />
@@ -43,20 +44,18 @@ const sameAsNew = (group: AbstractControl): ValidationErrors | null =>
             <input matInput type="password" autocomplete="new-password" formControlName="confirm" />
           </mat-form-field>
           @if (form.hasError('mismatch') && form.controls.confirm.dirty) {
-            <p class="error" role="alert">{{ 'password.mismatch' | t }}</p>
+            <p class="field-error" role="alert">{{ 'password.mismatch' | t }}</p>
           }
           @if (error()) {
-            <p class="error" role="alert">{{ error() | t }}</p>
+            <p class="field-error" role="alert">{{ error() | t }}</p>
           }
-          <button mat-flat-button type="submit" [disabled]="form.invalid || busy()">{{ 'password.submit' | t }}</button>
+          <app-submit-button label="password.submit" [busy]="busy()" [disabled]="form.invalid" />
         </form>
       </mat-card-content>
     </mat-card>
   `,
   styles: `
-    :host { display: block; max-width: 28rem; margin: 2rem auto; padding: 0 1rem; }
-    .form { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; }
-    .error { margin: 0; color: var(--mat-sys-error); }
+    .form { padding-top: 1rem; }
   `,
 })
 export class ChangePassword {
@@ -83,7 +82,7 @@ export class ChangePassword {
     this.auth.changePassword(currentPassword, newPassword).subscribe({
       next: () => void this.router.navigateByUrl(this.auth.homeRoute()),
       error: (e) => {
-        this.error.set(errorKey(e));
+        this.error.set(inlineError(e));
         this.busy.set(false);
       },
     });

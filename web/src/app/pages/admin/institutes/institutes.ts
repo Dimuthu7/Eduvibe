@@ -5,25 +5,45 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { AdminService, Institute, TeacherSummary } from '../../../core/api/admin.service';
-import { errorKey } from '../../../core/api/problem';
+import { inlineError } from '../../../core/api/problem';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { Loadable } from '../../../core/state/loadable';
+import { ToastService } from '../../../core/ui/toast.service';
+import { SubmitButton } from '../../../shared/submit-button';
+
+interface Page {
+  institutes: Institute[];
+  teachers: TeacherSummary[];
+}
 
 /** Super Admin: add institutes and choose which teachers work at each. */
 @Component({
   selector: 'app-admin-institutes',
+  host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatCardModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, TranslatePipe],
+  imports: [
+    ReactiveFormsModule,
+    SubmitButton,
+    MatButtonModule,
+    MatCardModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    TranslatePipe,
+  ],
   template: `
-    <h1>{{ 'institutes.title' | t }}</h1>
+    <h1 class="page-title">{{ 'institutes.title' | t }}</h1>
 
     <mat-card appearance="outlined">
       <mat-card-header>
         <mat-card-title>{{ (editing() ? 'institutes.edit' : 'institutes.add') | t }}</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <form class="form" [formGroup]="form" (ngSubmit)="save()">
+        <form class="stack form" [formGroup]="form" (ngSubmit)="save()">
           <mat-form-field>
             <mat-label>{{ 'institutes.name' | t }}</mat-label>
             <input matInput formControlName="name" />
@@ -41,10 +61,10 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
             <input matInput type="tel" inputmode="tel" formControlName="phone" />
           </mat-form-field>
           @if (error()) {
-            <p class="error" role="alert">{{ error() | t }}</p>
+            <p class="field-error" role="alert">{{ error() | t }}</p>
           }
-          <div class="actions">
-            <button mat-flat-button type="submit" [disabled]="form.invalid || busy()">{{ 'institutes.save' | t }}</button>
+          <div class="row-wrap">
+            <app-submit-button label="institutes.save" [busy]="busy()" [disabled]="form.invalid" />
             @if (editing()) {
               <button mat-button type="button" (click)="cancel()">{{ 'institutes.cancel' | t }}</button>
             }
@@ -53,50 +73,61 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
       </mat-card-content>
     </mat-card>
 
-    @for (institute of institutes(); track institute.id) {
-      <mat-card appearance="outlined">
-        <mat-card-content>
-          <div class="head">
-            <div>
-              <strong>{{ institute.name }}</strong>
-              <div class="muted">{{ institute.town }}</div>
-            </div>
-            <button mat-button type="button" (click)="edit(institute)">{{ 'institutes.edit' | t }}</button>
-          </div>
-          <h3>{{ 'institutes.teachers' | t }}</h3>
-          @for (teacher of activeTeachers(); track teacher.id) {
-            <mat-checkbox
-              [checked]="institute.teacherIds.includes(teacher.id)"
-              (change)="toggleTeacher(institute, teacher.id, $event.checked)"
-            >
-              {{ teacher.fullName }}
-            </mat-checkbox>
-          } @empty {
-            <p class="muted">{{ 'teachers.none' | t }}</p>
-          }
-        </mat-card-content>
-      </mat-card>
-    } @empty {
-      <p class="muted">{{ 'institutes.none' | t }}</p>
+    @switch (page.status()) {
+      @case ('ready') {
+        @for (institute of institutes(); track institute.id) {
+          <mat-card appearance="outlined">
+            <mat-card-content>
+              <div class="head">
+                <div>
+                  <strong>{{ institute.name }}</strong>
+                  <div class="muted">{{ institute.town }}</div>
+                </div>
+                <button mat-button type="button" (click)="edit(institute)">
+                  <mat-icon>edit</mat-icon>
+                  {{ 'institutes.edit' | t }}
+                </button>
+              </div>
+              <h3 class="section-title">{{ 'institutes.teachers' | t }}</h3>
+              @for (teacher of activeTeachers(); track teacher.id) {
+                <mat-checkbox
+                  [checked]="institute.teacherIds.includes(teacher.id)"
+                  (change)="toggleTeacher(institute, teacher.id, $event.checked)"
+                >
+                  {{ teacher.fullName }}
+                </mat-checkbox>
+              } @empty {
+                <p class="muted">{{ 'teachers.none' | t }}</p>
+              }
+            </mat-card-content>
+          </mat-card>
+        } @empty {
+          <p class="muted">{{ 'institutes.none' | t }}</p>
+        }
+      }
+      @case ('error') {
+        <p class="muted">{{ 'error.load_failed' | t }}</p>
+        <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
+      }
+      @default {
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      }
     }
   `,
   styles: `
-    :host { display: block; max-width: 40rem; margin: 1.5rem auto; padding: 0 1rem; }
-    mat-card { margin-bottom: 1rem; }
     mat-checkbox { display: block; }
-    .form { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; }
+    .form { padding-top: 1rem; }
     .head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-    .actions { display: flex; gap: 0.5rem; }
-    .muted { opacity: 0.7; }
-    .error { margin: 0; color: var(--mat-sys-error); }
   `,
 })
 export class AdminInstitutes {
   private readonly api = inject(AdminService);
+  private readonly toast = inject(ToastService);
 
-  protected readonly institutes = signal<Institute[]>([]);
-  private readonly teachers = signal<TeacherSummary[]>([]);
-  protected readonly activeTeachers = computed(() => this.teachers().filter((t) => t.isActive));
+  protected readonly page = new Loadable<Page>();
+  protected readonly institutes = computed(() => this.page.data()?.institutes ?? []);
+  protected readonly activeTeachers = computed(() => (this.page.data()?.teachers ?? []).filter((t) => t.isActive));
   protected readonly editing = signal<Institute | null>(null);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
@@ -108,13 +139,13 @@ export class AdminInstitutes {
   });
 
   constructor() {
-    forkJoin([this.api.institutes(), this.api.teachers()]).subscribe({
-      next: ([institutes, teachers]) => {
-        this.institutes.set(institutes);
-        this.teachers.set(teachers);
-      },
-      error: (e) => this.error.set(errorKey(e)),
-    });
+    this.load();
+  }
+
+  protected load(): void {
+    this.page.load(
+      forkJoin({ institutes: this.api.institutes(), teachers: this.api.teachers() }),
+    );
   }
 
   protected edit(institute: Institute): void {
@@ -141,14 +172,18 @@ export class AdminInstitutes {
     const request = current ? this.api.updateInstitute(current.id, input) : this.api.createInstitute(input);
     request.subscribe({
       next: (saved) => {
-        this.institutes.update((rows) =>
-          current ? rows.map((r) => (r.id === saved.id ? saved : r)) : [...rows, saved].sort((a, b) => a.name.localeCompare(b.name)),
-        );
+        this.page.update((p) => ({
+          ...p,
+          institutes: current
+            ? p.institutes.map((r) => (r.id === saved.id ? saved : r))
+            : [...p.institutes, saved].sort((a, b) => a.name.localeCompare(b.name)),
+        }));
         this.cancel();
         this.busy.set(false);
+        this.toast.success('institutes.saved');
       },
       error: (e) => {
-        this.error.set(errorKey(e));
+        this.error.set(inlineError(e));
         this.busy.set(false);
       },
     });
@@ -159,8 +194,12 @@ export class AdminInstitutes {
       ? [...institute.teacherIds, teacherId]
       : institute.teacherIds.filter((id) => id !== teacherId);
     this.api.setInstituteTeachers(institute.id, teacherIds).subscribe({
-      next: () => this.institutes.update((rows) => rows.map((r) => (r.id === institute.id ? { ...r, teacherIds } : r))),
-      error: (e) => this.error.set(errorKey(e)),
+      next: () =>
+        this.page.update((p) => ({
+          ...p,
+          institutes: p.institutes.map((r) => (r.id === institute.id ? { ...r, teacherIds } : r)),
+        })),
+      error: () => this.page.update((p) => ({ ...p })),
     });
   }
 }

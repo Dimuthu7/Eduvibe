@@ -3,12 +3,16 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { AdminService, TeacherSummary } from '../../../core/api/admin.service';
-import { errorKey } from '../../../core/api/problem';
+import { inlineError } from '../../../core/api/problem';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { TranslateService } from '../../../core/i18n/translate.service';
+import { Loadable } from '../../../core/state/loadable';
+import { ToastService } from '../../../core/ui/toast.service';
+import { SubmitButton } from '../../../shared/submit-button';
 
 interface Handout {
   name: string;
@@ -19,10 +23,21 @@ interface Handout {
 /** Super Admin: add teachers and hand out one-time passwords. */
 @Component({
   selector: 'app-admin-teachers',
+  host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule, MatSlideToggleModule, TranslatePipe],
+  imports: [
+    ReactiveFormsModule,
+    SubmitButton,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatSlideToggleModule,
+    TranslatePipe,
+  ],
   template: `
-    <h1>{{ 'teachers.title' | t }}</h1>
+    <h1 class="page-title">{{ 'teachers.title' | t }}</h1>
 
     @if (handout(); as h) {
       <mat-card appearance="outlined" class="handout">
@@ -30,11 +45,15 @@ interface Handout {
           <p>{{ 'teachers.password_for' | t }} <strong>{{ h.name }}</strong> ({{ h.phone }})</p>
           <p class="otp">{{ h.password }}</p>
           <p class="muted">{{ 'teachers.password_once' | t }}</p>
-          <div class="actions">
+          <div class="row-wrap">
             <button mat-stroked-button type="button" (click)="copy(h.password)">
-              {{ (copied() ? 'teachers.copied' : 'teachers.copy') | t }}
+              <mat-icon>content_copy</mat-icon>
+              {{ 'teachers.copy' | t }}
             </button>
-            <a mat-stroked-button [href]="whatsapp(h)" target="_blank" rel="noopener">{{ 'teachers.share' | t }}</a>
+            <a mat-stroked-button [href]="whatsapp(h)" target="_blank" rel="noopener">
+              <mat-icon>send</mat-icon>
+              {{ 'teachers.share' | t }}
+            </a>
             <button mat-button type="button" (click)="handout.set(null)">{{ 'teachers.done' | t }}</button>
           </div>
         </mat-card-content>
@@ -46,7 +65,7 @@ interface Handout {
         <mat-card-title>{{ 'teachers.add' | t }}</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <form class="form" [formGroup]="form" (ngSubmit)="create()">
+        <form class="stack form" [formGroup]="form" (ngSubmit)="create()">
           <mat-form-field>
             <mat-label>{{ 'profile.name' | t }}</mat-label>
             <input matInput formControlName="fullName" />
@@ -64,54 +83,66 @@ interface Handout {
             <input matInput formControlName="subjects" />
           </mat-form-field>
           @if (error()) {
-            <p class="error" role="alert">{{ error() | t }}</p>
+            <p class="field-error" role="alert">{{ error() | t }}</p>
           }
-          <button mat-flat-button type="submit" [disabled]="form.invalid || busy()">{{ 'teachers.create' | t }}</button>
+          <div class="row-wrap">
+            <app-submit-button label="teachers.create" [busy]="busy()" [disabled]="form.invalid" />
+          </div>
         </form>
       </mat-card-content>
     </mat-card>
 
-    <h2>{{ 'teachers.all' | t }}</h2>
-    @for (teacher of teachers(); track teacher.id) {
-      <mat-card appearance="outlined" class="teacher">
-        <mat-card-content>
-          <div class="head">
-            <div>
-              <strong>{{ teacher.fullName }}</strong>
-              <div class="muted">{{ teacher.phone }}@if (teacher.town) { · {{ teacher.town }} }</div>
-              @if (teacher.mustChangePassword) {
-                <div class="muted">{{ 'teachers.not_signed_in' | t }}</div>
-              }
-            </div>
-            <mat-slide-toggle [checked]="teacher.isActive" (change)="setActive(teacher, $event.checked)">
-              {{ 'teachers.active' | t }}
-            </mat-slide-toggle>
-          </div>
-          <button mat-button type="button" (click)="reset(teacher)">{{ 'teachers.reset' | t }}</button>
-        </mat-card-content>
-      </mat-card>
-    } @empty {
-      <p class="muted">{{ 'teachers.none' | t }}</p>
+    <h2 class="section-title">{{ 'teachers.all' | t }}</h2>
+    @switch (teachers.status()) {
+      @case ('ready') {
+        @for (teacher of teachers.data(); track teacher.id) {
+          <mat-card appearance="outlined">
+            <mat-card-content>
+              <div class="head">
+                <div>
+                  <strong>{{ teacher.fullName }}</strong>
+                  <div class="muted">{{ teacher.phone }}@if (teacher.town) { · {{ teacher.town }} }</div>
+                  @if (teacher.mustChangePassword) {
+                    <div class="muted">{{ 'teachers.not_signed_in' | t }}</div>
+                  }
+                </div>
+                <mat-slide-toggle [checked]="teacher.isActive" (change)="setActive(teacher, $event.checked)">
+                  {{ 'teachers.active' | t }}
+                </mat-slide-toggle>
+              </div>
+              <button mat-button type="button" (click)="reset(teacher)">
+                <mat-icon>key</mat-icon>
+                {{ 'teachers.reset' | t }}
+              </button>
+            </mat-card-content>
+          </mat-card>
+        } @empty {
+          <p class="muted">{{ 'teachers.none' | t }}</p>
+        }
+      }
+      @case ('error') {
+        <p class="muted">{{ 'error.load_failed' | t }}</p>
+        <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
+      }
+      @default {
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      }
     }
   `,
   styles: `
-    :host { display: block; max-width: 40rem; margin: 1.5rem auto; padding: 0 1rem; }
-    mat-card { margin-bottom: 1rem; }
-    .form { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1rem; }
+    .form { padding-top: 1rem; }
     .head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .otp { font: 600 1.75rem/1.2 ui-monospace, monospace; letter-spacing: 0.08em; margin: 0.5rem 0; user-select: all; }
-    .muted { opacity: 0.7; }
-    .error { margin: 0; color: var(--mat-sys-error); }
+    .otp { margin: 0.5rem 0; font: 600 1.75rem/1.2 ui-monospace, monospace; letter-spacing: 0.08em; user-select: all; }
   `,
 })
 export class AdminTeachers {
   private readonly api = inject(AdminService);
   private readonly i18n = inject(TranslateService);
+  private readonly toast = inject(ToastService);
 
-  protected readonly teachers = signal<TeacherSummary[]>([]);
+  protected readonly teachers = new Loadable<TeacherSummary[]>();
   protected readonly handout = signal<Handout | null>(null);
-  protected readonly copied = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly form = inject(FormBuilder).nonNullable.group({
@@ -125,6 +156,10 @@ export class AdminTeachers {
     this.load();
   }
 
+  protected load(): void {
+    this.teachers.load(this.api.teachers());
+  }
+
   protected create(): void {
     if (this.form.invalid) return;
     this.busy.set(true);
@@ -134,10 +169,11 @@ export class AdminTeachers {
         this.show(teacher, oneTimePassword);
         this.form.reset();
         this.busy.set(false);
+        this.toast.success('teachers.created');
         this.load();
       },
       error: (e) => {
-        this.error.set(errorKey(e));
+        this.error.set(inlineError(e));
         this.busy.set(false);
       },
     });
@@ -149,26 +185,26 @@ export class AdminTeachers {
         this.show(teacher, oneTimePassword);
         this.load();
       },
-      error: (e) => this.error.set(errorKey(e)),
     });
   }
 
   protected setActive(teacher: TeacherSummary, isActive: boolean): void {
     this.api.setTeacherActive(teacher.id, isActive).subscribe({
-      next: () => this.load(),
-      error: (e) => {
-        this.error.set(errorKey(e));
+      next: () => {
+        this.toast.success(isActive ? 'teachers.activated' : 'teachers.deactivated');
         this.load();
       },
+      error: () => this.load(),
     });
   }
 
   protected async copy(text: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
-      this.copied.set(true);
+      this.toast.success('teachers.copied');
     } catch {
       // Clipboard access can be refused; the password is selectable on screen.
+      this.toast.error('teachers.copy_failed');
     }
   }
 
@@ -178,14 +214,6 @@ export class AdminTeachers {
   }
 
   private show(teacher: TeacherSummary, password: string): void {
-    this.copied.set(false);
     this.handout.set({ name: teacher.fullName, phone: teacher.phone, password });
-  }
-
-  private load(): void {
-    this.api.teachers().subscribe({
-      next: (rows) => this.teachers.set(rows),
-      error: (e) => this.error.set(errorKey(e)),
-    });
   }
 }
