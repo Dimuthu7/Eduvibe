@@ -114,6 +114,7 @@ public sealed class AuditingInterceptor(ITenantContext tenant, TimeProvider cloc
     {
         var values = entry.Properties
             .Where(p => all || p.IsModified)
+            .Where(p => p.Metadata.PropertyInfo?.IsDefined(typeof(NotAuditedAttribute), inherit: true) != true)
             .ToDictionary(p => p.Metadata.Name, value);
         return JsonSerializer.Serialize(values);
     }
