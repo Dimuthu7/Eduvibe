@@ -1,0 +1,19 @@
+{
+  "app.name": "EduVibe",
+  "app.tagline": "Run your tuition classes in one place",
+  "nav.login": "Sign in",
+  "nav.status": "System status",
+  "login.title": "Sign in",
+  "login.phone": "Phone number",
+  "login.password": "Password",
+  "login.submit": "Sign in",
+  "login.coming": "Sign-in opens in the next sprint.",
+  "status.title": "System status",
+  "status.loading": "Checking the server...",
+  "status.ok": "The server is running",
+  "status.error": "Cannot reach the server",
+  "status.version": "Version",
+  "status.environment": "Environment",
+  "status.modules": "Modules",
+  "status.retry": "Try again"
+}

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\EduVibe.Shared\EduVibe.Shared.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\EduVibe.Modules.Identity\EduVibe.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Classes\EduVibe.Modules.Classes\EduVibe.Modules.Classes.csproj" />
+    <ProjectReference Include="..\..\Modules\Students\EduVibe.Modules.Students\EduVibe.Modules.Students.csproj" />
+    <ProjectReference Include="..\..\Modules\Fees\EduVibe.Modules.Fees\EduVibe.Modules.Fees.csproj" />
+    <ProjectReference Include="..\..\Modules\Attendance\EduVibe.Modules.Attendance\EduVibe.Modules.Attendance.csproj" />
+    <ProjectReference Include="..\..\Modules\Exams\EduVibe.Modules.Exams\EduVibe.Modules.Exams.csproj" />
+    <ProjectReference Include="..\..\Modules\Plans\EduVibe.Modules.Plans\EduVibe.Modules.Plans.csproj" />
+  </ItemGroup>
+
+</Project>

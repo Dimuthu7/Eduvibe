@@ -1,0 +1,27 @@
+using EduVibe.Shared.Modules;
+using EduVibe.Shared.Persistence;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace EduVibe.Modules.Fees;
+
+public sealed class FeesModule : IModule
+{
+    public const string ModuleName = "fees";
+
+    public string Name => ModuleName;
+
+    public void AddServices(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddModuleDbContext<FeesDbContext>(configuration, ModuleName);
+    }
+
+    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        // This module's endpoints are added in its sprint; see the sprint plan.
+        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Fees");
+    }
+}
