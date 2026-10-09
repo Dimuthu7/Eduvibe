@@ -1,4 +1,5 @@
-# Local development database. Run: docker compose up -d
+# Day to day: docker compose up -d starts only the database; run the API and web app by hand to debug.
+# Demo: docker compose --profile full up --build starts everything (web http://localhost:4200, API http://localhost:5077).
 services:
   postgres:
     image: postgres:17
@@ -15,6 +16,34 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  api:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/Api/EduVibe.Api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__EduVibe: Host=postgres;Port=5432;Database=eduvibe;Username=eduvibe;Password=eduvibe
+      Database__MigrateOnStartup: "true"
+      Cors__AllowedOrigins__0: http://localhost:4200
+      # Throwaway values for a local demo only. Never reuse them anywhere real.
+      Jwt__SigningKey: demo-only-signing-key-do-not-use-elsewhere-0123456789
+      SuperAdmin__Phone: "0770000000"
+      SuperAdmin__Password: ChangeMe123
+    ports:
+      - "5077:8080"
+
+  web:
+    profiles: [full]
+    build:
+      context: web
+    depends_on:
+      - api
+    ports:
+      - "4200:80"
 
 volumes:
   eduvibe-pgdata:
