@@ -74,4 +74,20 @@ public class AuditingTests : IDisposable
         Assert.Equal(created, widget.CreatedAt);
         Assert.True(widget.UpdatedAt >= created);
     }
+
+    [Fact]
+    public void Not_audited_fields_never_reach_the_log_and_alone_cause_no_row()
+    {
+        using var context = _db.CreateContext(_tenant);
+        var widget = new Widget { Name = "w", Secret = "hunter2" };
+        context.Widgets.Add(widget);
+        context.SaveChanges();
+
+        widget.Secret = "hunter3";
+        context.SaveChanges();
+
+        var entries = Entries();
+        Assert.Single(entries);
+        Assert.DoesNotContain("hunter", entries[0].After);
+    }
 }

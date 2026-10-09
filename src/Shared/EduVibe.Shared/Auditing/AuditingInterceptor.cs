@@ -57,7 +57,15 @@ public sealed class AuditingInterceptor(ITenantContext tenant, TimeProvider cloc
 
             if (entry.Entity is IAuditable)
             {
-                audits.Add(ToAudit(entry, now));
+                var audit = ToAudit(entry, now);
+
+                // Only not-audited fields changed (a last-login time, say): nothing worth a row.
+                if (audit.Action == AuditAction.Updated && audit.After == "{}")
+                {
+                    continue;
+                }
+
+                audits.Add(audit);
             }
         }
 
