@@ -12,6 +12,9 @@ public sealed class ClassesDbContext(DbContextOptions<ClassesDbContext> options,
 
     public DbSet<Institute> Institutes => Set<Institute>();
     public DbSet<InstituteTeacher> InstituteTeachers => Set<InstituteTeacher>();
+    public DbSet<Venue> Venues => Set<Venue>();
+    public DbSet<TuitionClass> Classes => Set<TuitionClass>();
+    public DbSet<ClassSlot> ClassSlots => Set<ClassSlot>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

@@ -22,6 +22,8 @@ using Microsoft.Extensions.Hosting;
 namespace EduVibe.Api.Tests;
 
 /// <summary>Runs the real API on an in-memory SQLite database, so tests need no PostgreSQL.</summary>
+public sealed record TestTeacher(HttpClient Client, Guid Id);
+
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public const string AdminPhone = "+94770000001";
@@ -60,6 +62,33 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             AdminLock.Release();
         }
+    }
+
+    private int _teacherCounter = 5000;
+
+    /// <summary>Creates a teacher through the Super Admin API and signs them in past the first-login set-up.</summary>
+    public async Task<TestTeacher> NewTeacherAsync(string firstName = "Nimal")
+    {
+        var admin = await AdminClientAsync();
+        var phone = $"+947780{Interlocked.Increment(ref _teacherCounter):D5}";
+        var created = await admin.PostAsJsonAsync("/api/identity/teachers", new
+        {
+            firstName, lastName = "Teacher", phone, district = "Kandy", streamId = StreamId, subjectIds = new[] { MathsId },
+        });
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var teacherId = body.GetProperty("teacher").GetProperty("id").GetGuid();
+        var otp = body.GetProperty("oneTimePassword").GetString()!;
+
+        var login = await CreateClient().PostAsJsonAsync("/api/identity/login", new { username = phone, password = otp });
+        var first = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+        var setup = CreateClient();
+        setup.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first);
+        var changed = await setup.PostAsJsonAsync("/api/identity/change-password",
+            new { currentPassword = otp, newPassword = "Teacher-pass-1", username = "t" + Guid.NewGuid().ToString("N")[..10] });
+        var token = (await changed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return new TestTeacher(client, teacherId);
     }
 
     /// <summary>Catalog rows every test can use when it creates a teacher.</summary>
