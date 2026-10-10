@@ -83,6 +83,10 @@ export class CatalogStore {
     return this.allStreams().find((s) => s.id === id)?.name ?? '';
   }
 
+  subjectName(id: string): string {
+    return this.allSubjects().find((s) => s.id === id)?.name ?? '';
+  }
+
   subjectNames(ids: readonly string[]): string[] {
     const all = this.allSubjects();
     return ids.map((id) => all.find((s) => s.id === id)?.name).filter((n): n is string => !!n);

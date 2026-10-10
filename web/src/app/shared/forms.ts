@@ -43,6 +43,7 @@ export function fieldErrorKey(control: AbstractControl): string {
   if (e['phone']) return 'validation.phone';
   if (e['username']) return 'validation.username';
   if (e['minlength']) return 'validation.too_short';
+  if (e['min'] || e['max'] || e['pattern']) return 'validation.out_of_range';
   if (e['mismatch']) return 'password.mismatch';
   return 'validation.invalid';
 }
@@ -56,9 +57,15 @@ const FIELD_FOR_CODE: Record<string, string> = {
   district_invalid: 'district',
   stream_invalid: 'streamId',
   subjects_required: 'subjectIds',
-  subject_invalid: 'subjectIds',
+  subject_invalid: 'subjectIds|subjectId',
   name_required: 'name',
   name_taken: 'name',
+  title_required: 'title',
+  exam_year_invalid: 'examYear',
+  medium_invalid: 'medium',
+  fee_invalid: 'monthlyFee',
+  place_required: 'place',
+  place_invalid: 'place',
   username_required: 'username',
   username_invalid: 'username',
   username_taken: 'username',
@@ -72,8 +79,9 @@ const FIELD_FOR_CODE: Record<string, string> = {
  * anything else (returns false) in a banner. The error clears as soon as the person edits the field.
  */
 export function applyServerError(form: FormGroup, code: string | null): boolean {
-  const field = code ? FIELD_FOR_CODE[code] : undefined;
-  const control = field ? form.get(field) : null;
+  // A code can name several possible fields (a teacher picks many subjects, a class one); the first the form has wins.
+  const fields = code ? (FIELD_FOR_CODE[code]?.split('|') ?? []) : [];
+  const control = fields.map((f) => form.get(f)).find((c) => !!c) ?? null;
   if (!code || !control) return false;
   control.setErrors({ server: `error.${code}` });
   control.markAsTouched();

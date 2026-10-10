@@ -22,7 +22,12 @@ interface NavItem {
   icon: string;
 }
 
-const TEACHER_NAV: NavItem[] = [{ route: '/home', label: 'nav.home', icon: 'home' }];
+const TEACHER_NAV: NavItem[] = [
+  { route: '/home', label: 'nav.home', icon: 'home' },
+  { route: '/classes', label: 'nav.classes', icon: 'menu_book' },
+  { route: '/timetable', label: 'nav.timetable', icon: 'calendar_month' },
+  { route: '/venues', label: 'nav.venues', icon: 'place' },
+];
 const ADMIN_NAV: NavItem[] = [
   { route: '/admin/teachers', label: 'nav.teachers', icon: 'school' },
   { route: '/admin/institutes', label: 'nav.institutes', icon: 'apartment' },
