@@ -1,8 +1,8 @@
 namespace EduVibe.Modules.Identity.Endpoints;
 
-public sealed record LoginRequest(string? Phone, string? Password);
+public sealed record LoginRequest(string? Username, string? Password);
 public sealed record RefreshRequest(string? RefreshToken);
-public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword);
+public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword, string? Username);
 
 public sealed record UpdateProfileRequest(
     string? FirstName, string? LastName, string? Email, string? Language,
@@ -10,7 +10,8 @@ public sealed record UpdateProfileRequest(
 
 public sealed record UserDto(
     Guid Id, string Phone, string FirstName, string LastName, string FullName, string? Email, string Language,
-    string[] Roles, bool MustChangePassword, Guid? TeacherId, string? District, Guid? StreamId, Guid[] SubjectIds);
+    string[] Roles, bool MustChangePassword, Guid? TeacherId, string? District, Guid? StreamId, Guid[] SubjectIds,
+    string? Username, bool MustChooseUsername);
 
 public sealed record SessionDto(string AccessToken, string RefreshToken, DateTimeOffset AccessTokenExpiresAt, UserDto User);
 

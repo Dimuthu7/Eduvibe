@@ -11,7 +11,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { filter, map } from 'rxjs';
-import { AuthService } from './core/auth/auth.service';
+import { AuthService, needsSetup } from './core/auth/auth.service';
 import { TranslatePipe } from './core/i18n/translate.pipe';
 import { LoadingService } from './core/ui/loading.service';
 import { ThemePreference, ThemeService } from './core/ui/theme.service';
@@ -73,7 +73,7 @@ export class App {
 
   protected readonly menuVisible = computed(() => {
     const user = this.auth.user();
-    return !!user && !user.mustChangePassword;
+    return !!user && !needsSetup(user);
   });
 
   protected readonly nav = computed(() => (this.auth.hasRole('SuperAdmin') ? ADMIN_NAV : TEACHER_NAV));

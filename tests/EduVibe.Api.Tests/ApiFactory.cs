@@ -30,6 +30,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>A second Super Admin nobody has signed in as, for tests of the first sign-in.</summary>
     public const string FreshAdminPhone = "+94770000002";
 
+    /// <summary>An account from before usernames existed: password already chosen, no username yet.</summary>
+    public const string LegacyPhone = "+94770000003";
+
     private static readonly SemaphoreSlim AdminLock = new(1, 1);
     private HttpClient? _admin;
 
@@ -41,11 +44,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             if (_admin is null)
             {
-                var login = await CreateClient().PostAsJsonAsync("/api/identity/login", new { phone = AdminPhone, password = AdminPassword });
+                var login = await CreateClient().PostAsJsonAsync("/api/identity/login", new { username = AdminPhone, password = AdminPassword });
                 var first = (await login.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
                 var anon = CreateClient();
                 anon.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", first);
-                var changed = await anon.PostAsJsonAsync("/api/identity/change-password", new { currentPassword = AdminPassword, newPassword = AdminPassword + "x" });
+                var changed = await anon.PostAsJsonAsync("/api/identity/change-password", new { currentPassword = AdminPassword, newPassword = AdminPassword + "x", username = "test.admin" });
                 var token = (await changed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accessToken").GetString()!;
                 _admin = CreateClient();
                 _admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -115,6 +118,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             admin.Roles.Add(new UserRole { Role = Roles.SuperAdmin });
             db.Users.Add(admin);
         }
+
+        var legacy = new User { Phone = LegacyPhone, FirstName = "Old", LastName = "Account" };
+        legacy.PasswordHash = passwords.Hash(legacy, AdminPassword);
+        legacy.Roles.Add(new UserRole { Role = Roles.SuperAdmin });
+        db.Users.Add(legacy);
 
         db.SaveChanges();
         return host;

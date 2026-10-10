@@ -3,6 +3,8 @@ export type Role = 'SuperAdmin' | 'Teacher' | 'InstituteAdmin' | 'Student' | 'Pa
 export interface User {
   id: string;
   phone: string;
+  username: string | null;
+  mustChooseUsername: boolean;
   firstName: string;
   lastName: string;
   fullName: string;

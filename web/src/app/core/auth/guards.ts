@@ -1,14 +1,14 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { Role } from './auth.models';
-import { AuthService } from './auth.service';
+import { AuthService, needsSetup } from './auth.service';
 
-/** Needs a signed-in user who has already replaced a one-time password. */
+/** Needs a signed-in user who has finished account set-up (new password and username). */
 export const activeGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   if (!(await auth.restore())) return router.parseUrl('/login');
-  return auth.user()!.mustChangePassword ? router.parseUrl('/change-password') : true;
+  return needsSetup(auth.user()!) ? router.parseUrl('/change-password') : true;
 };
 
 /** Needs a signed-in user; used by the change-password screen itself. */

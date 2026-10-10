@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using EduVibe.Modules.Identity.Domain;
+using EduVibe.Shared.Phone;
 using EduVibe.Shared.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -19,12 +20,19 @@ public sealed class AuthService(IdentityDbContext db, PasswordService passwords,
 
     private readonly JwtOptions _jwt = jwt.Value;
 
-    public async Task<(TokenPair? Tokens, string? Error)> LoginAsync(string phone, string password, CancellationToken ct)
+    /// <summary>
+    /// Signs in with a username. Until a person has chosen one, their phone number works as the username,
+    /// so a new account signs in with phone number plus one-time password.
+    /// </summary>
+    public async Task<(TokenPair? Tokens, string? Error)> LoginAsync(string identifier, string password, CancellationToken ct)
     {
         var now = clock.GetUtcNow();
-        var user = await db.Users.Include(u => u.Roles).SingleOrDefaultAsync(u => u.Phone == phone, ct);
+        var name = identifier.Trim().ToLowerInvariant();
+        var phone = PhoneNumber.Normalize(identifier);
+        var user = await db.Users.Include(u => u.Roles).SingleOrDefaultAsync(
+            u => u.Username == name || (u.Username == null && phone != null && u.Phone == phone), ct);
 
-        // The same answer for an unknown phone and a wrong password, so numbers cannot be probed.
+        // The same answer for an unknown name and a wrong password, so accounts cannot be probed.
         if (user is null || !user.IsActive)
         {
             return (null, "invalid_credentials");
@@ -127,7 +135,8 @@ public sealed class AuthService(IdentityDbContext db, PasswordService passwords,
             }
         }
 
-        if (user.MustChangePassword)
+        // Until the account is set up (password replaced, username chosen) the token opens only the setup calls.
+        if (user.MustChangePassword || user.Username is null)
         {
             claims.Add(new Claim(EduVibeClaims.MustChangePassword, "true"));
         }

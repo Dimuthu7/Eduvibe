@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
+import type { SelectOption } from '../../shared/search-select';
 import { AppConfig } from '../config/app-config';
 
 /** A choice an admin can extend later, such as an education stream or a subject. */
@@ -52,6 +53,9 @@ export class CatalogStore {
   readonly allSubjects = signal<CatalogItem[]>([]);
   readonly streams = computed(() => this.allStreams().filter((i) => i.isActive));
   readonly subjects = computed(() => this.allSubjects().filter((i) => i.isActive));
+  readonly districtOptions = computed<SelectOption[]>(() => this.districts().map((d) => ({ value: d, label: d })));
+  readonly streamOptions = computed<SelectOption[]>(() => this.streams().map((i) => ({ value: i.id, label: i.name })));
+  readonly subjectOptions = computed<SelectOption[]>(() => this.subjects().map((i) => ({ value: i.id, label: i.name })));
   readonly loaded = signal(false);
 
   private started = false;

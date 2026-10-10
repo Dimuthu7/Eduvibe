@@ -12,6 +12,8 @@ const API = 'http://api.test';
 const user = (overrides: Partial<User> = {}): User => ({
   id: 'u1',
   phone: '+94771234567',
+  username: 'nimal',
+  mustChooseUsername: false,
   firstName: 'Nimal',
   lastName: 'Perera',
   fullName: 'Nimal Perera',
@@ -57,7 +59,7 @@ describe('AuthService', () => {
 
     auth.login('0771234567', 'secret').subscribe();
     const request = http.expectOne(`${API}/api/identity/login`);
-    expect(request.request.body).toEqual({ phone: '0771234567', password: 'secret' });
+    expect(request.request.body).toEqual({ username: '0771234567', password: 'secret' });
     request.flush(session());
 
     expect(auth.user()?.fullName).toBe('Nimal Perera');
@@ -71,6 +73,27 @@ describe('AuthService', () => {
     http.expectOne(`${API}/api/identity/login`).flush(session({ user: user({ mustChangePassword: true }) }));
 
     expect(auth.homeRoute()).toBe('/change-password');
+  });
+
+  it('sends an older account without a username to choose one first', () => {
+    const auth = setup();
+    auth.login('0771234567', 'pw').subscribe();
+    http.expectOne(`${API}/api/identity/login`).flush(session({ user: user({ mustChooseUsername: true, username: null }) }));
+
+    expect(auth.homeRoute()).toBe('/change-password');
+  });
+
+  it('sends the chosen username with the new password and leaves out an empty password', () => {
+    const auth = setup();
+    auth.changePassword('otp', 'New-pass-1', 'nimal.p').subscribe();
+    const first = http.expectOne(`${API}/api/identity/change-password`);
+    expect(first.request.body).toEqual({ currentPassword: 'otp', newPassword: 'New-pass-1', username: 'nimal.p' });
+    first.flush(session());
+
+    auth.changePassword('pw', '', 'nimal.p').subscribe();
+    const second = http.expectOne(`${API}/api/identity/change-password`);
+    expect(second.request.body.newPassword).toBeNull();
+    second.flush(session());
   });
 
   it('starts a Super Admin on the teachers screen', () => {

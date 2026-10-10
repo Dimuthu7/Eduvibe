@@ -7,7 +7,7 @@ namespace EduVibe.Api.Tests;
 
 public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
-    private record User(Guid Id, string Phone, string FullName, string[] Roles, bool MustChangePassword, Guid? TeacherId, string? District, Guid? StreamId, Guid[] SubjectIds);
+    private record User(Guid Id, string Phone, string FullName, string[] Roles, bool MustChangePassword, Guid? TeacherId, string? District, Guid? StreamId, Guid[] SubjectIds, string? Username, bool MustChooseUsername);
     private record Session(string AccessToken, string RefreshToken, User User);
     private record Teacher(Guid Id, string Phone, string FirstName, string LastName, string? District, Guid[] SubjectIds, bool IsActive);
     private record Created(Teacher Teacher, string OneTimePassword);
@@ -26,7 +26,7 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private async Task<Session> Login(string phone, string password)
     {
-        var response = await Anonymous().PostAsJsonAsync("/api/identity/login", new { phone, password });
+        var response = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = phone, password });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<Session>(Json))!;
     }
@@ -35,10 +35,12 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
     private Task<HttpClient> AdminClient() => factory.AdminClientAsync();
 
-    private async Task<Session> ChangePassword(Session session, string current, string next)
+    private static string NewUsername() => "user" + Guid.NewGuid().ToString("N")[..10];
+
+    private async Task<Session> ChangePassword(Session session, string current, string next, string? username = null)
     {
         var client = As(factory.CreateClient(), session.AccessToken);
-        var response = await client.PostAsJsonAsync("/api/identity/change-password", new { currentPassword = current, newPassword = next });
+        var response = await client.PostAsJsonAsync("/api/identity/change-password", new { currentPassword = current, newPassword = next, username = username ?? NewUsername() });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<Session>(Json))!;
     }
@@ -61,8 +63,8 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [Fact]
     public async Task Wrong_password_and_unknown_phone_get_the_same_answer()
     {
-        var wrong = await Anonymous().PostAsJsonAsync("/api/identity/login", new { phone = ApiFactory.AdminPhone, password = "nope-nope" });
-        var unknown = await Anonymous().PostAsJsonAsync("/api/identity/login", new { phone = "+94779999999", password = "nope-nope" });
+        var wrong = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = ApiFactory.AdminPhone, password = "nope-nope" });
+        var unknown = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = "+94779999999", password = "nope-nope" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
@@ -89,6 +91,74 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var changed = await ChangePassword(first, ApiFactory.AdminPassword, ApiFactory.AdminPassword + "x");
         Assert.False(changed.User.MustChangePassword);
         var after = As(factory.CreateClient(), changed.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await after.GetAsync("/api/identity/teachers")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Choosing_a_username_replaces_the_phone_number_for_sign_in_and_ignores_case()
+    {
+        var admin = await AdminClient();
+        var created = await CreateTeacher(admin, NewPhone());
+        var first = await Login(created.Teacher.Phone, created.OneTimePassword);
+        Assert.True(first.User.MustChooseUsername);
+        Assert.Null(first.User.Username);
+
+        var username = NewUsername();
+        var set = await ChangePassword(first, created.OneTimePassword, "My-new-pass-1", username.ToUpperInvariant());
+        Assert.False(set.User.MustChooseUsername);
+        Assert.Equal(username, set.User.Username);
+
+        Assert.Equal(username, (await Login(username.ToUpperInvariant(), "My-new-pass-1")).User.Username);
+        var byPhone = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = created.Teacher.Phone, password = "My-new-pass-1" });
+        Assert.Equal(HttpStatusCode.Unauthorized, byPhone.StatusCode);
+    }
+
+    [Fact]
+    public async Task Username_must_be_unique_ignoring_case_and_well_formed()
+    {
+        var admin = await AdminClient();
+        var a = await CreateTeacher(admin, NewPhone());
+        var taken = NewUsername();
+        await ChangePassword(await Login(a.Teacher.Phone, a.OneTimePassword), a.OneTimePassword, "My-new-pass-1", taken);
+
+        var b = await CreateTeacher(admin, NewPhone());
+        var session = await Login(b.Teacher.Phone, b.OneTimePassword);
+        var client = As(factory.CreateClient(), session.AccessToken);
+
+        async Task<(HttpStatusCode Status, string? Code)> Try(string? username)
+        {
+            var response = await client.PostAsJsonAsync("/api/identity/change-password",
+                new { currentPassword = b.OneTimePassword, newPassword = "My-new-pass-1", username });
+            if (response.IsSuccessStatusCode) return (response.StatusCode, null);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            return (response.StatusCode, body.GetProperty("code").GetString());
+        }
+
+        Assert.Equal((HttpStatusCode.Conflict, "username_taken"), await Try(taken.ToUpperInvariant()));
+        Assert.Equal((HttpStatusCode.BadRequest, "username_invalid"), await Try("ab"));
+        Assert.Equal((HttpStatusCode.BadRequest, "username_invalid"), await Try("0771234567"));
+        Assert.Equal((HttpStatusCode.BadRequest, "username_invalid"), await Try("has space"));
+        Assert.Equal((HttpStatusCode.BadRequest, "username_required"), await Try(null));
+        Assert.True((await client.GetFromJsonAsync<JsonElement>("/api/identity/me")).GetProperty("mustChooseUsername").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Existing_account_without_a_username_signs_in_with_phone_and_must_choose_one_but_may_keep_its_password()
+    {
+        var session = await Login(ApiFactory.LegacyPhone, ApiFactory.AdminPassword);
+        Assert.False(session.User.MustChangePassword);
+        Assert.True(session.User.MustChooseUsername);
+        var client = As(factory.CreateClient(), session.AccessToken);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/identity/teachers")).StatusCode);
+
+        var username = NewUsername();
+        var response = await client.PostAsJsonAsync("/api/identity/change-password",
+            new { currentPassword = ApiFactory.AdminPassword, username });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var again = await Login(username, ApiFactory.AdminPassword);
+        Assert.False(again.User.MustChooseUsername);
+        var after = As(factory.CreateClient(), again.AccessToken);
         Assert.Equal(HttpStatusCode.OK, (await after.GetAsync("/api/identity/teachers")).StatusCode);
     }
 
@@ -163,11 +233,11 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         for (var i = 0; i < 5; i++)
         {
-            var bad = await Anonymous().PostAsJsonAsync("/api/identity/login", new { phone = created.Teacher.Phone, password = "wrong-pass" });
+            var bad = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = created.Teacher.Phone, password = "wrong-pass" });
             Assert.Equal(HttpStatusCode.Unauthorized, bad.StatusCode);
         }
 
-        var locked = await Anonymous().PostAsJsonAsync("/api/identity/login", new { phone = created.Teacher.Phone, password = created.OneTimePassword });
+        var locked = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = created.Teacher.Phone, password = created.OneTimePassword });
         Assert.Equal(HttpStatusCode.TooManyRequests, locked.StatusCode);
     }
 
@@ -227,7 +297,7 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var created = await CreateTeacher(admin, NewPhone());
 
         var off = await admin.PutAsJsonAsync($"/api/identity/teachers/{created.Teacher.Id}/active", new { isActive = false });
-        var login = await Anonymous().PostAsJsonAsync("/api/identity/login", new { phone = created.Teacher.Phone, password = created.OneTimePassword });
+        var login = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = created.Teacher.Phone, password = created.OneTimePassword });
 
         Assert.Equal(HttpStatusCode.NoContent, off.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
