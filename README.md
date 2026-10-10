@@ -61,3 +61,7 @@ See [docs](docs/README.md) for the plan and [CLAUDE.md](CLAUDE.md) for the conve
 | `RateLimit__AuthPerMinute` | API environment | Sign-in attempts per address per minute (default 10) |
 | `Cors__AllowedOrigins__0` | API environment | Web app address allowed to call the API |
 | `apiBaseUrl` | `web/public/config.json` | Replaced per environment at deploy time |
+
+## Free test deployment
+
+A live copy for testers (Azure Static Web Apps, Render, Neon, all free) is described in [docs/deploy-free.md](docs/deploy-free.md).
