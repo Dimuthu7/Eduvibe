@@ -3,6 +3,7 @@ using System;
 using EduVibe.Modules.Classes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EduVibe.Modules.Classes.Migrations
 {
     [DbContext(typeof(ClassesDbContext))]
-    partial class ClassesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010103021_AddClassesAndVenues")]
+    partial class AddClassesAndVenues
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

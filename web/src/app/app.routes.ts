@@ -15,6 +15,10 @@ export const routes: Routes = [
     canActivate: [activeGuard],
     children: [
       { path: 'home', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/home/home').then((m) => m.Home) },
+      { path: 'classes', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/classes/classes').then((m) => m.Classes) },
+      { path: 'classes/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/classes/class-home').then((m) => m.ClassHome) },
+      { path: 'timetable', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/timetable/timetable').then((m) => m.Timetable) },
+      { path: 'venues', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/venues/venues').then((m) => m.Venues) },
       { path: 'profile', loadComponent: () => import('./pages/profile/profile').then((m) => m.Profile) },
       {
         path: 'admin',

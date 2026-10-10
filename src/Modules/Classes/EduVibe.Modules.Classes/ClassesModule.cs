@@ -22,6 +22,9 @@ public sealed class ClassesModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        InstituteEndpoints.Map(endpoints.MapGroup($"/api/{ModuleName}").WithTags("Classes"));
+        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Classes");
+        InstituteEndpoints.Map(group);
+        VenueEndpoints.Map(group);
+        ClassEndpoints.Map(group);
     }
 }
