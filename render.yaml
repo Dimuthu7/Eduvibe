@@ -1,0 +1,33 @@
+# Free test deployment of the API on Render. See docs/deploy-free.md.
+# Render builds the same Docker image as everywhere else, so moving to Azure later needs no code change.
+services:
+  - type: web
+    name: eduvibe-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./src/Api/EduVibe.Api/Dockerfile
+    dockerContext: .
+    branch: main
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Database__MigrateOnStartup
+        value: "true"
+      - key: ForwardedHeaders__Enabled
+        value: "true"
+      # Generated once by Render and kept between deploys.
+      - key: Jwt__SigningKey
+        generateValue: true
+      # Filled in on the Render dashboard (sync: false keeps secrets out of git).
+      - key: ConnectionStrings__EduVibe
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      - key: SuperAdmin__Phone
+        sync: false
+      - key: SuperAdmin__Password
+        sync: false

@@ -6,6 +6,7 @@ using EduVibe.Shared.Tenancy;
 using System.Threading.RateLimiting;
 using EduVibe.Shared.Security;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 var modules = ModuleCatalog.All;
@@ -41,6 +42,15 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyMethod()));
 
 var app = builder.Build();
+
+// Behind a host's proxy (Render, Azure) the real client address comes from X-Forwarded-For; the sign-in rate limit needs it.
+if (app.Configuration.GetValue<bool>("ForwardedHeaders:Enabled"))
+{
+    var forwarded = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto };
+    forwarded.KnownIPNetworks.Clear();
+    forwarded.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwarded);
+}
 
 if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 {

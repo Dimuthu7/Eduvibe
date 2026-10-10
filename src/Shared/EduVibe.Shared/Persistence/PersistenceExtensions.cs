@@ -34,7 +34,7 @@ public static class PersistenceExtensions
     private static DbContextOptionsBuilder UsePostgres(DbContextOptionsBuilder options, IConfiguration configuration, string schema) =>
         options
             .UseNpgsql(
-                configuration.GetConnectionString(ConnectionStringName),
+                PostgresConnectionString.Normalize(configuration.GetConnectionString(ConnectionStringName)),
                 npgsql => npgsql.MigrationsHistoryTable("__ef_migrations_history", schema))
             .UseSnakeCaseNamingConvention();
 }

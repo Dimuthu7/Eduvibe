@@ -1,0 +1,12 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/*.{css,js,json,png,ico,webmanifest,svg}", "/i18n/*", "/icons/*"]
+  },
+  "routes": [
+    { "route": "/config.json", "headers": { "cache-control": "no-cache" } },
+    { "route": "/ngsw.json", "headers": { "cache-control": "no-cache" } },
+    { "route": "/ngsw-worker.js", "headers": { "cache-control": "no-cache" } },
+    { "route": "/safety-worker.js", "headers": { "cache-control": "no-cache" } }
+  ]
+}
