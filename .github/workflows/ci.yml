@@ -60,7 +60,7 @@ jobs:
           curl -fs http://localhost:5077/health/ready
           curl -fs -X POST http://localhost:5077/api/identity/login \
             -H 'content-type: application/json' \
-            -d '{"phone":"0770000000","password":"ChangeMe123"}' | grep -q accessToken
+            -d '{"username":"0770000000","password":"ChangeMe123"}' | grep -q accessToken
       - name: The web app serves the app and its routes
         run: |
           curl -fs http://localhost:4200/config.json | grep -q apiBaseUrl

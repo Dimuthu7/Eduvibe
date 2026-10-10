@@ -22,6 +22,7 @@ export const routes: Routes = [
         children: [
           { path: 'teachers', loadComponent: () => import('./pages/admin/teachers/teachers').then((m) => m.AdminTeachers) },
           { path: 'institutes', loadComponent: () => import('./pages/admin/institutes/institutes').then((m) => m.AdminInstitutes) },
+          { path: 'catalog', loadComponent: () => import('./pages/admin/catalog/catalog').then((m) => m.AdminCatalog) },
           { path: '**', redirectTo: 'teachers' },
         ],
       },

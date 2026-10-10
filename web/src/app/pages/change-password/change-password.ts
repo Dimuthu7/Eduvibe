@@ -4,7 +4,8 @@ import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { inlineError } from '../../core/api/problem';
+import { errorCode, inlineError } from '../../core/api/problem';
+import { applyServerError, fieldErrorKey, filled, usernameValidator } from '../../shared/forms';
 import { SubmitButton } from '../../shared/submit-button';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -14,7 +15,10 @@ const MIN_LENGTH = 8;
 const sameAsNew = (group: AbstractControl): ValidationErrors | null =>
   group.get('newPassword')?.value === group.get('confirm')?.value ? null : { mismatch: true };
 
-/** Shown after signing in with a one-time password, and reachable from the profile to change it later. */
+/**
+ * First sign-in: replace the one-time password and choose a username. Accounts from before usernames
+ * only choose a username and may keep their password. Also reachable from the profile to change the password.
+ */
 @Component({
   selector: 'app-change-password',
   host: { class: 'page page-narrow' },
@@ -23,33 +27,43 @@ const sameAsNew = (group: AbstractControl): ValidationErrors | null =>
   template: `
     <mat-card appearance="outlined">
       <mat-card-header>
-        <mat-card-title>{{ 'password.title' | t }}</mat-card-title>
-        @if (mustChange()) {
+        <mat-card-title>{{ (chooseUsername() ? 'setup.title' : 'password.title') | t }}</mat-card-title>
+        @if (chooseUsername()) {
+          <mat-card-subtitle>{{ (mustChange() ? 'setup.intro' : 'setup.intro_username_only') | t }}</mat-card-subtitle>
+        } @else if (mustChange()) {
           <mat-card-subtitle>{{ 'password.required' | t }}</mat-card-subtitle>
         }
       </mat-card-header>
       <mat-card-content>
-        <form class="stack form" [formGroup]="form" (ngSubmit)="submit()">
+        <form class="stack form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <mat-form-field>
             <mat-label>{{ (mustChange() ? 'password.one_time' : 'password.current') | t }}</mat-label>
-            <input matInput type="password" autocomplete="current-password" formControlName="currentPassword" />
+            <input matInput type="password" autocomplete="current-password" formControlName="currentPassword" required />
+            <mat-error>{{ key('currentPassword') | t }}</mat-error>
           </mat-form-field>
+          @if (chooseUsername()) {
+            <mat-form-field>
+              <mat-label>{{ 'setup.username' | t }}</mat-label>
+              <input matInput autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" formControlName="username" required />
+              <mat-hint>{{ 'setup.username_hint' | t }}</mat-hint>
+              <mat-error>{{ key('username') | t }}</mat-error>
+            </mat-form-field>
+          }
           <mat-form-field>
-            <mat-label>{{ 'password.new' | t }}</mat-label>
-            <input matInput type="password" autocomplete="new-password" formControlName="newPassword" />
+            <mat-label>{{ (passwordRequired() ? 'password.new' : 'password.new_optional') | t }}</mat-label>
+            <input matInput type="password" autocomplete="new-password" formControlName="newPassword" [required]="passwordRequired()" />
             <mat-hint>{{ 'password.hint' | t }}</mat-hint>
+            <mat-error>{{ key('newPassword') | t }}</mat-error>
           </mat-form-field>
           <mat-form-field>
             <mat-label>{{ 'password.confirm' | t }}</mat-label>
             <input matInput type="password" autocomplete="new-password" formControlName="confirm" />
+            <mat-error>{{ confirmKey() | t }}</mat-error>
           </mat-form-field>
-          @if (form.hasError('mismatch') && form.controls.confirm.dirty) {
-            <p class="field-error" role="alert">{{ 'password.mismatch' | t }}</p>
-          }
           @if (error()) {
             <p class="field-error" role="alert">{{ error() | t }}</p>
           }
-          <app-submit-button label="password.submit" [busy]="busy()" [disabled]="form.invalid" />
+          <app-submit-button [label]="chooseUsername() ? 'common.save' : 'password.submit'" [busy]="busy()" />
         </form>
       </mat-card-content>
     </mat-card>
@@ -63,27 +77,53 @@ export class ChangePassword {
   private readonly router = inject(Router);
 
   protected readonly mustChange = () => this.auth.user()?.mustChangePassword ?? false;
+  protected readonly chooseUsername = () => this.auth.user()?.mustChooseUsername ?? false;
+  /** Only an older account choosing just a username may leave the password alone. */
+  protected readonly passwordRequired = () => this.mustChange() || !this.chooseUsername();
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly form = inject(FormBuilder).nonNullable.group(
     {
-      currentPassword: ['', Validators.required],
-      newPassword: ['', [Validators.required, Validators.minLength(MIN_LENGTH)]],
-      confirm: ['', Validators.required],
+      currentPassword: ['', filled],
+      username: [''],
+      newPassword: [''],
+      confirm: [''],
     },
     { validators: sameAsNew },
   );
 
+  constructor() {
+    const { username, newPassword, confirm } = this.form.controls;
+    if (this.chooseUsername()) username.addValidators([filled, usernameValidator]);
+    newPassword.addValidators(Validators.minLength(MIN_LENGTH));
+    if (this.passwordRequired()) {
+      newPassword.addValidators(Validators.required);
+      confirm.addValidators(Validators.required);
+    }
+  }
+
+  protected key(name: string): string {
+    const control = this.form.get(name);
+    return control && control.touched ? fieldErrorKey(control) : '';
+  }
+
+  protected confirmKey(): string {
+    const control = this.form.controls.confirm;
+    if (!control.touched) return '';
+    return control.errors ? fieldErrorKey(control) : this.form.hasError('mismatch') ? 'password.mismatch' : '';
+  }
+
   protected submit(): void {
+    this.form.markAllAsTouched();
     if (this.form.invalid) return;
     this.busy.set(true);
     this.error.set('');
-    const { currentPassword, newPassword } = this.form.getRawValue();
-    this.auth.changePassword(currentPassword, newPassword).subscribe({
+    const { currentPassword, newPassword, username } = this.form.getRawValue();
+    this.auth.changePassword(currentPassword, newPassword, this.chooseUsername() ? username.trim() : undefined).subscribe({
       next: () => void this.router.navigateByUrl(this.auth.homeRoute()),
       error: (e) => {
-        this.error.set(inlineError(e));
         this.busy.set(false);
+        if (!applyServerError(this.form, errorCode(e))) this.error.set(inlineError(e));
       },
     });
   }

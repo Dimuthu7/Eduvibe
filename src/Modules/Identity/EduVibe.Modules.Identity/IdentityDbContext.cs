@@ -13,6 +13,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<User> Users => Set<User>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
+    public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)

@@ -10,11 +10,15 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
     {
         builder.ToTable("users");
         builder.Property(u => u.Phone).HasMaxLength(20);
-        builder.Property(u => u.FullName).HasMaxLength(120);
+        builder.Property(u => u.FirstName).HasMaxLength(60);
+        builder.Property(u => u.LastName).HasMaxLength(60);
+        builder.Ignore(u => u.FullName);
         builder.Property(u => u.Email).HasMaxLength(200);
         builder.Property(u => u.Language).HasMaxLength(5);
         builder.Property(u => u.PasswordHash).HasMaxLength(300);
         builder.HasIndex(u => u.Phone).IsUnique();
+        builder.Property(u => u.Username).HasMaxLength(30);
+        builder.HasIndex(u => u.Username).IsUnique();
         builder.HasMany(u => u.Roles).WithOne().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
@@ -34,8 +38,8 @@ internal sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
     public void Configure(EntityTypeBuilder<Teacher> builder)
     {
         builder.ToTable("teachers");
-        builder.Property(t => t.Town).HasMaxLength(80);
-        builder.Property(t => t.Subjects).HasMaxLength(200);
+        builder.Property(t => t.District).HasMaxLength(40);
+        builder.HasMany(t => t.Subjects).WithOne().HasForeignKey(s => s.TeacherId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(t => t.UserId).IsUnique();
         builder.HasOne<User>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -50,5 +54,15 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.HasIndex(t => t.TokenHash).IsUnique();
         builder.HasIndex(t => t.UserId);
         builder.HasOne<User>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubject>
+{
+    public void Configure(EntityTypeBuilder<TeacherSubject> builder)
+    {
+        builder.ToTable("teacher_subjects");
+        builder.HasIndex(s => new { s.TeacherId, s.SubjectId }).IsUnique();
+        builder.HasIndex(s => s.SubjectId);
     }
 }

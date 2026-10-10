@@ -27,7 +27,7 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.NotNull(info);
         Assert.Equal("EduVibe", info.Name);
         Assert.Equal(
-            ["identity", "classes", "students", "fees", "attendance", "exams", "plans"],
+            ["identity", "catalog", "classes", "students", "fees", "attendance", "exams", "plans"],
             info.Modules);
     }
 }

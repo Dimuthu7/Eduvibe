@@ -1,18 +1,20 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatMenuModule } from '@angular/material/menu';
 import { AdminService, TeacherSummary } from '../../../core/api/admin.service';
-import { inlineError } from '../../../core/api/problem';
+import { CatalogStore } from '../../../core/api/catalog.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { TranslateService } from '../../../core/i18n/translate.service';
 import { Loadable } from '../../../core/state/loadable';
 import { ToastService } from '../../../core/ui/toast.service';
-import { SubmitButton } from '../../../shared/submit-button';
+import { CreatedTeacher, TeacherDialog } from './teacher-dialog';
 
 interface Handout {
   name: string;
@@ -20,24 +22,35 @@ interface Handout {
   password: string;
 }
 
-/** Super Admin: add teachers and hand out one-time passwords. */
+/** Super Admin: every teacher in one list, a pop-up to add one, and one-time passwords to hand out. */
 @Component({
   selector: 'app-admin-teachers',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule,
-    SubmitButton,
+    FormsModule,
     MatButtonModule,
     MatCardModule,
+    MatChipsModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatSlideToggleModule,
+    MatMenuModule,
     TranslatePipe,
   ],
   template: `
-    <h1 class="page-title">{{ 'teachers.title' | t }}</h1>
+    <header class="page-header">
+      <div>
+        <h1 class="page-title">{{ 'teachers.title' | t }}</h1>
+        @if (teachers.status() === 'ready') {
+          <p class="page-subtitle">{{ 'teachers.count' | t }}: {{ list().length }}</p>
+        }
+      </div>
+      <button mat-flat-button type="button" (click)="add()">
+        <mat-icon>add</mat-icon>
+        {{ 'teachers.add' | t }}
+      </button>
+    </header>
 
     @if (handout(); as h) {
       <mat-card appearance="outlined" class="handout">
@@ -60,99 +73,119 @@ interface Handout {
       </mat-card>
     }
 
-    <mat-card appearance="outlined">
-      <mat-card-header>
-        <mat-card-title>{{ 'teachers.add' | t }}</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <form class="stack form" [formGroup]="form" (ngSubmit)="create()">
-          <mat-form-field>
-            <mat-label>{{ 'profile.name' | t }}</mat-label>
-            <input matInput formControlName="fullName" />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>{{ 'login.phone' | t }}</mat-label>
-            <input matInput type="tel" inputmode="tel" formControlName="phone" />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>{{ 'profile.town' | t }}</mat-label>
-            <input matInput formControlName="town" />
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>{{ 'profile.subjects' | t }}</mat-label>
-            <input matInput formControlName="subjects" />
-          </mat-form-field>
-          @if (error()) {
-            <p class="field-error" role="alert">{{ error() | t }}</p>
-          }
-          <div class="row-wrap">
-            <app-submit-button label="teachers.create" [busy]="busy()" [disabled]="form.invalid" />
-          </div>
-        </form>
-      </mat-card-content>
-    </mat-card>
-
-    <h2 class="section-title">{{ 'teachers.all' | t }}</h2>
     @switch (teachers.status()) {
       @case ('ready') {
-        @for (teacher of teachers.data(); track teacher.id) {
-          <mat-card appearance="outlined">
-            <mat-card-content>
-              <div class="head">
-                <div>
-                  <strong>{{ teacher.fullName }}</strong>
-                  <div class="muted">{{ teacher.phone }}@if (teacher.town) { · {{ teacher.town }} }</div>
-                  @if (teacher.mustChangePassword) {
-                    <div class="muted">{{ 'teachers.not_signed_in' | t }}</div>
+        @if (list().length > 0) {
+          <mat-form-field class="search" subscriptSizing="dynamic">
+            <mat-icon matPrefix>search</mat-icon>
+            <input matInput type="search" [ngModel]="query()" (ngModelChange)="query.set($event)" [placeholder]="'teachers.search' | t" />
+          </mat-form-field>
+        }
+        @if (shown().length > 0) {
+          <div class="panel">
+            @for (teacher of shown(); track teacher.id) {
+              <div class="panel-row" [class.inactive]="!teacher.isActive">
+                <span class="avatar" aria-hidden="true">{{ initials(teacher) }}</span>
+                <div class="row-main">
+                  <div class="row-title">
+                    {{ teacher.fullName }}
+                    @if (!teacher.isActive) {
+                      <span class="status off">{{ 'teachers.inactive' | t }}</span>
+                    } @else if (teacher.mustChangePassword) {
+                      <span class="status wait">{{ 'teachers.invited' | t }}</span>
+                    }
+                  </div>
+                  <div class="row-meta">
+                    {{ teacher.phone }}
+                    @if (teacher.district) {
+                      · {{ teacher.district }}
+                    }
+                    @if (catalog.streamName(teacher.streamId)) {
+                      · {{ catalog.streamName(teacher.streamId) }}
+                    }
+                  </div>
+                  @if (teacher.subjectIds.length > 0) {
+                    <mat-chip-set class="subjects" [attr.aria-label]="'person.subjects' | t">
+                      @for (name of catalog.subjectNames(teacher.subjectIds); track name) {
+                        <mat-chip>{{ name }}</mat-chip>
+                      }
+                    </mat-chip-set>
                   }
                 </div>
-                <mat-slide-toggle [checked]="teacher.isActive" (change)="setActive(teacher, $event.checked)">
-                  {{ 'teachers.active' | t }}
-                </mat-slide-toggle>
+                <button mat-icon-button type="button" [matMenuTriggerFor]="menu" [attr.aria-label]="'common.actions' | t">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #menu="matMenu">
+                  <button mat-menu-item type="button" (click)="reset(teacher)">
+                    <mat-icon>key</mat-icon>
+                    <span>{{ 'teachers.reset' | t }}</span>
+                  </button>
+                  <button mat-menu-item type="button" (click)="setActive(teacher, !teacher.isActive)">
+                    <mat-icon>{{ teacher.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    <span>{{ (teacher.isActive ? 'teachers.deactivate' : 'teachers.activate') | t }}</span>
+                  </button>
+                </mat-menu>
               </div>
-              <button mat-button type="button" (click)="reset(teacher)">
-                <mat-icon>key</mat-icon>
-                {{ 'teachers.reset' | t }}
-              </button>
-            </mat-card-content>
-          </mat-card>
-        } @empty {
-          <p class="muted">{{ 'teachers.none' | t }}</p>
+            }
+          </div>
+        } @else {
+          <div class="empty">
+            <mat-icon>school</mat-icon>
+            <p>{{ (list().length === 0 ? 'teachers.none' : 'teachers.no_match') | t }}</p>
+            @if (list().length === 0) {
+              <button mat-stroked-button type="button" (click)="add()">{{ 'teachers.add' | t }}</button>
+            }
+          </div>
         }
       }
       @case ('error') {
-        <p class="muted">{{ 'error.load_failed' | t }}</p>
-        <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
+        <div class="empty">
+          <p>{{ 'error.load_failed' | t }}</p>
+          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
+        </div>
       }
       @default {
+        <div class="skeleton"></div>
         <div class="skeleton"></div>
         <div class="skeleton"></div>
       }
     }
   `,
   styles: `
-    .form { padding-top: 1rem; }
-    .head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .handout { margin-bottom: 1rem; }
     .otp { margin: 0.5rem 0; font: 600 1.75rem/1.2 ui-monospace, monospace; letter-spacing: 0.08em; user-select: all; }
+    .search { width: 100%; max-width: 22rem; margin-bottom: 1rem; }
+    .inactive .avatar, .inactive .row-title { opacity: 0.55; }
+    .subjects { margin-top: 0.375rem; }
+    .status { margin-left: 0.375rem; vertical-align: middle; padding: 0.125rem 0.625rem; border-radius: 999px; font: var(--mat-sys-label-small); white-space: nowrap; }
+    .status.off { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
+    .status.wait { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
   `,
 })
 export class AdminTeachers {
   private readonly api = inject(AdminService);
+  private readonly dialog = inject(MatDialog);
   private readonly i18n = inject(TranslateService);
   private readonly toast = inject(ToastService);
+  protected readonly catalog = inject(CatalogStore);
 
   protected readonly teachers = new Loadable<TeacherSummary[]>();
   protected readonly handout = signal<Handout | null>(null);
-  protected readonly busy = signal(false);
-  protected readonly error = signal('');
-  protected readonly form = inject(FormBuilder).nonNullable.group({
-    fullName: ['', Validators.required],
-    phone: ['', Validators.required],
-    town: [''],
-    subjects: [''],
+  protected readonly query = signal('');
+  protected readonly list = computed(() => this.teachers.data() ?? []);
+  protected readonly shown = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    if (!q) return this.list();
+    return this.list().filter((t) =>
+      [t.fullName, t.phone, t.district ?? '', this.catalog.streamName(t.streamId), ...this.catalog.subjectNames(t.subjectIds)]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
   });
 
   constructor() {
+    this.catalog.ensureLoaded();
     this.load();
   }
 
@@ -160,30 +193,28 @@ export class AdminTeachers {
     this.teachers.load(this.api.teachers());
   }
 
-  protected create(): void {
-    if (this.form.invalid) return;
-    this.busy.set(true);
-    this.error.set('');
-    this.api.createTeacher(this.form.getRawValue()).subscribe({
-      next: ({ teacher, oneTimePassword }) => {
-        this.show(teacher, oneTimePassword);
-        this.form.reset();
-        this.busy.set(false);
+  protected add(): void {
+    this.catalog.ensureLoaded(true);
+    this.dialog
+      .open<TeacherDialog, void, CreatedTeacher>(TeacherDialog, { width: '40rem', maxWidth: 'calc(100vw - 1rem)', autoFocus: 'first-tabbable' })
+      .afterClosed()
+      .subscribe((created) => {
+        if (!created) return;
+        this.show(created.teacher, created.oneTimePassword);
         this.toast.success('teachers.created');
-        this.load();
-      },
-      error: (e) => {
-        this.error.set(inlineError(e));
-        this.busy.set(false);
-      },
-    });
+        this.teachers.update((all) => [...all, created.teacher].sort((a, b) => a.fullName.localeCompare(b.fullName)));
+      });
+  }
+
+  protected initials(teacher: TeacherSummary): string {
+    return (teacher.firstName.charAt(0) + teacher.lastName.charAt(0)).trim();
   }
 
   protected reset(teacher: TeacherSummary): void {
     this.api.resetPassword(teacher.id).subscribe({
       next: ({ oneTimePassword }) => {
         this.show(teacher, oneTimePassword);
-        this.load();
+        this.replace({ ...teacher, mustChangePassword: true });
       },
     });
   }
@@ -192,9 +223,8 @@ export class AdminTeachers {
     this.api.setTeacherActive(teacher.id, isActive).subscribe({
       next: () => {
         this.toast.success(isActive ? 'teachers.activated' : 'teachers.deactivated');
-        this.load();
+        this.replace({ ...teacher, isActive });
       },
-      error: () => this.load(),
     });
   }
 
@@ -211,6 +241,10 @@ export class AdminTeachers {
   protected whatsapp(h: Handout): string {
     const text = this.i18n.translate('teachers.share_message').replace('{password}', h.password);
     return `https://wa.me/${h.phone.replace('+', '')}?text=${encodeURIComponent(text)}`;
+  }
+
+  private replace(changed: TeacherSummary): void {
+    this.teachers.update((all) => all.map((t) => (t.id === changed.id ? changed : t)));
   }
 
   private show(teacher: TeacherSummary, password: string): void {

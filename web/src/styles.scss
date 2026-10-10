@@ -6,7 +6,13 @@ html {
   color-scheme: light dark;
   @include mat.theme((
     color: mat.$azure-palette,
-    typography: Roboto,
+    typography: (
+      plain-family: 'Inter',
+      brand-family: 'Inter',
+      bold-weight: 600,
+      medium-weight: 500,
+      regular-weight: 400,
+    ),
     density: 0,
   ));
 }
@@ -42,16 +48,20 @@ body {
   margin: 0;
   background: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
-  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 // Shared page building blocks, so every screen looks the same.
 .page {
   display: block;
   box-sizing: border-box;
-  max-width: 44rem;
+  max-width: 60rem;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 1.25rem 1rem 3rem;
 }
 
 .page-narrow {
@@ -59,13 +69,113 @@ body {
 }
 
 .page-title {
-  margin: 0.5rem 0 1rem;
+  margin: 0;
   font: var(--mat-sys-headline-small);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.page-subtitle {
+  margin: 0.125rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
+// Title on the left, the main action on the right.
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .section-title {
   margin: 1.5rem 0 0.5rem;
   font: var(--mat-sys-title-medium);
+  font-weight: 600;
+}
+
+// A bordered panel holding rows, used by every list screen.
+.panel {
+  overflow: hidden;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--mat-sys-corner-large);
+  background: var(--mat-sys-surface-container-low);
+}
+
+.panel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1rem;
+
+  & + & {
+    border-top: 1px solid var(--mat-sys-outline-variant);
+  }
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title {
+  font: var(--mat-sys-title-small);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.row-meta {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+  overflow-wrap: anywhere;
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-label-large);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    width: 3rem;
+    height: 3rem;
+    font-size: 3rem;
+    opacity: 0.6;
+  }
+}
+
+// Dialog forms: two columns on wide screens, one on phones.
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 1rem;
+
+  @media (min-width: 560px) {
+    grid-template-columns: 1fr 1fr;
+
+    .full {
+      grid-column: 1 / -1;
+    }
+  }
 }
 
 .stack {
@@ -92,6 +202,19 @@ body {
 
 mat-card {
   margin-bottom: 1rem;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+// Phones get a full-screen dialog so the keyboard has room.
+.mat-mdc-dialog-container .mdc-dialog__title {
+  font-weight: 600;
+}
+
+.mat-mdc-dialog-actions {
+  padding: 0.75rem 1.5rem 1.25rem !important;
 }
 
 // Placeholder blocks shown while a list loads.

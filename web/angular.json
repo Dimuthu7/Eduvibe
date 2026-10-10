@@ -30,10 +30,9 @@
               }
             ],
             "styles": [
-              "@fontsource/roboto/latin-300.css",
-              "@fontsource/roboto/latin-400.css",
-              "@fontsource/roboto/latin-500.css",
-              "@fontsource/roboto/latin-600.css",
+              "@fontsource/inter/latin-400.css",
+              "@fontsource/inter/latin-500.css",
+              "@fontsource/inter/latin-600.css",
               "@fontsource/material-icons/index.css",
               "src/styles.scss"
             ],
@@ -44,7 +43,7 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "700kB",
+                  "maximumWarning": "750kB",
                   "maximumError": "1MB"
                 },
                 {
