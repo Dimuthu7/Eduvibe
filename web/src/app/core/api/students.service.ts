@@ -120,6 +120,15 @@ export interface Registered {
   classTitle: string;
 }
 
+/** A class as the student sees it: who teaches it and when it meets. Start and end are "HH:mm". */
+export interface MyClass {
+  enrolmentId: string;
+  classId: string;
+  classTitle: string;
+  teacherName: string | null;
+  slots: { day: number; start: string; end: string }[];
+}
+
 /** A teacher's students, their enrolments in classes, and the links students use to sign themselves up. */
 @Injectable({ providedIn: 'root' })
 export class StudentsService {
@@ -162,6 +171,11 @@ export class StudentsService {
 
   resetPassword(studentId: string) {
     return this.http.post<{ oneTimePassword: string }>(`${this.base}/${studentId}/reset-password`, {});
+  }
+
+  /** The signed-in student's own classes. */
+  myClasses() {
+    return this.http.get<MyClass[]>(`${this.base}/me/classes`);
   }
 
   invites(classId?: string) {

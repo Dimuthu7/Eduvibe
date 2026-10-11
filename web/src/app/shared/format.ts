@@ -17,3 +17,21 @@ export const minutes = (time: string): number => {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
 };
+
+/** Today's date in Sri Lanka as "yyyy-MM-dd", whatever the phone's own time zone is. */
+export const todayColombo = (now: Date = new Date()): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+
+/** A "yyyy-MM-dd" date moved by whole days. */
+export function addDays(date: string, days: number): string {
+  const moved = new Date(`${date}T00:00:00Z`);
+  moved.setUTCDate(moved.getUTCDate() + days);
+  return moved.toISOString().slice(0, 10);
+}
+
+/** The first day of the month a "yyyy-MM-dd" date falls in. */
+export const monthStart = (date: string): string => `${date.slice(0, 8)}01`;
+
+/** "yyyy-MM-dd" as "Mon, 12 Oct 2026". */
+export const formatDate = (date: string): string =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });

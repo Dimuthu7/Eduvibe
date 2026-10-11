@@ -50,6 +50,9 @@ public static class SecurityExtensions
             .AddPolicy(Policies.SuperAdmin, policy => policy
                 .RequireRole(Roles.SuperAdmin)
                 .RequireAssertion(context => !context.User.HasClaim(c => c.Type == EduVibeClaims.MustChangePassword)))
+            .AddPolicy(Policies.Student, policy => policy
+                .RequireRole(Roles.Student)
+                .RequireAssertion(context => !context.User.HasClaim(c => c.Type == EduVibeClaims.MustChangePassword)))
             .AddPolicy(Policies.Teacher, policy => policy
                 .RequireRole(Roles.Teacher)
                 .RequireClaim(EduVibeClaims.TenantId)

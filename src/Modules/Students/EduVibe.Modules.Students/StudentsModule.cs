@@ -18,11 +18,13 @@ public sealed class StudentsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<StudentsDbContext>(configuration, ModuleName);
+        services.AddScoped<IClassRoster, ClassRoster>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Students");
+        MeEndpoints.Map(group);
         StudentEndpoints.Map(group);
         InviteEndpoints.Map(group);
         RegistrationEndpoints.Map(group);

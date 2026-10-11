@@ -10,4 +10,7 @@ public static class Policies
 
     public const string SuperAdmin = "SuperAdmin";
     public const string Teacher = "Teacher";
+
+    /// <summary>A student account: the screens about their own classes, attendance and results.</summary>
+    public const string Student = "Student";
 }
