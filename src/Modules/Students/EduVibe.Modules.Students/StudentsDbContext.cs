@@ -1,3 +1,4 @@
+using EduVibe.Modules.Students.Domain;
 using EduVibe.Shared.Persistence;
 using EduVibe.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,10 @@ public sealed class StudentsDbContext(DbContextOptions<StudentsDbContext> option
     : ModuleDbContext(options, tenant)
 {
     public override string Schema => StudentsModule.ModuleName;
+
+    public DbSet<Student> Students => Set<Student>();
+    public DbSet<Enrolment> Enrolments => Set<Enrolment>();
+    public DbSet<InviteLink> InviteLinks => Set<InviteLink>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

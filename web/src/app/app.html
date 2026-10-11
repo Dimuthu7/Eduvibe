@@ -1,5 +1,5 @@
 <mat-toolbar class="toolbar">
-  @if (menuVisible() && !wide()) {
+  @if (hasNav() && !wide()) {
     <button mat-icon-button type="button" (click)="toggleMenu()" [attr.aria-label]="'nav.menu' | t">
       <mat-icon>menu</mat-icon>
     </button>
@@ -52,7 +52,7 @@
 </div>
 
 <mat-sidenav-container class="container">
-  @if (menuVisible()) {
+  @if (hasNav()) {
     <mat-sidenav [mode]="wide() ? 'side' : 'over'" [opened]="wide()" [fixedInViewport]="!wide()" fixedTopGap="56">
       <mat-nav-list>
         @for (item of nav(); track item.route) {

@@ -14,4 +14,13 @@ internal sealed class TeacherDirectory(IdentityDbContext db) : ITeacherDirectory
             .ToListAsync(cancellationToken);
         return found.ToHashSet();
     }
+
+    public async Task<string?> FindNameAsync(Guid teacherId, CancellationToken cancellationToken = default)
+    {
+        var user = await db.Users
+            .Where(u => db.Teachers.Any(t => t.Id == teacherId && t.UserId == u.Id) && u.IsActive)
+            .Select(u => new { u.FirstName, u.LastName })
+            .SingleOrDefaultAsync(cancellationToken);
+        return user is null ? null : $"{user.FirstName} {user.LastName}".Trim();
+    }
 }

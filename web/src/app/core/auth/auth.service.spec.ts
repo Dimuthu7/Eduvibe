@@ -104,6 +104,14 @@ describe('AuthService', () => {
     expect(auth.homeRoute()).toBe('/admin/teachers');
   });
 
+  it('sends a student to their own start screen, not the teacher home', () => {
+    const auth = setup();
+    auth.login('0771234567', 'pw').subscribe();
+    http.expectOne(`${API}/api/identity/login`).flush(session({ user: user({ roles: ['Student'], teacherId: null }) }));
+
+    expect(auth.homeRoute()).toBe('/welcome');
+  });
+
   it('adds the access token to API calls only', () => {
     const auth = setup();
     auth.login('0771234567', 'pw').subscribe();

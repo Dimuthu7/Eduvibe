@@ -45,7 +45,8 @@ export class AuthService {
     const user = this.user();
     if (!user) return '/login';
     if (needsSetup(user)) return '/change-password';
-    return this.hasRole('SuperAdmin') ? '/admin/teachers' : '/home';
+    if (this.hasRole('SuperAdmin')) return '/admin/teachers';
+    return this.hasRole('Teacher') ? '/home' : '/welcome';
   }
 
   /** The username, or the phone number for an account that has not chosen a username yet. */

@@ -25,6 +25,7 @@ interface NavItem {
 const TEACHER_NAV: NavItem[] = [
   { route: '/home', label: 'nav.home', icon: 'home' },
   { route: '/classes', label: 'nav.classes', icon: 'menu_book' },
+  { route: '/students', label: 'nav.students', icon: 'groups' },
   { route: '/timetable', label: 'nav.timetable', icon: 'calendar_month' },
   { route: '/venues', label: 'nav.venues', icon: 'place' },
 ];
@@ -81,7 +82,10 @@ export class App {
     return !!user && !needsSetup(user);
   });
 
-  protected readonly nav = computed(() => (this.auth.hasRole('SuperAdmin') ? ADMIN_NAV : TEACHER_NAV));
+  protected readonly nav = computed(() => (this.auth.hasRole('SuperAdmin') ? ADMIN_NAV : this.auth.hasRole('Teacher') ? TEACHER_NAV : []));
+
+  /** Students have no menu yet; the side menu appears for roles that have screens to list. */
+  protected readonly hasNav = computed(() => this.menuVisible() && this.nav().length > 0);
 
   protected readonly currentTheme = computed(
     () => THEMES.find((t) => t.value === this.theme.preference()) ?? THEMES[0],

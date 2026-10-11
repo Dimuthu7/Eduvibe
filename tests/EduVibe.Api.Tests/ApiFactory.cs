@@ -7,6 +7,7 @@ using EduVibe.Modules.Classes;
 using EduVibe.Modules.Identity;
 using EduVibe.Modules.Identity.Domain;
 using EduVibe.Modules.Identity.Services;
+using EduVibe.Modules.Students;
 using EduVibe.Shared.Auditing;
 using EduVibe.Shared.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -112,6 +113,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<IdentityDbContext>(services);
             UseSqlite<CatalogDbContext>(services);
             UseSqlite<ClassesDbContext>(services);
+            UseSqlite<StudentsDbContext>(services);
         });
     }
 
@@ -126,6 +128,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<IdentityDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<CatalogDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<ClassesDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<StudentsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
         var stream = new EducationStream { Name = "O/L", SortOrder = 10 };
