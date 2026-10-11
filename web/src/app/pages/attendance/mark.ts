@@ -14,6 +14,7 @@ import { SubmitButton } from '../../shared/submit-button';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
 const LONG_PRESS_MS = 500;
+const MOVE_LIMIT_PX = 8;
 
 /**
  * Taking attendance for one class. Everyone starts as present; tap a student to mark them absent, press and hold for late,
@@ -66,7 +67,8 @@ const LONG_PRESS_MS = 500;
                     class="hit"
                     [disabled]="!s.editable"
                     (click)="tap(student)"
-                    (pointerdown)="press(student)"
+                    (pointerdown)="press(student, $event)"
+                    (pointermove)="move($event)"
                     (pointerup)="release()"
                     (pointerleave)="release()"
                     (pointercancel)="release()"
@@ -143,7 +145,7 @@ const LONG_PRESS_MS = 500;
     .student { padding: 0; gap: 0; }
     .student.absent { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     .student.late { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-    .hit { display: flex; flex: 1; gap: 0.875rem; align-items: center; min-width: 0; min-height: 3.5rem; padding: 0.5rem 0.5rem 0.5rem 1rem; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-touch-callout: none; }
+    .hit { display: flex; flex: 1; gap: 0.875rem; align-items: center; min-width: 0; min-height: 3.5rem; padding: 0.5rem 0.5rem 0.5rem 1rem; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: pan-y; -webkit-touch-callout: none; }
     .hit:disabled { cursor: default; }
     .hit:focus-visible { outline: 2px solid var(--mat-sys-primary); outline-offset: -2px; }
     .state { display: inline-flex; gap: 0.25rem; align-items: center; font: var(--mat-sys-label-medium); white-space: nowrap; }
@@ -182,6 +184,7 @@ export class AttendanceMark {
 
   private timer: ReturnType<typeof setTimeout> | null = null;
   private held = false;
+  private origin = { x: 0, y: 0 };
 
   constructor() {
     queueMicrotask(() => this.load());
@@ -219,13 +222,19 @@ export class AttendanceMark {
     this.set(student, this.status(student) === 'Present' ? 'Absent' : 'Present');
   }
 
-  protected press(student: SessionStudent): void {
+  protected press(student: SessionStudent, event: PointerEvent): void {
     this.held = false;
     this.release();
+    this.origin = { x: event.clientX, y: event.clientY };
     this.timer = setTimeout(() => {
       this.held = true;
       this.set(student, 'Late');
     }, LONG_PRESS_MS);
+  }
+
+  /** A finger that slides is scrolling the page, not holding: cancel the press so a swipe never marks anyone late. */
+  protected move(event: PointerEvent): void {
+    if (this.timer && Math.hypot(event.clientX - this.origin.x, event.clientY - this.origin.y) > MOVE_LIMIT_PX) this.release();
   }
 
   protected release(): void {
