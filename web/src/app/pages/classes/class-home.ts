@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -6,12 +6,13 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { AttendanceService, ClassSession } from '../../core/api/attendance.service';
 import { CatalogStore } from '../../core/api/catalog.service';
 import { ClassesService, TuitionClass } from '../../core/api/classes.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
-import { formatLkr, formatTime } from '../../shared/format';
+import { formatLkr, formatTime, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
 import { ClassDialog } from './class-dialog';
 
@@ -21,8 +22,8 @@ interface Section {
 }
 
 /**
- * One class: the teacher's home screen for it. Details and weekly times for now; today's session,
- * attendance, unpaid fees and the latest exam fill in as those features arrive in later sprints.
+ * One class: the teacher's home screen for it. Details, weekly times and attendance for now; unpaid
+ * fees and the latest exam fill in as those features arrive in later sprints.
  */
 @Component({
   selector: 'app-class-home',
@@ -99,6 +100,45 @@ interface Section {
             }
           </div>
 
+          @if (c.status === 'Active') {
+            <h2 class="section-title">{{ 'classes.attendance' | t }}</h2>
+            <div class="panel">
+              @for (session of todays(); track session.id) {
+                <a class="panel-row link" [routerLink]="['/attendance', session.id]">
+                  <mat-icon class="lead" aria-hidden="true">today</mat-icon>
+                  <div class="row-main">
+                    <div class="row-title">{{ 'classes.today' | t }} · {{ time(session.start) }} – {{ time(session.end) }}</div>
+                    <div class="row-meta">
+                      @if (session.taken) {
+                        {{ 'attendance.present' | t }} {{ session.present + session.late }} · {{ 'attendance.absent' | t }} {{ session.absent }}
+                      } @else {
+                        {{ 'attendance.not_marked' | t }}
+                      }
+                    </div>
+                  </div>
+                  <span class="chevron-label">{{ (session.taken ? 'attendance.review' : 'attendance.mark') | t }}</span>
+                  <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                </a>
+              } @empty {
+                <div class="panel-row">
+                  <mat-icon class="lead" aria-hidden="true">today</mat-icon>
+                  <div class="row-main">
+                    <div class="row-title">{{ 'classes.today' | t }}</div>
+                    <div class="row-meta">{{ 'attendance.no_class_today' | t }}</div>
+                  </div>
+                </div>
+              }
+              <a class="panel-row link" routerLink="/attendance/summary" [queryParams]="{ classId: c.id }">
+                <mat-icon class="lead" aria-hidden="true">insights</mat-icon>
+                <div class="row-main">
+                  <div class="row-title">{{ 'attendance.summary' | t }}</div>
+                  <div class="row-meta">{{ 'attendance.summary_subtitle' | t }}</div>
+                </div>
+                <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+              </a>
+            </div>
+          }
+
           <app-invite-links [classId]="c.id" [archived]="c.status === 'Archived'" />
 
           <h2 class="section-title">{{ 'classes.sections' | t }}</h2>
@@ -133,6 +173,11 @@ interface Section {
     .facts div { display: flex; flex-direction: column; }
     .note { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 1rem; padding: 0.75rem 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
     .avatar.day { font-size: 0.8125rem; }
+    a.link { color: inherit; text-decoration: none; }
+    a.link:hover { background: var(--mat-sys-surface-container); }
+    .lead { color: var(--mat-sys-primary); }
+    .chevron { color: var(--mat-sys-on-surface-variant); }
+    .chevron-label { color: var(--mat-sys-primary); font: var(--mat-sys-label-large); }
     .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.75rem; }
     .section { margin: 0; }
     .section mat-icon { color: var(--mat-sys-primary); margin-bottom: 0.25rem; }
@@ -143,17 +188,17 @@ export class ClassHome {
   readonly id = input.required<string>();
 
   private readonly api = inject(ClassesService);
+  private readonly attendance = inject(AttendanceService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   protected readonly catalog = inject(CatalogStore);
 
   protected readonly klass = new Loadable<TuitionClass>();
   protected readonly current = computed(() => this.klass.data());
+  protected readonly todays = signal<ClassSession[]>([]);
   protected readonly money = formatLkr;
   protected readonly time = formatTime;
   protected readonly sections: Section[] = [
-    { icon: 'today', title: 'classes.today' },
-    { icon: 'fact_check', title: 'classes.attendance' },
     { icon: 'payments', title: 'classes.unpaid' },
     { icon: 'quiz', title: 'classes.latest_exam' },
   ];
@@ -165,6 +210,7 @@ export class ClassHome {
 
   protected load(): void {
     this.klass.load(this.api.classById(this.id()));
+    this.attendance.sessions(todayColombo()).subscribe((list) => this.todays.set(list.filter((x) => x.classId === this.id())));
   }
 
   protected edit(c: TuitionClass): void {

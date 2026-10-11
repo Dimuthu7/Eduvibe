@@ -1,0 +1,50 @@
+name: Back up database
+
+# A nightly encrypted copy of the database, kept as a workflow artifact for 14 days.
+# Does nothing until the secrets below exist, so it is safe to leave switched on. See docs/backups.md.
+on:
+  schedule:
+    - cron: '30 20 * * *' # 02:00 in Sri Lanka
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Back up
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check the secrets exist
+        id: gate
+        run: |
+          if [ -z "$NEON_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "NEON_DATABASE_URL and BACKUP_PASSPHRASE are not both set; skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A recent pg_dump from a container, because it must be at least as new as the server.
+      - name: Dump and encrypt
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          docker run --rm -e PGURL="$NEON_DATABASE_URL" postgres:17-alpine sh -c 'pg_dump --format=custom --no-owner "$PGURL"' > eduvibe.dump
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 --output "eduvibe-$(date -u +%F).dump.gpg" eduvibe.dump
+          rm eduvibe.dump
+          ls -l eduvibe-*.dump.gpg
+
+      - name: Keep the encrypted copy
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eduvibe-backup
+          path: eduvibe-*.dump.gpg
+          retention-days: 14
+          if-no-files-found: error

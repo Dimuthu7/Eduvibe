@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using EduVibe.Modules.Attendance;
+using EduVibe.Shared.Auditing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EduVibe.Api.Tests;
 
@@ -282,5 +286,28 @@ public class AttendanceApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await student.GetAsync("/api/attendance/sessions")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await teacher.Client.GetAsync("/api/attendance/mine")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await teacher.Client.GetAsync("/api/students/me/classes")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Every_mark_and_every_change_to_it_is_logged_with_the_teacher_who_made_it()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        var classId = await DailyClass(teacher.Client);
+        var (amara, _) = await AddStudent(teacher.Client, classId, "Amara");
+        var sessionId = SessionOf(await Sessions(teacher.Client, Today), classId);
+
+        await Save(teacher.Client, sessionId, (amara, "Absent"));
+        await Save(teacher.Client, sessionId);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AttendanceDbContext>();
+        var entries = await db.Set<AuditLogEntry>().Where(e => e.Entity.Contains("AttendanceMark")).ToListAsync();
+        var actions = entries.OrderBy(e => e.Action).Select(e => e.Action).ToList();
+        Assert.Contains(AuditAction.Created, actions);
+        var update = Assert.Single(entries, e => e.Action == AuditAction.Updated);
+        // The log keeps the enum's number: Present is 0 and Absent is 1.
+        Assert.Contains("\"Status\":1", update.Before);
+        Assert.Contains("\"Status\":0", update.After);
+        Assert.NotNull(update.UserId);
     }
 }

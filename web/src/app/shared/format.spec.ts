@@ -1,4 +1,4 @@
-import { formatLkr, formatTime, minutes, toInputTime } from './format';
+import { addDays, formatDate, formatLkr, formatTime, minutes, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
 describe('format helpers', () => {
@@ -24,5 +24,18 @@ describe('format helpers', () => {
       (key) => key.replace('day.short.', 'D'),
     );
     expect(text).toBe('D1 4:00 PM – 6:00 PM · D4 9:00 AM – 10:00 AM');
+  });
+
+  it('works out the date in Sri Lanka, not in the phone time zone', () => {
+    // 20:00 UTC is already the next morning (01:30) in Colombo.
+    expect(todayColombo(new Date('2026-10-11T20:00:00Z'))).toBe('2026-10-12');
+    expect(todayColombo(new Date('2026-10-11T10:00:00Z'))).toBe('2026-10-11');
+  });
+
+  it('moves dates by days and finds the month start', () => {
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+    expect(monthStart('2026-10-17')).toBe('2026-10-01');
+    expect(formatDate('2026-10-12')).toBe('Mon, 12 Oct 2026');
   });
 });

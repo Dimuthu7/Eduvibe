@@ -79,6 +79,13 @@ const FIELD_FOR_CODE: Record<string, string> = {
   class_required: 'classId',
   invite_days_invalid: 'days',
   invite_uses_invalid: 'maxUses',
+  date_required: 'date',
+  date_in_future: 'date',
+  outside_edit_window: 'date',
+  time_range_invalid: 'end',
+  session_exists: 'start',
+  note_too_long: 'note',
+  class_not_found: 'classId',
 };
 
 /**
