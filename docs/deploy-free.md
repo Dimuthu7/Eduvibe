@@ -35,7 +35,7 @@ What happens on first start: migrations create every schema in Neon, then the Su
 3. In the GitHub repository, under Settings > Secrets and variables > Actions, add:
    - secret `AZURE_STATIC_WEB_APPS_API_TOKEN`: the token.
    - variable `API_BASE_URL`: the Render address from step 2, without a trailing slash.
-4. Run the workflow **Deploy web (free test)** from the Actions tab (it also runs by itself when `web/` changes on `main`). Until the secret and the variable exist the job skips itself.
+4. Run the workflow **Deploy web (free test)** from the Actions tab (it also runs by itself after CI passes on every push to `main`). Until the secret and the variable exist the job skips itself.
 5. Copy the site address Azure shows (for example `https://something.azurestaticapps.net`), go back to Render, set `Cors__AllowedOrigins__0` to it and save. Render restarts the API.
 
 Open the site and sign in with the Super Admin phone number and one-time password.
