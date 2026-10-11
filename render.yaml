@@ -8,7 +8,9 @@ services:
     dockerfilePath: ./src/Api/EduVibe.Api/Dockerfile
     dockerContext: .
     branch: main
-    autoDeployTrigger: checksPass
+    # Deploy on every push to main. CI is already required before anything reaches main (branch protection),
+    # so waiting for checks here added nothing and did not trigger in practice.
+    autoDeployTrigger: commit
     healthCheckPath: /health
     envVars:
       - key: PORT
