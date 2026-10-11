@@ -76,6 +76,18 @@ describe('AttendanceMark', () => {
     expect(root.querySelector('.count.absent')!.textContent).toContain('1');
   });
 
+  it('does not mark anyone late when the finger slides to scroll', async () => {
+    vi.useFakeTimers();
+    const { root, rows } = await open();
+    rows()[1].dispatchEvent(new MouseEvent('pointerdown', { clientX: 100, clientY: 300 }));
+    vi.advanceTimersByTime(200);
+    rows()[1].dispatchEvent(new MouseEvent('pointermove', { clientX: 100, clientY: 260 }));
+    vi.advanceTimersByTime(600);
+    rows()[1].dispatchEvent(new Event('pointerup'));
+    fixture.detectChanges();
+    expect(root.querySelector('.count.late')!.textContent).toContain('0');
+  });
+
   it('sends only the students who are not present, then returns to the day', async () => {
     const { root, rows } = await open();
     rows()[1].click();

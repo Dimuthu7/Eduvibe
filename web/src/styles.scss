@@ -260,3 +260,24 @@ mat-form-field {
 .mat-mdc-form-field-hint-spacer {
   display: none;
 }
+
+// On a phone the page itself scrolls, not a box inside it. A scrolling box inside the page makes touch scrolling
+// feel sticky: a swipe that starts on a card, row or button can be lost to the inner box. With the page as the
+// scroller the browser's own scrolling, momentum and address-bar behaviour work wherever the finger lands.
+// Wide screens keep the side menu in place with only the content scrolling.
+@media (max-width: 959.98px) {
+  mat-sidenav-container.container {
+    overflow: visible;
+  }
+
+  mat-sidenav-container.container .mat-drawer-content {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+// Rows and buttons that are tapped must never swallow the start of a scroll: vertical panning stays with the browser,
+// and links cannot be picked up and dragged.
+a, button {
+  -webkit-user-drag: none;
+}

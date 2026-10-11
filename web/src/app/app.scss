@@ -1,7 +1,14 @@
 :host {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100%;
+}
+
+// Wide screens fix the shell to the window and scroll only the content; phones let the page scroll (see styles.scss).
+@media (min-width: 960px) {
+  :host {
+    height: 100%;
+  }
 }
 
 .toolbar {
