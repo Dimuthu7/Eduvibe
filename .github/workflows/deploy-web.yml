@@ -1,12 +1,13 @@
 name: Deploy web (free test)
 
-# Publishes the Angular app to Azure Static Web Apps (free plan) when web/ changes on main.
+# Publishes the Angular app to Azure Static Web Apps (free plan) after CI has passed on main.
 # Needs the repository secret AZURE_STATIC_WEB_APPS_API_TOKEN and the repository variable API_BASE_URL
 # (see docs/deploy-free.md). Until both exist the job is skipped, so CI is never blocked.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths: [web/**, .github/workflows/deploy-web.yml]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +21,8 @@ jobs:
   deploy:
     name: Static Web Apps
     runs-on: ubuntu-latest
+    # Only after CI went green on main (or when started by hand).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     env:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
       SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
@@ -30,6 +33,9 @@ jobs:
           if [ -n "$API_BASE_URL" ] && [ -n "$SWA_TOKEN" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "Deployment not set up yet; skipping."; fi
       - uses: actions/checkout@v4
         if: steps.ready.outputs.go == 'true'
+        with:
+          # The commit CI just tested (empty for a manual run, which uses the branch it was started on).
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: actions/setup-node@v4
         if: steps.ready.outputs.go == 'true'
         with:
