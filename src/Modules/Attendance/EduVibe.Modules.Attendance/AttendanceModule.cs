@@ -1,3 +1,4 @@
+using EduVibe.Modules.Attendance.Endpoints;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -21,7 +22,8 @@ public sealed class AttendanceModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // This module's endpoints are added in its sprint; see the sprint plan.
-        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Attendance");
+        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Attendance");
+        SessionEndpoints.Map(group);
+        SummaryEndpoints.Map(group);
     }
 }
