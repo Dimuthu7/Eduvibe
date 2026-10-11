@@ -23,6 +23,7 @@ public sealed class IdentityModule : IModule
         services.AddScoped<AuthService>();
         services.AddScoped<TeacherProfileRules>();
         services.AddScoped<ITeacherDirectory, TeacherDirectory>();
+        services.AddScoped<IAccountProvisioner, AccountProvisioner>();
         services.AddHostedService<SuperAdminSeeder>();
     }
 

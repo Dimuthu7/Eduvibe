@@ -9,6 +9,7 @@ export const routes: Routes = [
     canActivate: [signedInGuard],
     loadComponent: () => import('./pages/change-password/change-password').then((m) => m.ChangePassword),
   },
+  { path: 'register/:token', loadComponent: () => import('./pages/students/register').then((m) => m.Register) },
   { path: 'status', loadComponent: () => import('./pages/status/status').then((m) => m.Status) },
   {
     path: '',
@@ -17,6 +18,9 @@ export const routes: Routes = [
       { path: 'home', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/home/home').then((m) => m.Home) },
       { path: 'classes', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/classes/classes').then((m) => m.Classes) },
       { path: 'classes/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/classes/class-home').then((m) => m.ClassHome) },
+      { path: 'students', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/students/students').then((m) => m.Students) },
+      { path: 'students/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/students/student-detail').then((m) => m.StudentDetail) },
+      { path: 'welcome', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/welcome/welcome').then((m) => m.Welcome) },
       { path: 'timetable', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/timetable/timetable').then((m) => m.Timetable) },
       { path: 'venues', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/venues/venues').then((m) => m.Venues) },
       { path: 'profile', loadComponent: () => import('./pages/profile/profile').then((m) => m.Profile) },

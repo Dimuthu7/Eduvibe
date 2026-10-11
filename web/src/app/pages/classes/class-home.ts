@@ -12,6 +12,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { formatLkr, formatTime } from '../../shared/format';
+import { InviteLinks } from '../students/invite-links';
 import { ClassDialog } from './class-dialog';
 
 interface Section {
@@ -27,7 +28,7 @@ interface Section {
   selector: 'app-class-home',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatButtonModule, MatCardModule, MatChipsModule, MatIconModule, MatMenuModule, TranslatePipe],
+  imports: [RouterLink, InviteLinks, MatButtonModule, MatCardModule, MatChipsModule, MatIconModule, MatMenuModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/classes" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -45,6 +46,10 @@ interface Section {
               </p>
             </div>
             <div class="row-wrap">
+              <a mat-stroked-button routerLink="/students" [queryParams]="{ classId: c.id }">
+                <mat-icon>groups</mat-icon>
+                {{ 'nav.students' | t }}
+              </a>
               @if (c.status === 'Active') {
                 <button mat-stroked-button type="button" (click)="edit(c)">
                   <mat-icon>edit</mat-icon>
@@ -93,6 +98,8 @@ interface Section {
               </div>
             }
           </div>
+
+          <app-invite-links [classId]="c.id" [archived]="c.status === 'Archived'" />
 
           <h2 class="section-title">{{ 'classes.sections' | t }}</h2>
           <div class="sections">

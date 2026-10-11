@@ -70,8 +70,15 @@ const FIELD_FOR_CODE: Record<string, string> = {
   username_invalid: 'username',
   username_taken: 'username',
   wrong_password: 'currentPassword',
-  password_too_short: 'newPassword',
+  password_too_short: 'newPassword|password',
   password_unchanged: 'newPassword',
+  guardian_phone_invalid: 'guardianPhone',
+  index_invalid: 'indexNumber',
+  index_taken: 'indexNumber',
+  discount_invalid: 'discountAmount',
+  class_required: 'classId',
+  invite_days_invalid: 'days',
+  invite_uses_invalid: 'maxUses',
 };
 
 /**

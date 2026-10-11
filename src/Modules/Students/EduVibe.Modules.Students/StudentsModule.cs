@@ -1,3 +1,4 @@
+using EduVibe.Modules.Students.Endpoints;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -21,7 +22,9 @@ public sealed class StudentsModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // This module's endpoints are added in its sprint; see the sprint plan.
-        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Students");
+        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Students");
+        StudentEndpoints.Map(group);
+        InviteEndpoints.Map(group);
+        RegistrationEndpoints.Map(group);
     }
 }
