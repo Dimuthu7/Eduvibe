@@ -34,7 +34,7 @@ describe('Login page', () => {
     const fixture = TestBed.createComponent(Login);
     fixture.detectChanges();
 
-    const button = (fixture.nativeElement as HTMLElement).querySelector('button')!;
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('app-submit-button button')!;
     expect(button.disabled).toBe(true);
   });
 
@@ -73,5 +73,21 @@ describe('Login page', () => {
     });
 
     expect(navigate).toHaveBeenCalledWith('/home');
+  });
+
+  it('shows and hides the password with the eye button', () => {
+    const fixture = TestBed.createComponent(Login);
+    const root = fixture.nativeElement as HTMLElement;
+    fixture.detectChanges();
+
+    const passwordInput = root.querySelectorAll('input')[1];
+    const toggle = root.querySelector<HTMLButtonElement>('button[aria-pressed]')!;
+    expect(passwordInput.type).toBe('password');
+    expect(toggle.getAttribute('aria-label')).toBe('login.show_password');
+
+    toggle.click();
+    fixture.detectChanges();
+    expect(passwordInput.type).toBe('text');
+    expect(toggle.getAttribute('aria-label')).toBe('login.hide_password');
   });
 });

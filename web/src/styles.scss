@@ -168,6 +168,7 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   column-gap: 1rem;
+  row-gap: 0.25rem;
 
   @media (min-width: 560px) {
     grid-template-columns: 1fr 1fr;
@@ -248,4 +249,14 @@ mat-form-field {
   --mat-snack-bar-button-color: var(--mat-sys-on-error-container);
   --mat-snack-bar-container-color: var(--mat-sys-error-container);
   --mat-snack-bar-supporting-text-color: var(--mat-sys-on-error-container);
+}
+
+/* Hints and errors can run to several lines on a phone. The subscript area keeps one line of space for them
+   (so fields do not touch) and grows when the text wraps, so it never runs over the next field. */
+.mat-mdc-form-field-subscript-wrapper {
+  min-height: 1.5rem;
+}
+
+.mat-mdc-form-field-hint-spacer {
+  display: none;
 }

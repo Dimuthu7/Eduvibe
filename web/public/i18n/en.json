@@ -240,5 +240,7 @@
   "error.slot_invalid": "Check the days and times: each must end after it starts.",
   "error.slots_overlap": "Two times on the same day overlap.",
   "error.class_archived": "This class is archived. Restore it to edit.",
-  "classes.count": "Total"
+  "classes.count": "Total",
+  "login.show_password": "Show password",
+  "login.hide_password": "Hide password"
 }
