@@ -1,82 +1,104 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { catchError, combineLatest, EMPTY, switchMap, tap } from 'rxjs';
+import { catchError, combineLatest, EMPTY, Observable, switchMap, tap } from 'rxjs';
 import { ClassesService } from '../../core/api/classes.service';
-import { ClassMonth, FeesService } from '../../core/api/fees.service';
+import { ClassMonth, FeeOverview, FeesService } from '../../core/api/fees.service';
+import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
-import { addMonths, formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/format';
+import { fileNamePart, saveBlob } from '../../shared/download';
+import { formatLkr, monthOf, todayColombo } from '../../shared/format';
+import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 
-/** Who has paid this month's fee and who has not, for one class. The class and month are kept in the address. */
+/** The class value that means "every class" in the dropdown and the address. */
+export const ALL_CLASSES = 'all';
+
+/** Who has paid this month's fee and who has not, for one class or for all of them. The class and month are kept in the address. */
 @Component({
   selector: 'app-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, FeeStatus, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
         <h1 class="page-title">{{ 'fees.title' | t }}</h1>
         <p class="page-subtitle">{{ 'fees.subtitle' | t }}</p>
       </div>
+      <div class="row-wrap">
+        <a mat-stroked-button routerLink="/fees/unpaid" [queryParams]="unpaidParams()">
+          <mat-icon>notifications_active</mat-icon>
+          {{ 'fees.unpaid_attendees' | t }}
+        </a>
+        @if (isClass()) {
+          <button mat-stroked-button type="button" (click)="exportExcel()" [disabled]="exporting()">
+            <mat-icon>download</mat-icon>
+            {{ 'fees.export' | t }}
+          </button>
+        }
+      </div>
     </header>
 
     <app-search-select [formControl]="classControl" [label]="'fees.class' | t" [options]="classOptions()" />
-
-    <nav class="month-nav" [attr.aria-label]="'fees.choose_month' | t">
-      <button mat-icon-button type="button" (click)="go(-1)" [disabled]="!canGoBack()" [attr.aria-label]="'fees.previous_month' | t">
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      <div class="month">
-        <strong>{{ label() }}</strong>
-        @if (isCurrent()) {
-          <span class="tag">{{ 'fees.this_month' | t }}</span>
-        }
-      </div>
-      <button mat-icon-button type="button" (click)="go(1)" [disabled]="isCurrent()" [attr.aria-label]="'fees.next_month' | t">
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-      @if (!isCurrent()) {
-        <button mat-button type="button" (click)="goTo(currentMonth)">{{ 'fees.this_month' | t }}</button>
-      }
-    </nav>
+    <app-month-nav [month]="chosenMonth()" [current]="currentMonth" (monthChange)="goTo($event)" />
 
     @if (!chosen()) {
       <div class="empty">
         <mat-icon>payments</mat-icon>
-        <p>{{ (classOptions().length === 0 && classesLoaded() ? 'fees.no_classes' : 'fees.pick_class') | t }}</p>
+        <p>{{ (classOptions().length <= 1 && classesLoaded() ? 'fees.no_classes' : 'fees.pick_class') | t }}</p>
       </div>
-    } @else {
-      @switch (overview.status()) {
+    } @else if (isAll()) {
+      @switch (all.status()) {
         @case ('ready') {
-          @if (overview.data(); as data) {
-            <div class="totals" role="group" [attr.aria-label]="'fees.totals' | t">
-              <div class="total">
-                <span class="muted">{{ 'fees.collected' | t }}</span>
-                <strong>{{ money(data.totals.collected) }}</strong>
-              </div>
-              <div class="total">
-                <span class="muted">{{ 'fees.outstanding' | t }}</span>
-                <strong [class.owing]="data.totals.outstanding > 0">{{ money(data.totals.outstanding) }}</strong>
-              </div>
-              <div class="counts muted">
-                {{ 'fees.status.Paid' | t }} {{ data.totals.paid }} · {{ 'fees.status.PartlyPaid' | t }} {{ data.totals.partlyPaid }} ·
-                {{ 'fees.status.Unpaid' | t }} {{ data.totals.unpaid }}
-                @if (data.totals.freeCard > 0) {
-                  · {{ 'fees.status.FreeCard' | t }} {{ data.totals.freeCard }}
-                }
-              </div>
+          @if (all.data(); as data) {
+            <ng-container *ngTemplateOutlet="totals; context: { $implicit: data.totals }" />
+            <div class="panel">
+              @for (c of data.classes; track c.classId) {
+                <button class="panel-row link" type="button" (click)="open(c.classId)">
+                  <span class="avatar" aria-hidden="true"><mat-icon>menu_book</mat-icon></span>
+                  <div class="row-main">
+                    <div class="row-title">{{ c.title }}</div>
+                    <div class="row-meta">{{ 'fees.collected' | t }} {{ money(c.totals.collected) }} · {{ 'fees.outstanding' | t }} {{ money(c.totals.outstanding) }}</div>
+                    <div class="row-meta">
+                      {{ 'fees.status.Paid' | t }} {{ c.totals.paid }} · {{ 'fees.status.PartlyPaid' | t }} {{ c.totals.partlyPaid }} · {{ 'fees.status.Unpaid' | t }} {{ c.totals.unpaid }}
+                    </div>
+                  </div>
+                  <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                </button>
+              } @empty {
+                <div class="panel-row muted">{{ 'fees.no_classes' | t }}</div>
+              }
             </div>
+          }
+        }
+        @case ('error') {
+          <div class="empty">
+            <p>{{ 'error.load_failed' | t }}</p>
+            <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
+          </div>
+        }
+        @default {
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        }
+      }
+    } @else {
+      @switch (classMonth.status()) {
+        @case ('ready') {
+          @if (classMonth.data(); as data) {
+            <ng-container *ngTemplateOutlet="totals; context: { $implicit: data.totals }" />
 
             <div class="panel">
               @for (row of data.rows; track row.enrolmentId) {
-                <a class="panel-row link" [routerLink]="['/fees', row.enrolmentId]" [queryParams]="{ month: isCurrent() ? null : month() }">
+                <a class="panel-row link" [routerLink]="['/fees', row.enrolmentId]" [queryParams]="{ month: isCurrent() ? null : chosenMonth() }">
                   <span class="avatar" aria-hidden="true">{{ row.indexNumber }}</span>
                   <div class="row-main">
                     <div class="row-title">{{ row.fullName }}</div>
@@ -109,47 +131,75 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
         }
       }
     }
+
+    <ng-template #totals let-sum>
+      <div class="totals" role="group" [attr.aria-label]="'fees.totals' | t">
+        <div class="total">
+          <span class="muted">{{ 'fees.collected' | t }}</span>
+          <strong>{{ money(sum.collected) }}</strong>
+        </div>
+        <div class="total">
+          <span class="muted">{{ 'fees.outstanding' | t }}</span>
+          <strong [class.owing]="sum.outstanding > 0">{{ money(sum.outstanding) }}</strong>
+        </div>
+        <div class="counts muted">
+          {{ 'fees.status.Paid' | t }} {{ sum.paid }} · {{ 'fees.status.PartlyPaid' | t }} {{ sum.partlyPaid }} · {{ 'fees.status.Unpaid' | t }} {{ sum.unpaid }}
+          @if (sum.freeCard > 0) {
+            · {{ 'fees.status.FreeCard' | t }} {{ sum.freeCard }}
+          }
+        </div>
+      </div>
+    </ng-template>
   `,
   styles: `
-    .month-nav { display: flex; align-items: center; gap: 0.25rem; margin-bottom: 1rem; }
-    .month { display: flex; flex: 1; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: center; min-width: 0; text-align: center; }
-    .tag { padding: 0.125rem 0.625rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-label-small); white-space: nowrap; }
     .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem; padding: 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container); }
     .total { display: grid; gap: 0.125rem; min-width: 0; }
     .total strong { font: var(--mat-sys-title-large); overflow-wrap: anywhere; }
     .total strong.owing { color: var(--mat-sys-error); }
     .counts { grid-column: 1 / -1; font: var(--mat-sys-body-small); }
-    a.link { color: inherit; text-decoration: none; }
-    a.link:hover { background: var(--mat-sys-surface-container); }
+    a.link, button.link { color: inherit; text-decoration: none; }
+    button.link { width: 100%; border-width: 0; background: none; font: inherit; text-align: start; cursor: pointer; }
+    a.link:hover, button.link:hover { background: var(--mat-sys-surface-container); }
     .chevron { color: var(--mat-sys-on-surface-variant); }
   `,
 })
 export class Fees {
-  /** Optional class and month from the ?classId= and ?month= query parameters. */
+  /** Optional class (a class id, or "all") and month from the ?classId= and ?month= query parameters. */
   readonly classId = input<string>('');
   readonly month = input<string>('');
 
   private readonly api = inject(FeesService);
+  private readonly reports = inject(ReportsService);
   private readonly router = inject(Router);
+  private readonly i18n = inject(TranslateService);
 
   protected readonly currentMonth = monthOf(todayColombo());
   protected readonly money = formatLkr;
-  protected readonly overview = new Loadable<ClassMonth>();
+  protected readonly classMonth = new Loadable<ClassMonth>();
+  protected readonly all = new Loadable<FeeOverview>();
   protected readonly classOptions = signal<SelectOption[]>([]);
   protected readonly classesLoaded = signal(false);
+  protected readonly exporting = signal(false);
   protected readonly classControl = new FormControl('', { nonNullable: true });
   protected readonly chosen = computed(() => this.classId());
+  protected readonly isAll = computed(() => this.chosen() === ALL_CLASSES);
+  protected readonly isClass = computed(() => !!this.chosen() && !this.isAll());
   protected readonly chosenMonth = computed(() => (/^\d{4}-\d{2}$/.test(this.month()) && this.month() <= this.currentMonth ? this.month() : this.currentMonth));
   protected readonly isCurrent = computed(() => this.chosenMonth() === this.currentMonth);
-  protected readonly canGoBack = computed(() => this.chosenMonth() > addMonths(this.currentMonth, -36));
-  protected readonly label = computed(() => formatMonth(this.chosenMonth()));
+  protected readonly unpaidParams = computed(() => ({
+    month: this.isCurrent() ? null : this.chosenMonth(),
+    classId: this.isClass() ? this.chosen() : null,
+  }));
   private readonly refresh = signal(0);
 
   constructor() {
     inject(ClassesService)
       .classes('active')
       .subscribe((list) => {
-        this.classOptions.set(list.map((c) => ({ value: c.id, label: c.title })));
+        this.classOptions.set([
+          { value: ALL_CLASSES, label: this.i18n.translate('fees.all_classes') },
+          ...list.map((c) => ({ value: c.id, label: c.title })),
+        ]);
         this.classesLoaded.set(true);
         // Nothing chosen yet: start on the first class so the page is useful straight away.
         if (!this.classId() && list.length > 0) this.setClass(list[0].id);
@@ -164,38 +214,58 @@ export class Fees {
     });
     this.classControl.valueChanges.pipe(takeUntilDestroyed()).subscribe((id) => this.setClass(id));
 
+    const destroyed = inject(DestroyRef);
     combineLatest([toObservable(this.chosen), toObservable(this.chosenMonth), toObservable(this.refresh)])
       .pipe(
         switchMap(([classId, month]) => {
           if (!classId) return EMPTY;
-          this.overview.status.set('loading');
-          return this.api.classMonth(classId, month).pipe(
-            tap((data) => {
-              this.overview.data.set(data);
-              this.overview.status.set('ready');
-            }),
-            catchError((e) => {
-              this.overview.error.set(e);
-              this.overview.status.set('error');
-              return EMPTY;
-            }),
-          );
+          return classId === ALL_CLASSES
+            ? this.fill(this.all, this.api.overview(month))
+            : this.fill(this.classMonth, this.api.classMonth(classId, month));
         }),
-        takeUntilDestroyed(inject(DestroyRef)),
+        takeUntilDestroyed(destroyed),
       )
       .subscribe();
-  }
-
-  protected go(months: number): void {
-    this.goTo(addMonths(this.chosenMonth(), months));
   }
 
   protected goTo(month: string): void {
     void this.router.navigate([], { queryParams: { month: month === this.currentMonth ? null : month }, queryParamsHandling: 'merge', replaceUrl: true });
   }
 
+  protected open(classId: string): void {
+    this.setClass(classId);
+  }
+
   protected reload(): void {
     this.refresh.update((n) => n + 1);
+  }
+
+  /** Saves this class's month as an Excel file. */
+  protected exportExcel(): void {
+    const classTitle = this.classOptions().find((o) => o.value === this.chosen())?.label ?? '';
+    this.exporting.set(true);
+    this.reports.download('fee-status', { classId: this.chosen(), month: this.chosenMonth() }).subscribe({
+      next: (file) => {
+        this.exporting.set(false);
+        saveBlob(file, `${fileNamePart(`${this.i18n.translate('fees.title')} ${classTitle} ${this.chosenMonth()}`)}.xlsx`);
+      },
+      error: () => this.exporting.set(false),
+    });
+  }
+
+  private fill<T>(target: Loadable<T>, source: Observable<T>): Observable<T> {
+    target.status.set('loading');
+    return source.pipe(
+      tap((data) => {
+        target.data.set(data);
+        target.status.set('ready');
+      }),
+      catchError((e) => {
+        target.error.set(e);
+        target.status.set('error');
+        return EMPTY;
+      }),
+    );
   }
 
   private setClass(id: string): void {

@@ -85,6 +85,40 @@ export interface MyFees {
   receipts: { receiptNo: string; amount: number; method: PaymentMethod; paidOn: string }[];
 }
 
+/** One class's totals for a month, in the all-classes view. */
+export interface ClassOverview {
+  classId: string;
+  title: string;
+  isArchived: boolean;
+  totals: MonthTotals;
+}
+
+/** The month across all of a teacher's classes. */
+export interface FeeOverview {
+  month: string;
+  totals: MonthTotals;
+  classes: ClassOverview[];
+}
+
+export interface UnpaidAttendee {
+  enrolmentId: string;
+  classId: string;
+  classTitle: string;
+  indexNumber: number;
+  fullName: string;
+  attended: number;
+  due: number;
+  paid: number;
+  outstanding: number;
+}
+
+/** Students who came to class in the month and still owe for it. */
+export interface UnpaidAttendees {
+  month: string;
+  outstanding: number;
+  rows: UnpaidAttendee[];
+}
+
 /** Monthly fees: what is due, payments (and voiding them), and who has paid. */
 @Injectable({ providedIn: 'root' })
 export class FeesService {
@@ -93,6 +127,14 @@ export class FeesService {
 
   classMonth(classId: string, month: string) {
     return this.http.get<ClassMonth>(`${this.base}/classes/${classId}`, { params: { month } });
+  }
+
+  overview(month: string) {
+    return this.http.get<FeeOverview>(`${this.base}/overview`, { params: { month } });
+  }
+
+  unpaidAttendees(month: string, classId?: string) {
+    return this.http.get<UnpaidAttendees>(`${this.base}/unpaid-attendees`, { params: classId ? { month, classId } : { month } });
   }
 
   enrolment(enrolmentId: string) {

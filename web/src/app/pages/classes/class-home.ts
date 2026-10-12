@@ -10,9 +10,11 @@ import { AttendanceService, ClassSession } from '../../core/api/attendance.servi
 import { CatalogStore } from '../../core/api/catalog.service';
 import { ClassesService, TuitionClass } from '../../core/api/classes.service';
 import { ClassMonth, FeesService } from '../../core/api/fees.service';
+import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
+import { fileNamePart, saveBlob } from '../../shared/download';
 import { formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
 import { ClassDialog } from './class-dialog';
@@ -63,6 +65,10 @@ interface Section {
                 <mat-icon>more_vert</mat-icon>
               </button>
               <mat-menu #menu="matMenu">
+                <button mat-menu-item type="button" (click)="exportClassList(c)">
+                  <mat-icon>download</mat-icon>
+                  <span>{{ 'classes.export_list' | t }}</span>
+                </button>
                 @if (c.status === 'Active') {
                   <button mat-menu-item type="button" (click)="archive(c)">
                     <mat-icon>archive</mat-icon>
@@ -222,6 +228,7 @@ export class ClassHome {
   private readonly api = inject(ClassesService);
   private readonly attendance = inject(AttendanceService);
   private readonly fees = inject(FeesService);
+  private readonly reports = inject(ReportsService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
@@ -259,6 +266,11 @@ export class ClassHome {
         this.klass.data.set(saved);
         this.toast.success('classes.saved');
       });
+  }
+
+  /** Saves the class list (every active student with contact details and fee plan) as an Excel file. */
+  protected exportClassList(c: TuitionClass): void {
+    this.reports.download('class-list', { classId: c.id }).subscribe((file) => saveBlob(file, `${fileNamePart(c.title)}.xlsx`));
   }
 
   protected addExtra(c: TuitionClass): void {

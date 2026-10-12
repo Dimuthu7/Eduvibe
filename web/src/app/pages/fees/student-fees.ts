@@ -6,10 +6,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { EnrolmentFees, FeesService, PaymentRecord } from '../../core/api/fees.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { FeeStatus } from '../../shared/fee-status';
+import { fileNamePart } from '../../shared/download';
 import { formatDate, formatLkr, formatMonth, formatMonthShort } from '../../shared/format';
+import { drawReceipt, shareOrSave } from '../../shared/receipt';
 import { PaymentDialog } from './payment-dialog';
 import { VoidDialog } from './void-dialog';
 
@@ -65,11 +68,9 @@ import { VoidDialog } from './void-dialog';
               <div class="panel-row" [class.voided]="!!p.voidedAt">
                 <mat-icon class="lead" aria-hidden="true">{{ p.voidedAt ? 'block' : 'receipt_long' }}</mat-icon>
                 <div class="row-main">
-                  <div class="row-title">
-                    <span class="amount">{{ money(p.amount) }}</span>
-                    <span class="muted"> · {{ p.receiptNo }}</span>
-                  </div>
-                  <div class="row-meta">{{ 'fees.method.' + p.method | t }} · {{ date(p.paidOn) }}</div>
+                  <div class="row-title amount">{{ money(p.amount) }}</div>
+                  <div class="row-meta"><span class="receipt-no">{{ p.receiptNo }}</span> · {{ 'fees.method.' + p.method | t }}</div>
+                  <div class="row-meta">{{ date(p.paidOn) }}</div>
                   @if (p.voidedAt) {
                     <div class="row-meta void-note">{{ 'fees.void_tag' | t }}: {{ p.voidReason }}</div>
                   } @else if (p.allocations.length > 0) {
@@ -77,6 +78,9 @@ import { VoidDialog } from './void-dialog';
                   }
                 </div>
                 @if (!p.voidedAt) {
+                  <button mat-icon-button type="button" (click)="shareReceipt(f, p)" [attr.aria-label]="'fees.receipt' | t">
+                    <mat-icon>share</mat-icon>
+                  </button>
                   <button mat-button type="button" (click)="confirmVoid(p)">{{ 'fees.void' | t }}</button>
                 }
               </div>
@@ -106,7 +110,8 @@ import { VoidDialog } from './void-dialog';
     .owing.clear { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
     .lead { color: var(--mat-sys-on-surface-variant); }
     .amount { font-weight: 600; }
-    .voided .amount, .voided .row-title .muted { text-decoration: line-through; }
+    .receipt-no { white-space: nowrap; }
+    .voided .amount { text-decoration: line-through; }
     .voided { color: var(--mat-sys-on-surface-variant); }
     .void-note { color: var(--mat-sys-error); }
   `,
@@ -120,6 +125,7 @@ export class StudentFees {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly i18n = inject(TranslateService);
+  private readonly auth = inject(AuthService);
 
   protected readonly record = new Loadable<EnrolmentFees>();
   protected readonly fees = computed(() => this.record.data());
@@ -142,6 +148,37 @@ export class StudentFees {
 
   protected allocationText(p: PaymentRecord): string {
     return p.allocations.map((a) => `${formatMonthShort(a.month)} ${formatLkr(a.amount)}`).join(' · ');
+  }
+
+  /** Makes the payment's receipt as an image and offers it to share (WhatsApp, for example), or saves it. */
+  protected async shareReceipt(f: EnrolmentFees, p: PaymentRecord): Promise<void> {
+    const t = (key: string) => this.i18n.translate(key);
+    const user = this.auth.user();
+    const image = await drawReceipt(
+      {
+        teacher: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+        className: f.classTitle,
+        student: f.fullName,
+        receiptNo: p.receiptNo,
+        amount: formatLkr(p.amount),
+        method: t(`fees.method.${p.method}`),
+        paidOn: formatDate(p.paidOn),
+        months: p.allocations.map((a) => formatMonthShort(a.month)).join(', '),
+      },
+      {
+        title: t('receipt.title'),
+        receiptNo: t('receipt.number'),
+        student: t('receipt.student'),
+        className: t('receipt.class'),
+        paidBy: t('fees.method'),
+        date: t('receipt.date'),
+        months: t('receipt.months'),
+        amount: t('receipt.amount'),
+        thanks: t('receipt.thanks'),
+      },
+    );
+    const result = await shareOrSave(image, `${fileNamePart(`${t('receipt.title')} ${p.receiptNo}`)}.png`, `${t('receipt.title')} ${p.receiptNo}`);
+    if (result === 'saved') this.toast.success('fees.receipt_saved');
   }
 
   protected pay(f: EnrolmentFees): void {

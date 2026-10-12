@@ -43,7 +43,7 @@ public sealed class ReportsModule : IModule
             return Problem(result.Error ?? "report_invalid", result.Error == "class_not_found" ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
         }
 
-        var name = new string([.. result.Table.Title.Select(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_' ? c : '-')]).Trim();
+        var name = new string([.. result.Table.Title.Select(c => char.IsLetterOrDigit(c) || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.NonSpacingMark or System.Globalization.UnicodeCategory.SpacingCombiningMark || c is ' ' or '-' or '_' ? c : '-')]).Trim();
         return Results.File(XlsxWriter.Write(result.Table), XlsxWriter.ContentType, $"{(name.Length == 0 ? "report" : name)}.xlsx");
     }
 
