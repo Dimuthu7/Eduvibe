@@ -23,6 +23,8 @@ export const routes: Routes = [
       { path: 'attendance', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/attendance').then((m) => m.Attendance) },
       { path: 'attendance/summary', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/summary').then((m) => m.AttendanceSummary) },
       { path: 'attendance/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/mark').then((m) => m.AttendanceMark) },
+      { path: 'fees', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/fees/fees').then((m) => m.Fees) },
+      { path: 'fees/:enrolmentId', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/fees/student-fees').then((m) => m.StudentFees) },
       { path: 'welcome', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/welcome/welcome').then((m) => m.Welcome) },
       { path: 'timetable', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/timetable/timetable').then((m) => m.Timetable) },
       { path: 'venues', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/venues/venues').then((m) => m.Venues) },

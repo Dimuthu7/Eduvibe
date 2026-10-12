@@ -86,6 +86,13 @@ const FIELD_FOR_CODE: Record<string, string> = {
   session_exists: 'start',
   note_too_long: 'note',
   class_not_found: 'classId',
+  amount_invalid: 'amount',
+  amount_exceeds_outstanding: 'amount',
+  method_invalid: 'method',
+  paid_on_in_future: 'paidOn',
+  month_invalid: 'months',
+  reason_required: 'reason',
+  reason_too_long: 'reason',
 };
 
 /**

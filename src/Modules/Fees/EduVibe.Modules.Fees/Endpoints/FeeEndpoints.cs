@@ -169,7 +169,7 @@ internal static class FeeEndpoints
         var paidOn = request.PaidOn ?? today;
         if (paidOn > today)
         {
-            return Problems.Reject("date_in_future");
+            return Problems.Reject("paid_on_in_future");
         }
 
         var joined = FeeMonths.Of(basis.JoinedOn);

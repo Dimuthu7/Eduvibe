@@ -4,23 +4,26 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { AttendanceService, MyAttendance } from '../../core/api/attendance.service';
+import { FeesService, MyFees } from '../../core/api/fees.service';
 import { MyClass, StudentsService } from '../../core/api/students.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
-import { formatDate, formatTime } from '../../shared/format';
+import { FeeStatus } from '../../shared/fee-status';
+import { formatDate, formatLkr, formatMonthShort, formatTime } from '../../shared/format';
 
 interface MyClassView {
   klass: MyClass;
   attendance: MyAttendance | undefined;
+  fees: MyFees | undefined;
 }
 
-/** Where a student lands after signing in: their classes, when each meets and how often they have come. Fees and results arrive in later sprints. */
+/** Where a student lands after signing in: their classes, when each meets and how often they have come. Results arrive in a later sprint. */
 @Component({
   selector: 'app-welcome',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
+  imports: [FeeStatus, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
     <h2 class="section-title first">{{ 'welcome.my_classes' | t }}</h2>
@@ -56,6 +59,33 @@ interface MyClassView {
                       <mat-icon aria-hidden="true">{{ r.status === 'Absent' ? 'close' : r.status === 'Late' ? 'schedule' : 'check' }}</mat-icon>
                       <span class="sr-only">{{ date(r.date) }}: {{ 'attendance.' + r.status.toLowerCase() | t }}</span>
                     </span>
+                  }
+                </div>
+              }
+
+              @if (item.fees; as fees) {
+                <div class="fees">
+                  <div class="fees-head">
+                    <mat-icon aria-hidden="true">payments</mat-icon>
+                    <strong>{{ 'welcome.fees' | t }}</strong>
+                    <span class="muted">
+                      @if (fees.outstanding > 0) {
+                        {{ 'welcome.fees_owing' | t }} {{ money(fees.outstanding) }}
+                      } @else {
+                        {{ 'welcome.fees_clear' | t }}
+                      }
+                    </span>
+                  </div>
+                  <div class="months">
+                    @for (m of fees.months.slice(0, 3); track m.month) {
+                      <span class="month">
+                        <span class="muted">{{ monthShort(m.month) }}</span>
+                        <app-fee-status [status]="m.status" />
+                      </span>
+                    }
+                  </div>
+                  @if (fees.receipts.length > 0) {
+                    <div class="row-meta receipt">{{ 'welcome.last_receipt' | t }}: {{ fees.receipts[0].receiptNo }} · {{ money(fees.receipts[0].amount) }} · {{ date(fees.receipts[0].paidOn) }}</div>
                   }
                 </div>
               }
@@ -97,6 +127,12 @@ interface MyClassView {
     .dot.absent { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     .dot.late { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
     .dot mat-icon { width: 1rem; height: 1rem; font-size: 1rem; }
+    .fees { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--mat-sys-outline-variant); }
+    .fees-head { display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .fees-head mat-icon { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; color: var(--mat-sys-primary); }
+    .months { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
+    .month { display: inline-flex; flex-direction: column; gap: 0.125rem; font: var(--mat-sys-label-small); }
+    .receipt { margin-top: 0.5rem; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .welcome { display: grid; justify-items: center; gap: 0.5rem; text-align: center; padding: 1.5rem 0.5rem; }
     .welcome mat-icon { width: 3rem; height: 3rem; font-size: 3rem; color: var(--mat-sys-primary); }
@@ -107,13 +143,20 @@ export class Welcome {
   protected readonly auth = inject(AuthService);
   private readonly students = inject(StudentsService);
   private readonly attendance = inject(AttendanceService);
+  private readonly fees = inject(FeesService);
 
-  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[] }>();
+  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[] }>();
   protected readonly time = formatTime;
   protected readonly date = formatDate;
+  protected readonly money = formatLkr;
+  protected readonly monthShort = formatMonthShort;
   protected readonly views = computed<MyClassView[]>(() => {
     const value = this.data.data();
-    return (value?.classes ?? []).map((klass) => ({ klass, attendance: value?.attendance.find((a) => a.classId === klass.classId) }));
+    return (value?.classes ?? []).map((klass) => ({
+      klass,
+      attendance: value?.attendance.find((a) => a.classId === klass.classId),
+      fees: value?.fees.find((f) => f.classId === klass.classId),
+    }));
   });
 
   constructor() {
@@ -121,6 +164,6 @@ export class Welcome {
   }
 
   protected load(): void {
-    this.data.load(forkJoin({ classes: this.students.myClasses(), attendance: this.attendance.mine() }));
+    this.data.load(forkJoin({ classes: this.students.myClasses(), attendance: this.attendance.mine(), fees: this.fees.mine() }));
   }
 }

@@ -188,7 +188,7 @@ public class FeesApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal("amount_invalid", await Code(await Pay(teacher.Client, student, -5m)));
         Assert.Equal("amount_invalid", await Code(await Pay(teacher.Client, student, 10.555m)));
         Assert.Equal("method_invalid", await Code(await Pay(teacher.Client, student, 100m, method: "Barter")));
-        Assert.Equal("date_in_future", await Code(await Pay(teacher.Client, student, 100m, paidOn: Today.AddDays(1))));
+        Assert.Equal("paid_on_in_future", await Code(await Pay(teacher.Client, student, 100m, paidOn: Today.AddDays(1))));
         Assert.Equal("enrolment_not_found", await Code(await Pay(teacher.Client, Guid.NewGuid(), 100m)));
         Assert.Equal(HttpStatusCode.Created, (await Pay(teacher.Client, student, 100m, method: "Online", paidOn: Today.AddDays(-2))).StatusCode);
     }
