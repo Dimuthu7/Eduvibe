@@ -32,6 +32,13 @@ public sealed class FeeDueService(FeesDbContext db, IClassRoster roster, IClassD
         return await EnsureAsync(bases, months, await classes.FindManyAsync([classId], ct), ct);
     }
 
+    /// <summary>All of the current teacher's active students, for the given months.</summary>
+    public async Task<int> EnsureForCurrentTeacherAsync(IReadOnlyList<string> months, CancellationToken ct)
+    {
+        var bases = await roster.FeeBasisAsync(null, ct);
+        return await EnsureAsync(bases, months, await classes.FindManyAsync(bases.Select(b => b.ClassId).Distinct(), ct), ct);
+    }
+
     /// <summary>One of the current teacher's enrolments, for the given months (those before they joined are skipped).</summary>
     public async Task<int> EnsureForEnrolmentAsync(FeeBasis basis, IReadOnlyList<string> months, CancellationToken ct)
     {

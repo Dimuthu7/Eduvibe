@@ -18,6 +18,7 @@ public sealed class AttendanceModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<AttendanceDbContext>(configuration, ModuleName);
+        services.AddScoped<IAttendanceLookup, AttendanceLookup>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
