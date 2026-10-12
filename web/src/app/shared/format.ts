@@ -35,3 +35,21 @@ export const monthStart = (date: string): string => `${date.slice(0, 8)}01`;
 /** "yyyy-MM-dd" as "Mon, 12 Oct 2026". */
 export const formatDate = (date: string): string =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
+/** The "yyyy-MM" fee month a "yyyy-MM-dd" date falls in. */
+export const monthOf = (date: string): string => date.slice(0, 7);
+
+/** A "yyyy-MM" fee month moved by whole months. */
+export function addMonths(month: string, months: number): string {
+  const [year, number] = month.split('-').map(Number);
+  const index = year * 12 + (number - 1) + months;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
+}
+
+/** "2026-10" as "October 2026". */
+export const formatMonth = (month: string): string =>
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+
+/** "2026-10" as "Oct 2026", for tight places. */
+export const formatMonthShort = (month: string): string =>
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'short', year: 'numeric' });

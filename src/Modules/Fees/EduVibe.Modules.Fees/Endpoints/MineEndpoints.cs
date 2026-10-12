@@ -1,0 +1,56 @@
+using EduVibe.Modules.Fees.Services;
+using EduVibe.Shared.Modules;
+using EduVibe.Shared.Security;
+using EduVibe.Shared.Tenancy;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
+
+namespace EduVibe.Modules.Fees.Endpoints;
+
+public sealed record MyReceiptDto(string ReceiptNo, decimal Amount, string Method, DateOnly PaidOn);
+
+public sealed record MyFeesDto(Guid ClassId, decimal Outstanding, DueDto[] Months, MyReceiptDto[] Receipts);
+
+/// <summary>A student's own fee status in each class they are in: the last few months and their latest receipts.</summary>
+internal static class MineEndpoints
+{
+    private const int MonthsShown = 6;
+    private const int ReceiptsShown = 5;
+
+    public static void Map(RouteGroupBuilder group)
+    {
+        group.MapGet("/mine", Mine).RequireAuthorization(Policies.Student);
+    }
+
+    private static async Task<IResult> Mine(FeesDbContext db, IClassRoster roster, ITenantContext user, TimeProvider clock, CancellationToken ct)
+    {
+        if (user.UserId is not { } userId)
+        {
+            return Results.Unauthorized();
+        }
+
+        var current = FeeMonths.Current(clock);
+        var enrolments = await roster.ActiveEnrolmentsOfUserAsync(userId, ct);
+        var ids = enrolments.Select(e => e.EnrolmentId).ToList();
+
+        // The student is not a teacher, so the teacher filter is lifted and the student's own enrolments are the only way in.
+        var dues = await db.Dues.IgnoreQueryFilters().Where(d => ids.Contains(d.EnrolmentId)).ToListAsync(ct);
+        var paid = await FeeLedger.PaidByDueAsync(db, [.. dues.Select(d => d.Id)], ct);
+        var payments = await db.Payments.IgnoreQueryFilters().Where(p => ids.Contains(p.EnrolmentId) && p.VoidedAt == null).ToListAsync(ct);
+
+        var result = enrolments.Select(e =>
+        {
+            var months = dues.Where(d => d.EnrolmentId == e.EnrolmentId && string.CompareOrdinal(d.Month, current) <= 0)
+                .OrderByDescending(d => d.Month)
+                .Select(d => new DueDto(d.Month, d.AmountDue, paid.GetValueOrDefault(d.Id), FeeMonths.StatusOf(d.AmountDue, paid.GetValueOrDefault(d.Id)).ToString()))
+                .ToList();
+            var receipts = payments.Where(p => p.EnrolmentId == e.EnrolmentId)
+                .OrderByDescending(p => p.ReceiptNo).Take(ReceiptsShown)
+                .Select(p => new MyReceiptDto(p.ReceiptNo, p.Amount, p.Method.ToString(), p.PaidOn));
+            return new MyFeesDto(e.ClassId, months.Sum(m => m.Due - m.Paid), [.. months.Take(MonthsShown)], [.. receipts]);
+        }).ToList();
+        return Results.Ok(result);
+    }
+}

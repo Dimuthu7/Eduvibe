@@ -9,10 +9,11 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AttendanceService, ClassSession } from '../../core/api/attendance.service';
 import { CatalogStore } from '../../core/api/catalog.service';
 import { ClassesService, TuitionClass } from '../../core/api/classes.service';
+import { ClassMonth, FeesService } from '../../core/api/fees.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
-import { formatLkr, formatTime, todayColombo } from '../../shared/format';
+import { formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
 import { ClassDialog } from './class-dialog';
 
@@ -139,6 +140,27 @@ interface Section {
             </div>
           }
 
+          @if (c.status === 'Active') {
+            <h2 class="section-title">{{ 'classes.fees' | t }}</h2>
+            <div class="panel">
+              <a class="panel-row link" routerLink="/fees" [queryParams]="{ classId: c.id }">
+                <mat-icon class="lead" aria-hidden="true">payments</mat-icon>
+                <div class="row-main">
+                  <div class="row-title">{{ monthName(thisMonth) }}</div>
+                  <div class="row-meta">
+                    @if (monthFees(); as m) {
+                      {{ 'fees.status.Paid' | t }} {{ m.totals.paid }} · {{ 'fees.status.PartlyPaid' | t }} {{ m.totals.partlyPaid }} · {{ 'fees.status.Unpaid' | t }} {{ m.totals.unpaid }}
+                      · {{ 'fees.outstanding' | t }} {{ money(m.totals.outstanding) }}
+                    } @else {
+                      {{ 'fees.subtitle' | t }}
+                    }
+                  </div>
+                </div>
+                <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+              </a>
+            </div>
+          }
+
           <app-invite-links [classId]="c.id" [archived]="c.status === 'Archived'" />
 
           <h2 class="section-title">{{ 'classes.sections' | t }}</h2>
@@ -189,6 +211,7 @@ export class ClassHome {
 
   private readonly api = inject(ClassesService);
   private readonly attendance = inject(AttendanceService);
+  private readonly fees = inject(FeesService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   protected readonly catalog = inject(CatalogStore);
@@ -196,10 +219,12 @@ export class ClassHome {
   protected readonly klass = new Loadable<TuitionClass>();
   protected readonly current = computed(() => this.klass.data());
   protected readonly todays = signal<ClassSession[]>([]);
+  protected readonly monthFees = signal<ClassMonth | null>(null);
+  protected readonly thisMonth = monthOf(todayColombo());
+  protected readonly monthName = formatMonth;
   protected readonly money = formatLkr;
   protected readonly time = formatTime;
   protected readonly sections: Section[] = [
-    { icon: 'payments', title: 'classes.unpaid' },
     { icon: 'quiz', title: 'classes.latest_exam' },
   ];
 
@@ -211,6 +236,7 @@ export class ClassHome {
   protected load(): void {
     this.klass.load(this.api.classById(this.id()));
     this.attendance.sessions(todayColombo()).subscribe((list) => this.todays.set(list.filter((x) => x.classId === this.id())));
+    this.fees.classMonth(this.id(), this.thisMonth).subscribe((m) => this.monthFees.set(m));
   }
 
   protected edit(c: TuitionClass): void {

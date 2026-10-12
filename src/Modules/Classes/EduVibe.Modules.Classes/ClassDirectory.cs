@@ -18,6 +18,12 @@ internal sealed class ClassDirectory(ClassesDbContext db) : IClassDirectory
     public async Task<ClassSummary?> FindInAnyTenantAsync(Guid classId, CancellationToken cancellationToken = default) =>
         await db.Classes.IgnoreQueryFilters().Where(c => c.Id == classId).Select(Summary).SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<Guid, ClassSummary>> FindManyInAnyTenantAsync(IEnumerable<Guid> classIds, CancellationToken cancellationToken = default)
+    {
+        var ids = classIds.Distinct().ToList();
+        return await db.Classes.IgnoreQueryFilters().Where(c => ids.Contains(c.Id)).Select(Summary).ToDictionaryAsync(c => c.Id, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ClassMeeting>> MeetingsOnAsync(int dayOfWeek, CancellationToken cancellationToken = default)
     {
         var rows = await db.ClassSlots

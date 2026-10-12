@@ -27,6 +27,7 @@ const TEACHER_NAV: NavItem[] = [
   { route: '/classes', label: 'nav.classes', icon: 'menu_book' },
   { route: '/students', label: 'nav.students', icon: 'groups' },
   { route: '/attendance', label: 'nav.attendance', icon: 'fact_check' },
+  { route: '/fees', label: 'nav.fees', icon: 'payments' },
   { route: '/timetable', label: 'nav.timetable', icon: 'calendar_month' },
   { route: '/venues', label: 'nav.venues', icon: 'place' },
 ];

@@ -1,4 +1,4 @@
-import { addDays, formatDate, formatLkr, formatTime, minutes, monthStart, toInputTime, todayColombo } from './format';
+import { addDays, addMonths, formatDate, formatMonth, formatLkr, formatTime, minutes, monthOf, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
 describe('format helpers', () => {
@@ -37,5 +37,13 @@ describe('format helpers', () => {
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
     expect(monthStart('2026-10-17')).toBe('2026-10-01');
     expect(formatDate('2026-10-12')).toBe('Mon, 12 Oct 2026');
+  });
+
+  it('moves fee months across year ends', () => {
+    expect(addMonths('2026-12', 1)).toBe('2027-01');
+    expect(addMonths('2026-01', -1)).toBe('2025-12');
+    expect(addMonths('2026-10', 14)).toBe('2027-12');
+    expect(monthOf('2026-10-17')).toBe('2026-10');
+    expect(formatMonth('2026-10')).toBe('October 2026');
   });
 });

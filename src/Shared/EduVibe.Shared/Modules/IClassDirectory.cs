@@ -29,4 +29,7 @@ public interface IClassDirectory
 
     /// <summary>The weekly times of classes of any teacher, for a student's own timetable.</summary>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<ClassWeeklySlot>>> SlotsInAnyTenantAsync(IEnumerable<Guid> classIds, CancellationToken cancellationToken = default);
+
+    /// <summary>Classes of any teacher among <paramref name="classIds"/>, by id. For background jobs and a student's own screens.</summary>
+    Task<IReadOnlyDictionary<Guid, ClassSummary>> FindManyInAnyTenantAsync(IEnumerable<Guid> classIds, CancellationToken cancellationToken = default);
 }
