@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { AttendanceService, ClassSession } from '../../core/api/attendance.service';
@@ -9,17 +9,18 @@ import { ClassesService } from '../../core/api/classes.service';
 import { errorCode, inlineError } from '../../core/api/problem';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { applyServerError, fieldErrorKey } from '../../shared/forms';
+import { addDays, todayColombo } from '../../shared/format';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { SubmitButton } from '../../shared/submit-button';
 
-/** Add a class that is not on the weekly timetable, such as a revision session, so its attendance can be taken. */
+/** Add a class that is not on the weekly timetable, such as a revision session, so its attendance can be taken. Opened from the Classes screens. */
 @Component({
   selector: 'app-extra-session-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, SearchSelect, SubmitButton, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, TranslatePipe],
   template: `
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <h2 mat-dialog-title>{{ 'attendance.extra_title' | t }}</h2>
+      <h2 mat-dialog-title>{{ 'classes.extra_title' | t }}</h2>
       <mat-dialog-content>
         @if (error()) {
           <p class="banner" role="alert">{{ error() | t }}</p>
@@ -28,7 +29,7 @@ import { SubmitButton } from '../../shared/submit-button';
           <app-search-select formControlName="classId" [label]="'attendance.class' | t" [options]="classOptions()" [required]="true" />
           <mat-form-field>
             <mat-label>{{ 'attendance.date' | t }}</mat-label>
-            <input matInput type="date" formControlName="date" required />
+            <input matInput type="date" formControlName="date" [min]="earliest" [max]="today" required />
             <mat-error>{{ key('date') | t }}</mat-error>
           </mat-form-field>
           <mat-form-field>
@@ -51,7 +52,7 @@ import { SubmitButton } from '../../shared/submit-button';
       </mat-dialog-content>
       <mat-dialog-actions align="end">
         <button mat-button type="button" mat-dialog-close>{{ 'common.cancel' | t }}</button>
-        <app-submit-button label="attendance.extra_submit" [busy]="busy()" />
+        <app-submit-button label="classes.extra_submit" [busy]="busy()" />
       </mat-dialog-actions>
     </form>
   `,
@@ -63,15 +64,18 @@ import { SubmitButton } from '../../shared/submit-button';
 export class ExtraSessionDialog {
   private readonly api = inject(AttendanceService);
   private readonly ref = inject<MatDialogRef<ExtraSessionDialog, ClassSession>>(MatDialogRef);
-  private readonly data = inject<{ date: string; classId?: string }>(MAT_DIALOG_DATA);
+  private readonly data = inject<{ classId?: string } | null>(MAT_DIALOG_DATA);
 
+  protected readonly today = todayColombo();
+  /** Attendance can be taken for today and the week before. */
+  protected readonly earliest = addDays(this.today, -7);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly classOptions = signal<SelectOption[]>([]);
   private readonly fb = inject(FormBuilder).nonNullable;
   protected readonly form = this.fb.group({
-    classId: [this.data.classId ?? '', [Validators.required]],
-    date: [this.data.date, [Validators.required]],
+    classId: [this.data?.classId ?? '', [Validators.required]],
+    date: [this.today, [Validators.required]],
     start: ['', [Validators.required]],
     end: ['', [Validators.required]],
     note: ['', [Validators.maxLength(200)]],
@@ -107,4 +111,15 @@ export class ExtraSessionDialog {
       },
     });
   }
+}
+
+/** Opens the extra-class dialog (with a class already chosen when it comes from one class's screen). Emits the new session, or nothing if cancelled. */
+export function openExtraClass(dialog: MatDialog, classId?: string) {
+  return dialog
+    .open<ExtraSessionDialog, { classId?: string }, ClassSession>(ExtraSessionDialog, {
+      data: { classId },
+      width: '40rem',
+      maxWidth: 'calc(100vw - 1rem)',
+    })
+    .afterClosed();
 }

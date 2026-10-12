@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
@@ -16,6 +16,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
 import { ClassDialog } from './class-dialog';
+import { openExtraClass } from './extra-session-dialog';
 
 interface Section {
   icon: string;
@@ -129,6 +130,14 @@ interface Section {
                   </div>
                 </div>
               }
+              <button class="panel-row link" type="button" (click)="addExtra(c)">
+                <mat-icon class="lead" aria-hidden="true">event_available</mat-icon>
+                <div class="row-main">
+                  <div class="row-title">{{ 'classes.extra' | t }}</div>
+                  <div class="row-meta">{{ 'classes.extra_hint' | t }}</div>
+                </div>
+                <mat-icon class="chevron" aria-hidden="true">add</mat-icon>
+              </button>
               <a class="panel-row link" routerLink="/attendance/summary" [queryParams]="{ classId: c.id }">
                 <mat-icon class="lead" aria-hidden="true">insights</mat-icon>
                 <div class="row-main">
@@ -196,7 +205,8 @@ interface Section {
     .note { display: flex; gap: 0.5rem; align-items: center; margin: 0 0 1rem; padding: 0.75rem 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); }
     .avatar.day { font-size: 0.8125rem; }
     a.link { color: inherit; text-decoration: none; }
-    a.link:hover { background: var(--mat-sys-surface-container); }
+    button.link { width: 100%; border-width: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
+    a.link:hover, button.link:hover { background: var(--mat-sys-surface-container); }
     .lead { color: var(--mat-sys-primary); }
     .chevron { color: var(--mat-sys-on-surface-variant); }
     .chevron-label { color: var(--mat-sys-primary); font: var(--mat-sys-label-large); }
@@ -214,6 +224,7 @@ export class ClassHome {
   private readonly fees = inject(FeesService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
   protected readonly catalog = inject(CatalogStore);
 
   protected readonly klass = new Loadable<TuitionClass>();
@@ -248,6 +259,14 @@ export class ClassHome {
         this.klass.data.set(saved);
         this.toast.success('classes.saved');
       });
+  }
+
+  protected addExtra(c: TuitionClass): void {
+    openExtraClass(this.dialog, c.id).subscribe((session) => {
+      if (!session) return;
+      this.toast.success('classes.extra_saved');
+      void this.router.navigate(['/attendance'], { queryParams: { date: session.date } });
+    });
   }
 
   protected archive(c: TuitionClass): void {

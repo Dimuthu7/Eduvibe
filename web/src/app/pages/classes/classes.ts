@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
@@ -17,6 +17,7 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { slotSummary } from '../../shared/schedule';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { ClassDialog } from './class-dialog';
+import { openExtraClass } from './extra-session-dialog';
 
 type View = 'active' | 'archived';
 
@@ -34,10 +35,16 @@ type View = 'active' | 'archived';
           <p class="page-subtitle">{{ 'classes.count' | t }}: {{ shown().length }}</p>
         }
       </div>
-      <button mat-flat-button type="button" (click)="add()">
-        <mat-icon>add</mat-icon>
-        {{ 'classes.add' | t }}
-      </button>
+      <div class="row-wrap">
+        <button mat-stroked-button type="button" (click)="addExtra()">
+          <mat-icon>event_available</mat-icon>
+          {{ 'classes.extra' | t }}
+        </button>
+        <button mat-flat-button type="button" (click)="add()">
+          <mat-icon>add</mat-icon>
+          {{ 'classes.add' | t }}
+        </button>
+      </div>
     </header>
 
     <div class="filters">
@@ -107,6 +114,7 @@ export class Classes {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly i18n = inject(TranslateService);
+  private readonly router = inject(Router);
   protected readonly catalog = inject(CatalogStore);
 
   protected readonly classes = new Loadable<TuitionClass[]>();
@@ -147,6 +155,15 @@ export class Classes {
         this.toast.success('classes.saved');
         if (this.view() === 'active') this.classes.update((all) => [...all, saved].sort((a, b) => a.title.localeCompare(b.title)));
       });
+  }
+
+  /** An extra class (such as a revision session) is not on the weekly timetable; once added it appears on its day in Attendance. */
+  protected addExtra(): void {
+    openExtraClass(this.dialog).subscribe((session) => {
+      if (!session) return;
+      this.toast.success('classes.extra_saved');
+      void this.router.navigate(['/attendance'], { queryParams: { date: session.date } });
+    });
   }
 
   protected money = formatLkr;

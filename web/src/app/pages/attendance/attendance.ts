@@ -2,15 +2,12 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, input
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { catchError, combineLatest, EMPTY, switchMap, tap } from 'rxjs';
 import { AttendanceService, ClassSession } from '../../core/api/attendance.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
-import { ToastService } from '../../core/ui/toast.service';
 import { addDays, formatDate, formatTime, todayColombo } from '../../shared/format';
-import { ExtraSessionDialog } from './extra-session-dialog';
 
 /** The day's classes. Tap one to mark who came. The date moves with the arrows and is kept in the address. */
 @Component({
@@ -29,10 +26,6 @@ import { ExtraSessionDialog } from './extra-session-dialog';
           <mat-icon>insights</mat-icon>
           {{ 'attendance.summary' | t }}
         </a>
-        <button mat-flat-button type="button" (click)="addExtra()" [disabled]="!canAdd()">
-          <mat-icon>add</mat-icon>
-          {{ 'attendance.extra' | t }}
-        </button>
       </div>
     </header>
 
@@ -123,8 +116,6 @@ export class Attendance {
 
   private readonly api = inject(AttendanceService);
   private readonly router = inject(Router);
-  private readonly dialog = inject(MatDialog);
-  private readonly toast = inject(ToastService);
 
   protected readonly today = todayColombo();
   protected readonly time = formatTime;
@@ -170,21 +161,5 @@ export class Attendance {
 
   protected reload(): void {
     this.refresh.update((n) => n + 1);
-  }
-
-  protected addExtra(): void {
-    this.dialog
-      .open<ExtraSessionDialog, { date: string }, ClassSession>(ExtraSessionDialog, {
-        data: { date: this.day() },
-        width: '40rem',
-        maxWidth: 'calc(100vw - 1rem)',
-      })
-      .afterClosed()
-      .subscribe((session) => {
-        if (!session) return;
-        this.toast.success('attendance.extra_saved');
-        if (session.date === this.day()) this.reload();
-        else this.goTo(session.date);
-      });
   }
 }
