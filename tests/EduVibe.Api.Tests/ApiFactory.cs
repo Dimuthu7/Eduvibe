@@ -8,6 +8,7 @@ using EduVibe.Modules.Identity;
 using EduVibe.Modules.Identity.Domain;
 using EduVibe.Modules.Identity.Services;
 using EduVibe.Modules.Attendance;
+using EduVibe.Modules.Fees;
 using EduVibe.Modules.Students;
 using EduVibe.Shared.Auditing;
 using EduVibe.Shared.Security;
@@ -108,6 +109,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:SigningKey", "test-signing-key-test-signing-key-0123456789");
         builder.UseSetting("RateLimit:AuthPerMinute", "1000");
         builder.UseSetting("Catalog:SeedOnStartup", "false");
+        builder.UseSetting("Fees:MonthlyJob", "false");
 
         builder.ConfigureServices(services =>
         {
@@ -116,6 +118,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<ClassesDbContext>(services);
             UseSqlite<StudentsDbContext>(services);
             UseSqlite<AttendanceDbContext>(services);
+            UseSqlite<FeesDbContext>(services);
         });
     }
 
@@ -132,6 +135,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<ClassesDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<StudentsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<AttendanceDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<FeesDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
         var stream = new EducationStream { Name = "O/L", SortOrder = 10 };

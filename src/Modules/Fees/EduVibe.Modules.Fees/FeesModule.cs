@@ -1,3 +1,5 @@
+using EduVibe.Modules.Fees.Endpoints;
+using EduVibe.Modules.Fees.Services;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -17,11 +19,14 @@ public sealed class FeesModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<FeesDbContext>(configuration, ModuleName);
+        services.AddScoped<FeeDueService>();
+        services.AddHostedService<FeeDueJob>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // This module's endpoints are added in its sprint; see the sprint plan.
-        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Fees");
+        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Fees");
+        FeeEndpoints.Map(group);
+        MineEndpoints.Map(group);
     }
 }
