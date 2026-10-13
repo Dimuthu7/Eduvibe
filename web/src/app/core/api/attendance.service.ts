@@ -63,6 +63,34 @@ export interface ClassSummary {
   students: StudentSummary[];
 }
 
+export interface ReportEntry {
+  date: string;
+  start: string;
+  end: string;
+  isExtra: boolean;
+  status: AttendanceStatus;
+}
+
+/** One student's attendance in one class over a period: every class that was marked, oldest first. */
+export interface StudentReport {
+  enrolmentId: string;
+  studentId: string;
+  indexNumber: number;
+  fullName: string;
+  classId: string;
+  classTitle: string;
+  from: string;
+  to: string;
+  sessions: number;
+  present: number;
+  late: number;
+  absent: number;
+  percent: number;
+  entries: ReportEntry[];
+  /** The teacher's classes this student is in, so the report can switch between them. */
+  classes: { enrolmentId: string; classId: string; title: string }[];
+}
+
 /** A student's own attendance in one class. */
 export interface MyAttendance {
   classId: string;
@@ -104,6 +132,10 @@ export class AttendanceService {
 
   summary(classId: string, from: string, to: string) {
     return this.http.get<ClassSummary>(`${this.base}/summary`, { params: { classId, from, to } });
+  }
+
+  studentReport(enrolmentId: string, from: string, to: string) {
+    return this.http.get<StudentReport>(`${this.base}/enrolments/${enrolmentId}/report`, { params: { from, to } });
   }
 
   mine() {

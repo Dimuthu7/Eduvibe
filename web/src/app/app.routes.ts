@@ -22,6 +22,7 @@ export const routes: Routes = [
       { path: 'students/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/students/student-detail').then((m) => m.StudentDetail) },
       { path: 'attendance', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/attendance').then((m) => m.Attendance) },
       { path: 'attendance/summary', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/summary').then((m) => m.AttendanceSummary) },
+      { path: 'attendance/summary/student/:enrolmentId', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/student-report').then((m) => m.StudentAttendanceReport) },
       { path: 'attendance/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/attendance/mark').then((m) => m.AttendanceMark) },
       { path: 'fees', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/fees/fees').then((m) => m.Fees) },
       { path: 'fees/unpaid', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/fees/unpaid-attendees').then((m) => m.UnpaidAttendees) },

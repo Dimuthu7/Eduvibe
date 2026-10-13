@@ -1,17 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, input, linkedSignal, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { catchError, combineLatest, EMPTY, startWith, switchMap, tap } from 'rxjs';
+import { catchError, EMPTY, switchMap, tap } from 'rxjs';
 import { AttendanceService, ClassSummary } from '../../core/api/attendance.service';
 import { ClassesService } from '../../core/api/classes.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
-import { monthStart, todayColombo } from '../../shared/format';
+import { monthRange, todayColombo } from '../../shared/format';
+import { DateRange, PeriodPicker } from '../../shared/period-picker';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 
 /** How often each student of a class came over a period (this month to start with). Late counts as attended. */
@@ -19,7 +18,7 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
   selector: 'app-attendance-summary',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
+  imports: [ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/attendance" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -32,17 +31,8 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
       </div>
     </header>
 
-    <div class="filters">
-      <app-search-select class="class-filter" [formControl]="classControl" [label]="'attendance.class' | t" [options]="classOptions()" />
-      <mat-form-field class="date">
-        <mat-label>{{ 'attendance.from' | t }}</mat-label>
-        <input matInput type="date" [formControl]="from" [max]="to.value" />
-      </mat-form-field>
-      <mat-form-field class="date">
-        <mat-label>{{ 'attendance.to' | t }}</mat-label>
-        <input matInput type="date" [formControl]="to" [min]="from.value" />
-      </mat-form-field>
-    </div>
+    <app-search-select [formControl]="classControl" [label]="'attendance.class' | t" [options]="classOptions()" />
+    <app-period-picker [from]="range().from" [to]="range().to" (rangeChange)="range.set($event)" />
 
     @if (!chosen()) {
       <div class="empty">
@@ -65,7 +55,11 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
               </p>
               <div class="panel">
                 @for (row of data.students; track row.enrolmentId) {
-                  <div class="panel-row student">
+                  <a
+                    class="panel-row student link"
+                    [routerLink]="['/attendance/summary/student', row.enrolmentId]"
+                    [queryParams]="{ from: range().from, to: range().to }"
+                  >
                     <span class="avatar" aria-hidden="true">{{ row.indexNumber }}</span>
                     <div class="row-main">
                       <div class="row-title">{{ row.fullName }}</div>
@@ -75,7 +69,8 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
                       <div class="bar" role="img" [attr.aria-label]="row.percent + '%'"><span [style.width.%]="row.percent"></span></div>
                     </div>
                     <span class="percent" [class.low]="row.sessions > 0 && row.percent < 75">{{ row.sessions > 0 ? row.percent + '%' : '–' }}</span>
-                  </div>
+                    <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                  </a>
                 } @empty {
                   <div class="panel-row muted">{{ 'attendance.no_students' | t }}</div>
                 }
@@ -98,40 +93,41 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
   `,
   styles: `
     .back { margin-left: -0.75rem; margin-bottom: 0.5rem; }
-    .filters { display: flex; flex-wrap: wrap; gap: 0 1rem; align-items: flex-start; }
-    .class-filter { flex: 2 1 16rem; }
-    .date { flex: 1 1 9rem; }
     .overall { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; margin: 0 0 0.75rem; }
     .overall strong { font: var(--mat-sys-headline-small); }
     .bar { height: 0.375rem; margin-top: 0.375rem; border-radius: 999px; background: var(--mat-sys-surface-container-highest); overflow: hidden; }
     .bar span { display: block; height: 100%; background: var(--mat-sys-primary); }
+    a.link { color: inherit; text-decoration: none; }
+    a.link:hover { background: var(--mat-sys-surface-container); }
+    .chevron { color: var(--mat-sys-on-surface-variant); }
     .percent { font: var(--mat-sys-title-medium); font-weight: 600; }
     .percent.low { color: var(--mat-sys-error); }
   `,
 })
 export class AttendanceSummary {
-  /** Optional class to start on, from the ?classId= query parameter. */
+  /** Optional class and dates to start on, from the query parameters (this month when there are no dates). */
   readonly classId = input<string>('');
+  readonly fromParam = input<string>('', { alias: 'from' });
+  readonly toParam = input<string>('', { alias: 'to' });
 
   private readonly api = inject(AttendanceService);
 
   protected readonly summary = new Loadable<ClassSummary>();
   protected readonly classOptions = signal<SelectOption[]>([]);
   protected readonly classControl = new FormControl('', { nonNullable: true });
-  protected readonly from = new FormControl(monthStart(todayColombo()), { nonNullable: true });
-  protected readonly to = new FormControl(todayColombo(), { nonNullable: true });
+  private readonly today = todayColombo();
+  /** The period shown: the dates from the address at first, then whatever the teacher picks. Defaults to this month so far. */
+  protected readonly range = linkedSignal<DateRange>(() => ({
+    from: this.fromParam() || monthRange(this.today.slice(0, 7), this.today).from,
+    to: this.toParam() || this.today,
+  }));
   private readonly classValue = toSignal(this.classControl.valueChanges, { initialValue: '' });
   private readonly refresh = signal(0);
 
   /** The class chosen, from the page address at first and from the dropdown after that. */
   protected readonly chosen = computed(() => this.classValue() || this.classId());
 
-  private readonly criteria$ = combineLatest([
-    toObservable(this.chosen),
-    this.from.valueChanges.pipe(startWith(this.from.value)),
-    this.to.valueChanges.pipe(startWith(this.to.value)),
-    toObservable(this.refresh),
-  ]);
+  private readonly criteria$ = toObservable(computed(() => ({ classId: this.chosen(), ...this.range(), refresh: this.refresh() })));
 
   constructor() {
     inject(ClassesService)
@@ -143,7 +139,7 @@ export class AttendanceSummary {
 
     this.criteria$
       .pipe(
-        switchMap(([classId, from, to]) => {
+        switchMap(({ classId, from, to }) => {
           if (!classId || !from || !to || from > to) return EMPTY;
           this.summary.status.set('loading');
           return this.api.summary(classId, from, to).pipe(
