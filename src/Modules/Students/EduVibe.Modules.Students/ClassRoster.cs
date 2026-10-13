@@ -22,6 +22,12 @@ internal sealed class ClassRoster(StudentsDbContext db) : IClassRoster
         return rows.ToDictionary(e => e.Id, ToEntry);
     }
 
+    public async Task<IReadOnlyList<RosterEntry>> EnrolmentsOfStudentAsync(Guid studentId, CancellationToken cancellationToken = default)
+    {
+        var rows = await db.Enrolments.Include(e => e.Student).Where(e => e.StudentId == studentId).ToListAsync(cancellationToken);
+        return [.. rows.OrderBy(e => e.JoinedOn).Select(ToEntry)];
+    }
+
     // A student sees their own enrolments across teachers, so the teacher filter is lifted and the account is the only way in.
     public async Task<IReadOnlyList<MyEnrolment>> ActiveEnrolmentsOfUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {

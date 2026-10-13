@@ -1,4 +1,4 @@
-import { addDays, addMonths, formatDate, formatMonth, formatLkr, formatTime, minutes, monthOf, monthStart, toInputTime, todayColombo } from './format';
+import { addDays, addMonths, formatDate, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
 describe('format helpers', () => {
@@ -45,5 +45,25 @@ describe('format helpers', () => {
     expect(addMonths('2026-10', 14)).toBe('2027-12');
     expect(monthOf('2026-10-17')).toBe('2026-10');
     expect(formatMonth('2026-10')).toBe('October 2026');
+  });
+});
+
+describe('month ranges', () => {
+  it('finds the last day of a month, leap years included', () => {
+    expect(monthEnd('2026-10')).toBe('2026-10-31');
+    expect(monthEnd('2026-02')).toBe('2026-02-28');
+    expect(monthEnd('2028-02')).toBe('2028-02-29');
+  });
+
+  it('runs a past month to its end and the current month to today', () => {
+    expect(monthRange('2026-09', '2026-10-13')).toEqual({ from: '2026-09-01', to: '2026-09-30' });
+    expect(monthRange('2026-10', '2026-10-13')).toEqual({ from: '2026-10-01', to: '2026-10-13' });
+  });
+
+  it('knows whether two dates are exactly a month', () => {
+    expect(isMonthRange('2026-10-01', '2026-10-13', '2026-10-13')).toBe(true);
+    expect(isMonthRange('2026-09-01', '2026-09-30', '2026-10-13')).toBe(true);
+    expect(isMonthRange('2026-09-05', '2026-09-30', '2026-10-13')).toBe(false);
+    expect(isMonthRange('2026-10-01', '2026-10-10', '2026-10-13')).toBe(false);
   });
 });

@@ -26,6 +26,9 @@ public interface IClassRoster
     /// <summary>The current teacher's enrolments among <paramref name="enrolmentIds"/>, whatever their status (a student who has left keeps their history).</summary>
     Task<IReadOnlyDictionary<Guid, RosterEntry>> FindEnrolmentsAsync(IEnumerable<Guid> enrolmentIds, CancellationToken cancellationToken = default);
 
+    /// <summary>All of the current teacher's enrolments of one student, whatever their status: one per class the student has been in.</summary>
+    Task<IReadOnlyList<RosterEntry>> EnrolmentsOfStudentAsync(Guid studentId, CancellationToken cancellationToken = default);
+
     /// <summary>The active enrolments of a student account, across all teachers. For the student's own screens.</summary>
     Task<IReadOnlyList<MyEnrolment>> ActiveEnrolmentsOfUserAsync(Guid userId, CancellationToken cancellationToken = default);
 

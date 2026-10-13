@@ -53,3 +53,21 @@ export const formatMonth = (month: string): string =>
 /** "2026-10" as "Oct 2026", for tight places. */
 export const formatMonthShort = (month: string): string =>
   new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+
+/** The last day of a "yyyy-MM" month as "yyyy-MM-dd". */
+export function monthEnd(month: string): string {
+  const [year, number] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, number, 0)).toISOString().slice(0, 10);
+}
+
+/** The dates a month covers: its first day to its last, or to today when it is the current month. */
+export function monthRange(month: string, today: string): { from: string; to: string } {
+  const end = monthEnd(month);
+  return { from: `${month}-01`, to: end > today ? today : end };
+}
+
+/** True when the dates are exactly one month's range, so the screen can show it as a month rather than as two dates. */
+export function isMonthRange(from: string, to: string, today: string): boolean {
+  const range = monthRange(monthOf(from), today);
+  return range.from === from && range.to === to;
+}

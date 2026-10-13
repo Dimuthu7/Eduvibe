@@ -13,6 +13,14 @@ public sealed record StudentSummaryDto(Guid EnrolmentId, int IndexNumber, string
 
 public sealed record ClassSummaryDto(Guid ClassId, DateOnly From, DateOnly To, int Sessions, int Percent, StudentSummaryDto[] Students);
 
+public sealed record ReportEntryDto(DateOnly Date, TimeOnly Start, TimeOnly End, bool IsExtra, string Status);
+
+public sealed record ReportClassDto(Guid EnrolmentId, Guid ClassId, string Title);
+
+public sealed record StudentReportDto(
+    Guid EnrolmentId, Guid StudentId, int IndexNumber, string FullName, Guid ClassId, string ClassTitle, DateOnly From, DateOnly To,
+    int Sessions, int Present, int Late, int Absent, int Percent, ReportEntryDto[] Entries, ReportClassDto[] Classes);
+
 public sealed record MyRecentDto(DateOnly Date, string Status);
 
 public sealed record MyAttendanceDto(Guid ClassId, int Sessions, int Present, int Late, int Absent, int Percent, MyRecentDto[] Recent);
@@ -25,6 +33,7 @@ internal static class SummaryEndpoints
     public static void Map(RouteGroupBuilder group)
     {
         group.MapGet("/summary", Summary).RequireAuthorization(Policies.Teacher);
+        group.MapGet("/enrolments/{enrolmentId:guid}/report", StudentReport).RequireAuthorization(Policies.Teacher);
         group.MapGet("/mine", Mine).RequireAuthorization(Policies.Student);
     }
 
@@ -76,6 +85,43 @@ internal static class SummaryEndpoints
 
         var attended = marks.Count(m => m.Status != AttendanceStatus.Absent);
         return Results.Ok(new ClassSummaryDto(cls.Id, start, end, sessionIds.Count, Percent(attended, marks.Count), students));
+    }
+
+    // One student in one class over a date range (this month by default): every class that was marked, with how the student came.
+    // Classes lists the other classes of the same teacher the student is in, so the screen can switch between them.
+    private static async Task<IResult> StudentReport(
+        Guid enrolmentId, DateOnly? from, DateOnly? to, AttendanceDbContext db, IClassDirectory classes, IClassRoster roster,
+        TimeProvider clock, CancellationToken ct)
+    {
+        var end = to ?? Problems.Today(clock);
+        var start = from ?? new DateOnly(end.Year, end.Month, 1);
+        if (end < start || end.DayNumber - start.DayNumber >= MaxRangeDays)
+        {
+            return Problems.Reject("range_invalid");
+        }
+
+        if (!(await roster.FindEnrolmentsAsync([enrolmentId], ct)).TryGetValue(enrolmentId, out var person))
+        {
+            return Problems.Reject("enrolment_not_found", StatusCodes.Status404NotFound);
+        }
+
+        var rows = await db.Marks.Where(m => m.EnrolmentId == enrolmentId)
+            .Join(db.Sessions.Where(s => s.TakenAt != null && s.Date >= start && s.Date <= end), m => m.SessionId, s => s.Id,
+                (m, s) => new { s.Date, s.Start, s.End, s.IsExtra, m.Status })
+            .ToListAsync(ct);
+        var entries = rows.OrderBy(r => r.Date).ThenBy(r => r.Start).ToList();
+
+        var own = await roster.EnrolmentsOfStudentAsync(person.StudentId, ct);
+        var titles = await classes.FindManyAsync(own.Select(e => e.ClassId), ct);
+        var options = own.Where(e => titles.ContainsKey(e.ClassId)).Select(e => new ReportClassDto(e.EnrolmentId, e.ClassId, titles[e.ClassId].Title)).ToArray();
+
+        var present = entries.Count(r => r.Status == AttendanceStatus.Present);
+        var late = entries.Count(r => r.Status == AttendanceStatus.Late);
+        return Results.Ok(new StudentReportDto(
+            person.EnrolmentId, person.StudentId, person.IndexNumber, person.FullName, person.ClassId,
+            titles.TryGetValue(person.ClassId, out var cls) ? cls.Title : string.Empty, start, end,
+            entries.Count, present, late, entries.Count - present - late, Percent(present + late, entries.Count),
+            [.. entries.Select(r => new ReportEntryDto(r.Date, r.Start, r.End, r.IsExtra, r.Status.ToString()))], options));
     }
 
     // The signed-in student's own attendance in each class they are enrolled in, across teachers.

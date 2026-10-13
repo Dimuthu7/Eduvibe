@@ -228,6 +228,78 @@ public class AttendanceApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Student_report_lists_each_marked_class_in_date_order_and_defaults_to_this_month()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        var classId = await DailyClass(teacher.Client);
+        var (bandula, phone) = await AddStudent(teacher.Client, classId, "Bandula");
+
+        // Three days back, two back and today: absent, late, present. Yesterday is never marked.
+        var statuses = new[] { "Present", null, "Late", "Absent" };
+        for (var back = 0; back < 4; back++)
+        {
+            var sessionId = SessionOf(await Sessions(teacher.Client, Today.AddDays(-back)), classId);
+            if (statuses[back] is { } status)
+            {
+                Assert.Equal(HttpStatusCode.OK, (await Save(teacher.Client, sessionId, (bandula, status))).StatusCode);
+            }
+        }
+
+        var report = await Json(await teacher.Client.GetAsync(
+            $"/api/attendance/enrolments/{bandula}/report?from={Today.AddDays(-6):yyyy-MM-dd}&to={Today:yyyy-MM-dd}"));
+        Assert.Equal("Bandula Perera", report.GetProperty("fullName").GetString());
+        Assert.Equal("2027 A/L Maths", report.GetProperty("classTitle").GetString());
+        Assert.Equal(3, report.GetProperty("sessions").GetInt32());
+        Assert.Equal(1, report.GetProperty("present").GetInt32());
+        Assert.Equal(1, report.GetProperty("late").GetInt32());
+        Assert.Equal(1, report.GetProperty("absent").GetInt32());
+        Assert.Equal(67, report.GetProperty("percent").GetInt32());
+        var entries = report.GetProperty("entries").EnumerateArray().ToList();
+        Assert.Equal(["Absent", "Late", "Present"], entries.Select(e => e.GetProperty("status").GetString()));
+        Assert.Equal(Today.AddDays(-3).ToString("yyyy-MM-dd"), entries[0].GetProperty("date").GetString());
+        Assert.Equal("16:00:00", entries[0].GetProperty("start").GetString());
+
+        // Without dates it is the first of this month to today, which holds today's session at least.
+        var thisMonth = await Json(await teacher.Client.GetAsync($"/api/attendance/enrolments/{bandula}/report"));
+        Assert.Equal(new DateOnly(Today.Year, Today.Month, 1).ToString("yyyy-MM-dd"), thisMonth.GetProperty("from").GetString());
+        Assert.Equal(Today.ToString("yyyy-MM-dd"), thisMonth.GetProperty("to").GetString());
+        Assert.Contains(thisMonth.GetProperty("entries").EnumerateArray(), e => e.GetProperty("date").GetString() == Today.ToString("yyyy-MM-dd"));
+
+        Assert.Equal("range_invalid", await Code(await teacher.Client.GetAsync(
+            $"/api/attendance/enrolments/{bandula}/report?from={Today:yyyy-MM-dd}&to={Today.AddDays(-1):yyyy-MM-dd}")));
+        Assert.Equal("enrolment_not_found", await Code(await teacher.Client.GetAsync($"/api/attendance/enrolments/{Guid.NewGuid()}/report")));
+        Assert.NotEqual(HttpStatusCode.OK, (await factory.CreateClient().GetAsync($"/api/attendance/enrolments/{bandula}/report")).StatusCode);
+
+        // Enrolled in a second class too: both are offered so the screen can switch, and each has its own marks.
+        var second = await DailyClass(teacher.Client, "2027 A/L Physics");
+        var enrol = await teacher.Client.PostAsJsonAsync("/api/students", new
+        {
+            phone, firstName = "x", lastName = "y", classId = second, feePlan = "Full", enrolExisting = true,
+        });
+        Assert.Equal(HttpStatusCode.Created, enrol.StatusCode);
+        var secondEnrolment = (await Json(enrol)).GetProperty("row").GetProperty("enrolmentId").GetGuid();
+        var both = await Json(await teacher.Client.GetAsync($"/api/attendance/enrolments/{bandula}/report"));
+        Assert.Equal(
+            new[] { "2027 A/L Maths", "2027 A/L Physics" },
+            both.GetProperty("classes").EnumerateArray().Select(c => c.GetProperty("title").GetString()!).Order().ToArray());
+        var physics = await Json(await teacher.Client.GetAsync($"/api/attendance/enrolments/{secondEnrolment}/report"));
+        Assert.Equal("2027 A/L Physics", physics.GetProperty("classTitle").GetString());
+        Assert.Equal(0, physics.GetProperty("sessions").GetInt32());
+        Assert.Equal(0, physics.GetProperty("percent").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_teacher_cannot_read_another_teachers_student_report()
+    {
+        var owner = await factory.NewTeacherAsync();
+        var other = await factory.NewTeacherAsync("Sunil");
+        var classId = await DailyClass(owner.Client);
+        var (enrolment, _) = await AddStudent(owner.Client, classId, "Amara");
+
+        Assert.Equal(HttpStatusCode.NotFound, (await other.Client.GetAsync($"/api/attendance/enrolments/{enrolment}/report")).StatusCode);
+    }
+
+    [Fact]
     public async Task A_teacher_cannot_see_or_change_another_teachers_sessions()
     {
         var owner = await factory.NewTeacherAsync();
