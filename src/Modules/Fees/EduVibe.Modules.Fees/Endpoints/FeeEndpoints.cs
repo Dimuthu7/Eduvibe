@@ -35,7 +35,7 @@ public sealed record EnrolmentFeesDto(
 /// <summary>Fees for the teacher: a class's month at a glance, one student's months and payments, recording and voiding payments.</summary>
 internal static class FeeEndpoints
 {
-    private const int MonthsBack = 36;
+    private const int MonthsBack = ClassMonthService.MonthsBack;
     private const int MonthsAhead = 12;
     private const decimal MaxPayment = 10_000_000m;
     private const int MaxReasonLength = 200;
@@ -50,64 +50,12 @@ internal static class FeeEndpoints
     }
 
     // One class for one month (this month by default): every billed student's status, with the class totals.
-    private static async Task<IResult> ClassMonth(
-        Guid classId, string? month, FeesDbContext db, FeeDueService dues, IClassDirectory classes, IClassRoster roster,
-        TimeProvider clock, CancellationToken ct)
+    private static async Task<IResult> ClassMonth(Guid classId, string? month, ClassMonthService months, CancellationToken ct)
     {
-        var current = FeeMonths.Current(clock);
-        var chosen = month ?? current;
-        if (!FeeMonths.IsValid(chosen) || string.CompareOrdinal(chosen, FeeMonths.Add(current, -MonthsBack)) < 0)
-        {
-            return Problems.Reject("month_invalid");
-        }
-
-        if (string.CompareOrdinal(chosen, current) > 0)
-        {
-            return Problems.Reject("month_in_future");
-        }
-
-        if (await classes.FindAsync(classId, ct) is null)
-        {
-            return Problems.Reject("class_not_found", StatusCodes.Status404NotFound);
-        }
-
-        await dues.EnsureForClassAsync(classId, [chosen], ct);
-        var rows = await db.Dues.Where(d => d.ClassId == classId && d.Month == chosen).ToListAsync(ct);
-        var paid = await FeeLedger.PaidByDueAsync(db, [.. rows.Select(r => r.Id)], ct);
-
-        // Active students, plus anyone who has since left but was billed this month.
-        var people = (await roster.ActiveRosterAsync(classId, ct)).ToDictionary(r => r.EnrolmentId);
-        var gone = rows.Select(r => r.EnrolmentId).Where(e => !people.ContainsKey(e)).ToList();
-        if (gone.Count > 0)
-        {
-            foreach (var (id, entry) in await roster.FindEnrolmentsAsync(gone, ct))
-            {
-                people[id] = entry;
-            }
-        }
-
-        var lines = rows
-            .Where(r => people.ContainsKey(r.EnrolmentId))
-            .Select(r =>
-            {
-                var p = people[r.EnrolmentId];
-                var got = paid.GetValueOrDefault(r.Id);
-                return new MonthRowDto(r.EnrolmentId, p.IndexNumber, p.FullName, FeeMonths.StatusOf(r.AmountDue, got).ToString(), r.AmountDue, got);
-            })
-            .OrderBy(r => r.IndexNumber)
-            .ToArray();
-        return Results.Ok(new ClassMonthDto(classId, chosen, Totals(lines), lines));
-    }
-
-    private static MonthTotalsDto Totals(MonthRowDto[] rows)
-    {
-        var billed = rows.Where(r => r.Status != nameof(MonthStatus.FreeCard)).ToList();
-        var due = billed.Sum(r => r.Due);
-        var collected = billed.Sum(r => r.Paid);
-        return new MonthTotalsDto(
-            rows.Count(r => r.Status == nameof(MonthStatus.Paid)), rows.Count(r => r.Status == nameof(MonthStatus.PartlyPaid)),
-            rows.Count(r => r.Status == nameof(MonthStatus.Unpaid)), rows.Count(r => r.Status == nameof(MonthStatus.FreeCard)),
-            due, collected, due - collected);
+        var result = await months.BuildAsync(classId, month, ct);
+        return result.Value is { } value
+            ? Results.Ok(value)
+            : Problems.Reject(result.Error!, result.Error == "class_not_found" ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
     }
 
     // One student's months, newest first, and every payment with the months it covered.

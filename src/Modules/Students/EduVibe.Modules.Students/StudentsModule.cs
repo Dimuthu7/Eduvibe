@@ -19,6 +19,7 @@ public sealed class StudentsModule : IModule
     {
         services.AddModuleDbContext<StudentsDbContext>(configuration, ModuleName);
         services.AddScoped<IClassRoster, ClassRoster>();
+        services.AddScoped<IReportSource, ClassListReport>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

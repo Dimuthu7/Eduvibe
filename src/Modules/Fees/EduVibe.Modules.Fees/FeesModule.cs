@@ -20,6 +20,8 @@ public sealed class FeesModule : IModule
     {
         services.AddModuleDbContext<FeesDbContext>(configuration, ModuleName);
         services.AddScoped<FeeDueService>();
+        services.AddScoped<ClassMonthService>();
+        services.AddScoped<IReportSource, FeeStatusReport>();
         services.AddHostedService<FeeDueJob>();
     }
 
@@ -27,6 +29,7 @@ public sealed class FeesModule : IModule
     {
         var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Fees");
         FeeEndpoints.Map(group);
+        OverviewEndpoints.Map(group);
         MineEndpoints.Map(group);
     }
 }
