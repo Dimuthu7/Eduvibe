@@ -7,8 +7,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { catchError, EMPTY, switchMap, tap } from 'rxjs';
 import { AttendanceService, ClassSummary } from '../../core/api/attendance.service';
 import { ClassesService } from '../../core/api/classes.service';
+import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
+import { fileNamePart, saveBlob } from '../../shared/download';
 import { monthRange, todayColombo } from '../../shared/format';
 import { DateRange, PeriodPicker } from '../../shared/period-picker';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
@@ -29,6 +32,12 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
         <h1 class="page-title">{{ 'attendance.summary' | t }}</h1>
         <p class="page-subtitle">{{ 'attendance.summary_subtitle' | t }}</p>
       </div>
+      @if (chosen()) {
+        <button mat-stroked-button type="button" (click)="exportExcel()" [disabled]="exporting()">
+          <mat-icon>download</mat-icon>
+          {{ 'attendance.export' | t }}
+        </button>
+      }
     </header>
 
     <app-search-select [formControl]="classControl" [label]="'attendance.class' | t" [options]="classOptions()" />
@@ -112,7 +121,10 @@ export class AttendanceSummary {
 
   private readonly api = inject(AttendanceService);
 
+  private readonly reports = inject(ReportsService);
+  private readonly i18n = inject(TranslateService);
   protected readonly summary = new Loadable<ClassSummary>();
+  protected readonly exporting = signal(false);
   protected readonly classOptions = signal<SelectOption[]>([]);
   protected readonly classControl = new FormControl('', { nonNullable: true });
   private readonly today = todayColombo();
@@ -157,6 +169,20 @@ export class AttendanceSummary {
         takeUntilDestroyed(inject(DestroyRef)),
       )
       .subscribe();
+  }
+
+  /** Saves the register for the class and dates on screen as an Excel file: a column per class held, P, L or A for each student. */
+  protected exportExcel(): void {
+    const { from, to } = this.range();
+    const title = this.classOptions().find((o) => o.value === this.chosen())?.label ?? '';
+    this.exporting.set(true);
+    this.reports.download('attendance', { classId: this.chosen(), from, to }).subscribe({
+      next: (file) => {
+        this.exporting.set(false);
+        saveBlob(file, `${fileNamePart(`${this.i18n.translate('attendance.title')} ${title} ${from} ${to}`)}.xlsx`);
+      },
+      error: () => this.exporting.set(false),
+    });
   }
 
   protected reload(): void {

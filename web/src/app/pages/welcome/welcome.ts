@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { forkJoin } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { AttendanceService, MyAttendance } from '../../core/api/attendance.service';
+import { ExamsService, MyExam } from '../../core/api/exams.service';
 import { FeesService, MyFees } from '../../core/api/fees.service';
 import { MyClass, StudentsService } from '../../core/api/students.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -11,19 +13,22 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
 import { formatDate, formatLkr, formatMonthShort, formatTime } from '../../shared/format';
+import { short } from '../exams/exam-analysis';
 
 interface MyClassView {
   klass: MyClass;
   attendance: MyAttendance | undefined;
   fees: MyFees | undefined;
+  /** The newest published result in this class. */
+  latest: MyExam | undefined;
 }
 
-/** Where a student lands after signing in: their classes, when each meets and how often they have come. Results arrive in a later sprint. */
+/** Where a student lands after signing in: their classes, when each meets, how often they have come, fees and the latest result. */
 @Component({
   selector: 'app-welcome',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FeeStatus, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
+  imports: [RouterLink, FeeStatus, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
     <h2 class="section-title first">{{ 'welcome.my_classes' | t }}</h2>
@@ -61,6 +66,31 @@ interface MyClassView {
                     </span>
                   }
                 </div>
+              }
+
+              @if (item.latest; as r) {
+                <a class="result" routerLink="/results" [queryParams]="{ classId: item.klass.classId }">
+                  <mat-icon aria-hidden="true">quiz</mat-icon>
+                  <div class="row-main">
+                    <div><strong>{{ 'welcome.latest_result' | t }}</strong> · {{ r.name }}</div>
+                    <div class="row-meta">
+                      @if (r.absent) {
+                        {{ 'exams.absent' | t }}
+                      } @else if (r.percent !== null) {
+                        {{ num(r.total!) }} / {{ num(r.maxTotal) }} · {{ r.percent }}%
+                        @if (r.rank !== null) {
+                          · {{ 'exams.rank' | t }} {{ r.rank }} {{ 'exams.of' | t }} {{ r.ranked }}
+                        }
+                      } @else {
+                        {{ 'results.not_complete' | t }}
+                      }
+                    </div>
+                  </div>
+                  @if (r.grade) {
+                    <span class="grade-chip">{{ r.grade }}</span>
+                  }
+                  <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                </a>
               }
 
               @if (item.fees; as fees) {
@@ -133,6 +163,11 @@ interface MyClassView {
     .months { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; }
     .month { display: inline-flex; flex-direction: column; gap: 0.125rem; font: var(--mat-sys-label-small); }
     .receipt { margin-top: 0.5rem; }
+    .result { display: flex; gap: 0.75rem; align-items: center; margin: 0.75rem -0.5rem 0; padding: 0.75rem 0.5rem 0.5rem; border-top: 1px solid var(--mat-sys-outline-variant); color: inherit; text-decoration: none; }
+    .result:hover { background: var(--mat-sys-surface-container); }
+    .result > mat-icon:first-child { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; color: var(--mat-sys-primary); }
+    .result .chevron { color: var(--mat-sys-on-surface-variant); }
+    .grade-chip { min-width: 2rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-label-large); text-align: center; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .welcome { display: grid; justify-items: center; gap: 0.5rem; text-align: center; padding: 1.5rem 0.5rem; }
     .welcome mat-icon { width: 3rem; height: 3rem; font-size: 3rem; color: var(--mat-sys-primary); }
@@ -144,8 +179,10 @@ export class Welcome {
   private readonly students = inject(StudentsService);
   private readonly attendance = inject(AttendanceService);
   private readonly fees = inject(FeesService);
+  private readonly exams = inject(ExamsService);
 
-  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[] }>();
+  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[]; results: MyExam[] }>();
+  protected readonly num = short;
   protected readonly time = formatTime;
   protected readonly date = formatDate;
   protected readonly money = formatLkr;
@@ -156,6 +193,8 @@ export class Welcome {
       klass,
       attendance: value?.attendance.find((a) => a.classId === klass.classId),
       fees: value?.fees.find((f) => f.classId === klass.classId),
+      // Results come newest first, so the first one of the class is the latest.
+      latest: value?.results.find((r) => r.classId === klass.classId),
     }));
   });
 
@@ -164,6 +203,6 @@ export class Welcome {
   }
 
   protected load(): void {
-    this.data.load(forkJoin({ classes: this.students.myClasses(), attendance: this.attendance.mine(), fees: this.fees.mine() }));
+    this.data.load(forkJoin({ classes: this.students.myClasses(), attendance: this.attendance.mine(), fees: this.fees.mine(), results: this.exams.mine() }));
   }
 }

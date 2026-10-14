@@ -9,12 +9,16 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ExamDetail, ExamPart, ExamsService, MarkRow, StudentResult } from '../../core/api/exams.service';
+import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { fileNamePart, saveBlob } from '../../shared/download';
 import { parseMark, previewRow, RowPreview } from '../../shared/exam-calc';
 import { formatDate } from '../../shared/format';
+import { ExamAnalysis } from './exam-analysis';
 import { openExamDialog } from './exam-dialog';
 
 interface Entry {
@@ -26,15 +30,16 @@ interface Entry {
 }
 
 /**
- * One exam: a grid to type each student's marks (number keypad, Enter moves to the next box, Absent is separate from 0)
- * and, after saving, the results with grade and rank. Totals and grades show as the teacher types; ranks come from the server.
+ * One exam: a grid to type each student's marks (number keypad, Enter moves to the next box, Absent is separate from 0),
+ * the results with grade and rank, and the class analysis. Totals and grades show as the teacher types; ranks come from
+ * the server. Publishing shares the results with the students.
  */
 @Component({
   selector: 'app-exam',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    RouterLink, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
+    RouterLink, ExamAnalysis, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
   ],
   template: `
     <a mat-button routerLink="/exams" [queryParams]="{ classId: detail()?.classId }" class="back">
@@ -59,6 +64,16 @@ interface Entry {
                   <mat-icon>edit</mat-icon>
                   <span>{{ 'exams.edit' | t }}</span>
                 </button>
+                <button mat-menu-item type="button" (click)="exportExcel(d)" [disabled]="exporting()">
+                  <mat-icon>download</mat-icon>
+                  <span>{{ 'exams.export' | t }}</span>
+                </button>
+                @if (d.publishedAt) {
+                  <button mat-menu-item type="button" (click)="unpublish(d)">
+                    <mat-icon>visibility_off</mat-icon>
+                    <span>{{ 'exams.unpublish' | t }}</span>
+                  </button>
+                }
                 <button mat-menu-item type="button" (click)="confirmDelete(d)">
                   <mat-icon>delete</mat-icon>
                   <span>{{ 'exams.delete' | t }}</span>
@@ -67,9 +82,24 @@ interface Entry {
             </div>
           </header>
 
+          <div class="share" [class.on]="!!d.publishedAt" role="status">
+            <mat-icon aria-hidden="true">{{ d.publishedAt ? 'visibility' : 'visibility_off' }}</mat-icon>
+            <span class="share-text">
+              @if (d.publishedAt) {
+                {{ 'exams.published_on' | t }} {{ date(d.publishedAt.slice(0, 10)) }}. {{ 'exams.published_hint' | t }}
+              } @else {
+                {{ 'exams.not_published' | t }}
+              }
+            </span>
+            @if (!d.publishedAt) {
+              <button mat-stroked-button type="button" (click)="publish(d)" [disabled]="publishing()">{{ 'exams.publish' | t }}</button>
+            }
+          </div>
+
           <mat-button-toggle-group class="views" [value]="view()" (change)="view.set($event.value)" [hideSingleSelectionIndicator]="true" [attr.aria-label]="'exams.view' | t">
             <mat-button-toggle value="marks">{{ 'exams.marks' | t }}</mat-button-toggle>
             <mat-button-toggle value="results">{{ 'exams.results' | t }}</mat-button-toggle>
+            <mat-button-toggle value="analysis">{{ 'exams.analysis' | t }}</mat-button-toggle>
           </mat-button-toggle-group>
 
           @if (entries().length === 0) {
@@ -154,6 +184,11 @@ interface Entry {
                 {{ 'exams.save' | t }}
               </button>
             </div>
+          } @else if (view() === 'analysis') {
+            @if (dirtyCount() > 0) {
+              <p class="hint" role="status"><mat-icon>info</mat-icon> {{ 'exams.unsaved_results' | t }}</p>
+            }
+            <app-exam-analysis [exam]="d" />
           } @else {
             <div class="totals" role="group" [attr.aria-label]="'exams.results' | t">
               <div class="total"><strong>{{ d.summary.marked }} / {{ d.summary.students }}</strong><span>{{ 'exams.marked_of' | t }}</span></div>
@@ -164,7 +199,7 @@ interface Entry {
             }
             <div class="panel">
               @for (s of ranked(); track s.enrolmentId) {
-                <div class="panel-row">
+                <a class="panel-row link" [routerLink]="['/exams/student', s.enrolmentId]" [queryParams]="{ examId: d.id }">
                   <span class="avatar rank" aria-hidden="true">{{ s.rank ?? '–' }}</span>
                   <div class="row-main">
                     <div class="row-title">{{ s.fullName }}</div>
@@ -183,7 +218,8 @@ interface Entry {
                   @if (s.grade) {
                     <span class="grade-chip">{{ s.grade }}</span>
                   }
-                </div>
+                  <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                </a>
               }
             </div>
           }
@@ -227,6 +263,13 @@ interface Entry {
     .avatar.rank { font-weight: 600; }
     .head-text { flex: 1 1 12rem; min-width: 0; }
     .nowrap { white-space: nowrap; }
+    .share { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; margin: -0.5rem 0 1rem; padding: 0.625rem 0.875rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container); font: var(--mat-sys-body-medium); }
+    .share mat-icon { flex: none; color: var(--mat-sys-on-surface-variant); }
+    .share.on mat-icon { color: var(--mat-sys-primary); }
+    .share-text { flex: 1 1 12rem; min-width: 0; }
+    a.link { color: inherit; text-decoration: none; }
+    a.link:hover { background: var(--mat-sys-surface-container); }
+    .chevron { flex: none; color: var(--mat-sys-on-surface-variant); }
     .grade-chip { min-width: 2rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-label-large); text-align: center; }
   `,
 })
@@ -239,11 +282,15 @@ export class ExamScreen {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly reports = inject(ReportsService);
+  private readonly i18n = inject(TranslateService);
 
   protected readonly exam = new Loadable<ExamDetail>();
   protected readonly detail = computed(() => this.exam.data());
-  protected readonly view = signal<'marks' | 'results'>('marks');
+  protected readonly view = signal<'marks' | 'results' | 'analysis'>('marks');
   protected readonly saving = signal(false);
+  protected readonly publishing = signal(false);
+  protected readonly exporting = signal(false);
   protected readonly date = formatDate;
 
   /** What is typed in each box, by student then part. Starts from the saved marks. */
@@ -347,6 +394,57 @@ export class ExamScreen {
         this.exam.data.set(saved);
         this.toast.success('exams.saved');
       }
+    });
+  }
+
+  /** Shares the results after a confirmation. Unsaved marks must be saved first, or students would see the old ones. */
+  protected publish(d: ExamDetail): void {
+    if (this.dirtyCount() > 0) {
+      this.toast.error('exams.save_first');
+      return;
+    }
+
+    this.dialog
+      .open<ConfirmDialog, { title: string; message: string; confirm: string }, boolean>(ConfirmDialog, {
+        data: { title: 'exams.publish_title', message: 'exams.publish_message', confirm: 'exams.publish' },
+        maxWidth: 'calc(100vw - 1rem)',
+      })
+      .afterClosed()
+      .subscribe((yes) => {
+        if (!yes) return;
+        this.publishing.set(true);
+        this.api.publish(d.id).subscribe({
+          next: (saved) => {
+            this.publishing.set(false);
+            this.exam.data.set(saved);
+            this.toast.success('exams.published');
+          },
+          error: () => this.publishing.set(false),
+        });
+      });
+  }
+
+  protected unpublish(d: ExamDetail): void {
+    // The reply reloads the grid, which would drop marks typed but not yet saved.
+    if (this.dirtyCount() > 0) {
+      this.toast.error('exams.save_first');
+      return;
+    }
+
+    this.api.unpublish(d.id).subscribe((saved) => {
+      this.exam.data.set(saved);
+      this.toast.success('exams.unpublished');
+    });
+  }
+
+  protected exportExcel(d: ExamDetail): void {
+    this.exporting.set(true);
+    this.reports.download('exam-results', { examId: d.id }).subscribe({
+      next: (file) => {
+        this.exporting.set(false);
+        saveBlob(file, `${fileNamePart(`${this.i18n.translate('exams.results')} ${d.classTitle} ${d.name}`)}.xlsx`);
+      },
+      error: () => this.exporting.set(false),
     });
   }
 

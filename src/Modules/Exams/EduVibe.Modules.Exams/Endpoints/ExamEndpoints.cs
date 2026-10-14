@@ -36,6 +36,8 @@ internal static class ExamEndpoints
         exams.MapPut("/{id:guid}", Update);
         exams.MapDelete("/{id:guid}", Delete);
         exams.MapPut("/{id:guid}/marks", SaveMarks);
+        exams.MapPost("/{id:guid}/publish", Publish);
+        exams.MapPost("/{id:guid}/unpublish", Unpublish);
     }
 
     // The teacher's exams, newest first, optionally for one class. Counts and the average come from the saved results.
@@ -75,7 +77,7 @@ internal static class ExamEndpoints
             return new ExamListItemDto(
                 e.Id, e.ClassId, titles.TryGetValue(e.ClassId, out var cls) ? cls.Title : string.Empty, e.Name, e.HeldOn,
                 ownParts.Sum(p => p.MaxMark), ownParts.Count, sizes[e.ClassId], own.Count(r => r.IsAbsent || r.Percent is not null),
-                scored.Count == 0 ? null : ExamCalculator.Round(scored.Average(r => r.Percent!.Value)));
+                scored.Count == 0 ? null : ExamCalculator.Round(scored.Average(r => r.Percent!.Value)), e.PublishedAt);
         });
         return Results.Ok(items);
     }
@@ -172,6 +174,31 @@ internal static class ExamEndpoints
         db.Exams.Remove(exam);
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
+    }
+
+    // Shares the results: each student in the class then sees their own marks, grade and rank. Marks can still be changed
+    // after this, and students see the change. Publishing again keeps the first date.
+    private static async Task<IResult> Publish(Guid id, ExamsDbContext db, ExamReader reader, TimeProvider clock, CancellationToken ct) =>
+        await SetPublished(id, db, reader, clock.GetUtcNow(), ct);
+
+    private static async Task<IResult> Unpublish(Guid id, ExamsDbContext db, ExamReader reader, CancellationToken ct) =>
+        await SetPublished(id, db, reader, null, ct);
+
+    private static async Task<IResult> SetPublished(Guid id, ExamsDbContext db, ExamReader reader, DateTimeOffset? at, CancellationToken ct)
+    {
+        var exam = await db.Exams.SingleOrDefaultAsync(e => e.Id == id, ct);
+        if (exam is null)
+        {
+            return Problems.Reject("exam_not_found", StatusCodes.Status404NotFound);
+        }
+
+        if (at is null || exam.PublishedAt is null)
+        {
+            exam.PublishedAt = at;
+            await db.SaveChangesAsync(ct);
+        }
+
+        return Results.Ok(await reader.DetailAsync(id, ct));
     }
 
     // Saves the rows sent and nothing else. A row replaces that student's marks: parts left out or null are not entered.

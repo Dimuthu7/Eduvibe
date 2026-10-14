@@ -33,6 +33,25 @@ export interface StudentResult {
   rank: number | null;
 }
 
+/**
+ * How the class did, from the students who sat the exam and have every part marked. Highest, lowest, average and median
+ * are totals out of the exam's maximum. Only the lowest grade fails; passMark is where the next grade starts.
+ */
+export interface ExamAnalysis {
+  sat: number;
+  absent: number;
+  highest: number | null;
+  lowest: number | null;
+  average: number | null;
+  median: number | null;
+  passMark: number | null;
+  passed: number;
+  passRate: number | null;
+  /** Best grade first. */
+  grades: { grade: string; count: number }[];
+  parts: { partId: string; name: string; maxMark: number; average: number | null }[];
+}
+
 export interface ExamDetail {
   id: string;
   classId: string;
@@ -40,10 +59,57 @@ export interface ExamDetail {
   name: string;
   heldOn: string;
   maxTotal: number;
+  /** When the results were shared with students, or null while they are not. */
+  publishedAt: string | null;
   parts: ExamPart[];
   bands: GradeBand[];
   summary: { students: number; marked: number; averagePercent: number | null };
+  analysis: ExamAnalysis;
   students: StudentResult[];
+}
+
+/** One exam in a student's history. Rank reads "rank of ranked"; classAverage is the ranked students' average percentage. */
+export interface HistoryItem {
+  examId: string;
+  name: string;
+  heldOn: string;
+  maxTotal: number;
+  absent: boolean;
+  total: number | null;
+  percent: number | null;
+  grade: string | null;
+  rank: number | null;
+  ranked: number;
+  classAverage: number | null;
+  publishedAt: string | null;
+}
+
+/** One student's results across the exams of one class, oldest first, with their other classes to switch to. */
+export interface StudentHistory {
+  enrolmentId: string;
+  studentId: string;
+  indexNumber: number;
+  fullName: string;
+  classId: string;
+  classTitle: string;
+  exams: HistoryItem[];
+  classes: { enrolmentId: string; classId: string; title: string }[];
+}
+
+/** A published exam as the student sees it: only their own marks. */
+export interface MyExam {
+  examId: string;
+  classId: string;
+  name: string;
+  heldOn: string;
+  maxTotal: number;
+  absent: boolean;
+  total: number | null;
+  percent: number | null;
+  grade: string | null;
+  rank: number | null;
+  ranked: number;
+  parts: { name: string; maxMark: number; mark: number | null }[];
 }
 
 export interface ExamListItem {
@@ -57,6 +123,7 @@ export interface ExamListItem {
   students: number;
   marked: number;
   averagePercent: number | null;
+  publishedAt: string | null;
 }
 
 export interface ExamInput {
@@ -106,6 +173,25 @@ export class ExamsService {
   /** Saves the rows sent and returns the whole exam with totals, grades and ranks worked out. */
   saveMarks(id: string, rows: MarkRow[]) {
     return this.http.put<ExamDetail>(`${this.base}/${id}/marks`, { rows });
+  }
+
+  /** Shares the results with the class: each student then sees their own marks, grade and rank. */
+  publish(id: string) {
+    return this.http.post<ExamDetail>(`${this.base}/${id}/publish`, null);
+  }
+
+  unpublish(id: string) {
+    return this.http.post<ExamDetail>(`${this.base}/${id}/unpublish`, null);
+  }
+
+  /** One student's results across every exam of their class. */
+  history(enrolmentId: string) {
+    return this.http.get<StudentHistory>(`${this.base}/enrolments/${enrolmentId}/history`);
+  }
+
+  /** The signed-in student's published results, newest first. */
+  mine() {
+    return this.http.get<MyExam[]>(`${this.base}/mine`);
   }
 
   gradeScheme() {

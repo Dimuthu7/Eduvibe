@@ -51,8 +51,26 @@ public sealed class ExamReader(ExamsDbContext db, GradeSchemeService schemes, IC
             scored.Count == 0 ? null : ExamCalculator.Round(scored.Average(s => s.Percent!.Value)));
 
         return new ExamDetailDto(
-            exam.Id, exam.ClassId, cls?.Title ?? string.Empty, exam.Name, exam.HeldOn, book.MaxTotal,
+            exam.Id, exam.ClassId, cls?.Title ?? string.Empty, exam.Name, exam.HeldOn, book.MaxTotal, exam.PublishedAt,
             [.. book.Parts.Select(p => new PartDto(p.Id, p.Name, p.MaxMark))],
-            [.. bands.Select(b => new BandDto(b.Grade, b.MinPercent))], summary, students);
+            [.. bands.Select(b => new BandDto(b.Grade, b.MinPercent))], summary, Analyse(book, bands), students);
+    }
+
+    /// <summary>The class analysis: from students with every part marked, and part averages from every mark entered.</summary>
+    private static ExamAnalysisDto Analyse(ExamBook book, List<BandRule> bands)
+    {
+        var scored = book.Rows.Values
+            .Where(r => r.Result.Percent is not null && ExamBook.IsComplete(r, book.Parts))
+            .Select(r => (r.Result.Total, r.Result.Percent!.Value))
+            .ToList();
+        var stats = ExamCalculator.Stats(scored, bands);
+        var parts = book.Parts.Select(p =>
+        {
+            var marks = book.Rows.Values.Where(r => !r.Result.IsAbsent && r.Marks.ContainsKey(p.Id)).Select(r => r.Marks[p.Id].Mark).ToList();
+            return new PartAverageDto(p.Id, p.Name, p.MaxMark, marks.Count == 0 ? null : ExamCalculator.Round(marks.Average()));
+        });
+        return new ExamAnalysisDto(
+            stats.Sat, book.Rows.Values.Count(r => r.Result.IsAbsent), stats.Highest, stats.Lowest, stats.Average, stats.Median,
+            stats.PassMark, stats.Passed, stats.PassRate, [.. stats.Grades], [.. parts]);
     }
 }

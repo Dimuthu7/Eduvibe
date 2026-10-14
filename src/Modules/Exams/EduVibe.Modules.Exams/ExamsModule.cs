@@ -21,6 +21,7 @@ public sealed class ExamsModule : IModule
         services.AddModuleDbContext<ExamsDbContext>(configuration, ModuleName);
         services.AddScoped<GradeSchemeService>();
         services.AddScoped<ExamReader>();
+        services.AddScoped<IReportSource, ExamResultsReport>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -28,5 +29,6 @@ public sealed class ExamsModule : IModule
         var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Exams");
         GradeSchemeEndpoints.Map(group);
         ExamEndpoints.Map(group);
+        HistoryEndpoints.Map(group);
     }
 }
