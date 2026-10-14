@@ -1,3 +1,5 @@
+using EduVibe.Modules.Exams.Endpoints;
+using EduVibe.Modules.Exams.Services;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -17,11 +19,14 @@ public sealed class ExamsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<ExamsDbContext>(configuration, ModuleName);
+        services.AddScoped<GradeSchemeService>();
+        services.AddScoped<ExamReader>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // This module's endpoints are added in its sprint; see the sprint plan.
-        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Exams");
+        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Exams");
+        GradeSchemeEndpoints.Map(group);
+        ExamEndpoints.Map(group);
     }
 }

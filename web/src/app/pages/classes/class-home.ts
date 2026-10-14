@@ -9,21 +9,18 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AttendanceService, ClassSession } from '../../core/api/attendance.service';
 import { CatalogStore } from '../../core/api/catalog.service';
 import { ClassesService, TuitionClass } from '../../core/api/classes.service';
+import { ExamListItem, ExamsService } from '../../core/api/exams.service';
 import { ClassMonth, FeesService } from '../../core/api/fees.service';
 import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { fileNamePart, saveBlob } from '../../shared/download';
-import { formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
+import { formatDate, formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
+import { openExamDialog } from '../exams/exam-dialog';
 import { ClassDialog } from './class-dialog';
 import { openExtraClass } from './extra-session-dialog';
-
-interface Section {
-  icon: string;
-  title: string;
-}
 
 /**
  * One class: the teacher's home screen for it. Details, weekly times and attendance for now; unpaid
@@ -178,18 +175,50 @@ interface Section {
 
           <app-invite-links [classId]="c.id" [archived]="c.status === 'Archived'" />
 
-          <h2 class="section-title">{{ 'classes.sections' | t }}</h2>
-          <div class="sections">
-            @for (section of sections; track section.title) {
-              <mat-card appearance="outlined" class="section">
-                <mat-card-content>
-                  <mat-icon aria-hidden="true">{{ section.icon }}</mat-icon>
-                  <div class="row-title">{{ section.title | t }}</div>
-                  <div class="row-meta">{{ 'classes.coming_soon' | t }}</div>
-                </mat-card-content>
-              </mat-card>
-            }
-          </div>
+          @if (c.status === 'Active') {
+            <h2 class="section-title">{{ 'classes.latest_exam' | t }}</h2>
+            <div class="panel">
+              @if (latestExam(); as e) {
+                <a class="panel-row link" [routerLink]="['/exams', e.id]">
+                  <mat-icon class="lead" aria-hidden="true">quiz</mat-icon>
+                  <div class="row-main">
+                    <div class="row-title">{{ e.name }}</div>
+                    <div class="row-meta">
+                      {{ date(e.heldOn) }} · {{ 'exams.marked_of' | t }} {{ e.marked }} / {{ e.students }}
+                      @if (e.averagePercent !== null) {
+                        · {{ 'exams.average' | t }} {{ e.averagePercent }}%
+                      }
+                    </div>
+                  </div>
+                  <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                </a>
+              } @else {
+                <div class="panel-row">
+                  <mat-icon class="lead" aria-hidden="true">quiz</mat-icon>
+                  <div class="row-main">
+                    <div class="row-title">{{ 'classes.latest_exam' | t }}</div>
+                    <div class="row-meta">{{ 'exams.none_class' | t }}</div>
+                  </div>
+                </div>
+              }
+              <button class="panel-row link" type="button" (click)="newExam(c)">
+                <mat-icon class="lead" aria-hidden="true">note_add</mat-icon>
+                <div class="row-main">
+                  <div class="row-title">{{ 'exams.new' | t }}</div>
+                  <div class="row-meta">{{ 'exams.new_hint' | t }}</div>
+                </div>
+                <mat-icon class="chevron" aria-hidden="true">add</mat-icon>
+              </button>
+              <a class="panel-row link" routerLink="/exams" [queryParams]="{ classId: c.id }">
+                <mat-icon class="lead" aria-hidden="true">list_alt</mat-icon>
+                <div class="row-main">
+                  <div class="row-title">{{ 'exams.title' | t }}</div>
+                  <div class="row-meta">{{ 'exams.subtitle' | t }}</div>
+                </div>
+                <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+              </a>
+            </div>
+          }
         }
       }
       @case ('error') {
@@ -216,9 +245,6 @@ interface Section {
     .lead { color: var(--mat-sys-primary); }
     .chevron { color: var(--mat-sys-on-surface-variant); }
     .chevron-label { color: var(--mat-sys-primary); font: var(--mat-sys-label-large); }
-    .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.75rem; }
-    .section { margin: 0; }
-    .section mat-icon { color: var(--mat-sys-primary); margin-bottom: 0.25rem; }
   `,
 })
 export class ClassHome {
@@ -228,6 +254,7 @@ export class ClassHome {
   private readonly api = inject(ClassesService);
   private readonly attendance = inject(AttendanceService);
   private readonly fees = inject(FeesService);
+  private readonly exams = inject(ExamsService);
   private readonly reports = inject(ReportsService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
@@ -238,13 +265,13 @@ export class ClassHome {
   protected readonly current = computed(() => this.klass.data());
   protected readonly todays = signal<ClassSession[]>([]);
   protected readonly monthFees = signal<ClassMonth | null>(null);
+  /** The newest exam of this class; null when there is none yet. */
+  protected readonly latestExam = signal<ExamListItem | null>(null);
   protected readonly thisMonth = monthOf(todayColombo());
   protected readonly monthName = formatMonth;
   protected readonly money = formatLkr;
   protected readonly time = formatTime;
-  protected readonly sections: Section[] = [
-    { icon: 'quiz', title: 'classes.latest_exam' },
-  ];
+  protected readonly date = formatDate;
 
   constructor() {
     this.catalog.ensureLoaded();
@@ -255,6 +282,7 @@ export class ClassHome {
     this.klass.load(this.api.classById(this.id()));
     this.attendance.sessions(todayColombo()).subscribe((list) => this.todays.set(list.filter((x) => x.classId === this.id())));
     this.fees.classMonth(this.id(), this.thisMonth).subscribe((m) => this.monthFees.set(m));
+    this.exams.list(this.id(), 1).subscribe((list) => this.latestExam.set(list[0] ?? null));
   }
 
   protected edit(c: TuitionClass): void {
@@ -278,6 +306,12 @@ export class ClassHome {
       if (!session) return;
       this.toast.success('classes.extra_saved');
       void this.router.navigate(['/attendance'], { queryParams: { date: session.date } });
+    });
+  }
+
+  protected newExam(c: TuitionClass): void {
+    openExamDialog(this.dialog, { classId: c.id }).subscribe((exam) => {
+      if (exam) void this.router.navigate(['/exams', exam.id]);
     });
   }
 

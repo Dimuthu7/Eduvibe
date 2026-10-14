@@ -93,6 +93,8 @@ const FIELD_FOR_CODE: Record<string, string> = {
   month_invalid: 'months',
   reason_required: 'reason',
   reason_too_long: 'reason',
+  name_too_long: 'name',
+  held_on_required: 'heldOn',
 };
 
 /**
