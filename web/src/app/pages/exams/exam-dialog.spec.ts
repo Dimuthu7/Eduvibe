@@ -101,8 +101,9 @@ describe('ExamDialog', () => {
   describe('changing an exam', () => {
     const exam = (withMarks: boolean): ExamDetail => ({
       id: 'x1', classId: 'c1', classTitle: 'Grade 6 ICT', name: 'Term test', heldOn: '2026-10-10', maxTotal: 100,
-      parts: [{ id: 'p1', name: 'MCQ', maxMark: 40 }, { id: 'p2', name: 'Essay', maxMark: 60 }], bands: [],
+      parts: [{ id: 'p1', name: 'MCQ', maxMark: 40 }, { id: 'p2', name: 'Essay', maxMark: 60 }], bands: [], publishedAt: null,
       summary: { students: 1, marked: withMarks ? 1 : 0, averagePercent: null },
+      analysis: { sat: 0, absent: 0, highest: null, lowest: null, average: null, median: null, passMark: null, passed: 0, passRate: null, grades: [], parts: [] },
       students: [{
         enrolmentId: 'e1', indexNumber: 1, fullName: 'Amara', isActive: true, absent: false, marks: withMarks ? { p1: 20 } : {},
         total: null, percent: null, grade: null, rank: null,

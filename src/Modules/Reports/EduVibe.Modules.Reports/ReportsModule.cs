@@ -40,7 +40,8 @@ public sealed class ReportsModule : IModule
         var result = await source.BuildAsync(query, ct);
         if (result.Table is null)
         {
-            return Problem(result.Error ?? "report_invalid", result.Error == "class_not_found" ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
+            var code = result.Error ?? "report_invalid";
+            return Problem(code, code.EndsWith("_not_found", StringComparison.Ordinal) ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
         }
 
         var name = new string([.. result.Table.Title.Select(c => char.IsLetterOrDigit(c) || char.GetUnicodeCategory(c) is System.Globalization.UnicodeCategory.NonSpacingMark or System.Globalization.UnicodeCategory.SpacingCombiningMark || c is ' ' or '-' or '_' ? c : '-')]).Trim();

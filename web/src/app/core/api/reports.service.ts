@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { AppConfig } from '../config/app-config';
 
-export type ReportKey = 'class-list' | 'fee-status';
+export type ReportKey = 'class-list' | 'fee-status' | 'exam-results' | 'attendance';
 
 /** Excel reports. The server builds the file; the screen only saves it. */
 @Injectable({ providedIn: 'root' })

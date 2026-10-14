@@ -205,6 +205,33 @@ public class FeesReportsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task The_attendance_report_is_a_register_with_a_column_per_class_and_each_students_totals()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        var classId = await DailyClass(teacher.Client, "Maths", 2000m);
+        var aruni = await AddStudent(teacher.Client, classId, "Aruni");
+        var bimal = await AddStudent(teacher.Client, classId, "Bimal");
+        await TakeAttendance(teacher.Client, classId, (aruni, "Present"), (bimal, "Absent"));
+
+        var response = await teacher.Client.GetAsync($"/api/reports/attendance?classId={classId}&from={Today:yyyy-MM-dd}&to={Today:yyyy-MM-dd}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var sheet = SheetXml(await response.Content.ReadAsByteArrayAsync());
+        Assert.Contains("Aruni Silva", sheet);
+        Assert.Contains(Today.ToString("d MMM", System.Globalization.CultureInfo.InvariantCulture), sheet);
+        Assert.Contains(">P<", sheet);
+        Assert.Contains(">A<", sheet);
+        Assert.Contains("Attendance %", sheet);
+        Assert.Contains("<v>100</v>", sheet);
+
+        // This month is the default range.
+        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync($"/api/reports/attendance?classId={classId}")).StatusCode);
+        Assert.Equal("range_invalid", await Code(await teacher.Client.GetAsync($"/api/reports/attendance?classId={classId}&from=2026-13-01")));
+        Assert.Equal("range_invalid", await Code(await teacher.Client.GetAsync($"/api/reports/attendance?classId={classId}&from=2026-10-10&to=2026-10-01")));
+        var other = await factory.NewTeacherAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await other.Client.GetAsync($"/api/reports/attendance?classId={classId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Reports_refuse_unknown_reports_other_teachers_classes_and_strangers()
     {
         var teacher = await factory.NewTeacherAsync();

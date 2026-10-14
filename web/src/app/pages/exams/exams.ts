@@ -61,6 +61,10 @@ const ALL_CLASSES = 'all';
                     <div class="row-title">{{ e.name }}</div>
                     <div class="row-meta">{{ e.classTitle }} · {{ date(e.heldOn) }}</div>
                     <div class="row-meta">{{ 'exams.marked_of' | t }} {{ e.marked }} / {{ e.students }} · {{ 'exams.out_of' | t }} {{ e.maxTotal }}</div>
+                    <div class="row-meta state" [class.on]="!!e.publishedAt">
+                      <mat-icon aria-hidden="true">{{ e.publishedAt ? 'visibility' : 'visibility_off' }}</mat-icon>
+                      {{ (e.publishedAt ? 'exams.state_published' : 'exams.state_draft') | t }}
+                    </div>
                   </div>
                   <div class="average">
                     <strong>{{ e.averagePercent === null ? '–' : e.averagePercent + '%' }}</strong>
@@ -86,6 +90,9 @@ const ALL_CLASSES = 'all';
     }
   `,
   styles: `
+    .state { display: flex; gap: 0.25rem; align-items: center; }
+    .state mat-icon { width: 1rem; height: 1rem; font-size: 1rem; }
+    .state.on { color: var(--mat-sys-primary); }
     a.link { color: inherit; text-decoration: none; }
     a.link:hover { background: var(--mat-sys-surface-container); }
     .chevron { color: var(--mat-sys-on-surface-variant); }

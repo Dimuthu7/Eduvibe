@@ -33,6 +33,9 @@ public sealed class Exam : Entity, ITenantOwned, IAuditable
     public Guid GradeSchemeId { get; set; }
     public required string Name { get; set; }
     public DateOnly HeldOn { get; set; }
+
+    /// <summary>When the teacher shared the results. Until then students do not see the exam; after it they see their own marks.</summary>
+    public DateTimeOffset? PublishedAt { get; set; }
 }
 
 public sealed class ExamPart : Entity, ITenantOwned, IAuditable

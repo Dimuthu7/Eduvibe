@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import { ExamDetail } from '../../core/api/exams.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
@@ -19,7 +21,13 @@ const student = (n: number, name: string, over: Partial<ExamDetail['students'][n
 const detail = (): ExamDetail => ({
   id: 'x1', classId: 'c1', classTitle: 'Grade 6 ICT', name: 'Term test', heldOn: '2026-10-10', maxTotal: 100,
   parts: [{ id: 'mcq', name: 'MCQ', maxMark: 40 }, { id: 'essay', name: 'Essay', maxMark: 60 }],
+  publishedAt: null,
   bands, summary: { students: 3, marked: 1, averagePercent: 90 },
+  analysis: {
+    sat: 1, absent: 0, highest: 90, lowest: 90, average: 90, median: 90, passMark: 35, passed: 1, passRate: 100,
+    grades: [{ grade: 'A', count: 1 }, { grade: 'B', count: 0 }, { grade: 'C', count: 0 }, { grade: 'S', count: 0 }, { grade: 'W', count: 0 }],
+    parts: [{ partId: 'mcq', name: 'MCQ', maxMark: 40, average: 40 }, { partId: 'essay', name: 'Essay', maxMark: 60, average: 50 }],
+  },
   students: [
     student(1, 'Amara Silva', { marks: { mcq: 40, essay: 50 }, total: 90, percent: 90, grade: 'A', rank: 1 }),
     student(2, 'Bandula Perera'),
@@ -130,5 +138,43 @@ describe('ExamScreen', () => {
     (el.querySelectorAll<HTMLElement>('mat-button-toggle button')[1]).click();
     fixture.detectChanges();
     expect(el.textContent).toContain('exams.average');
+  });
+
+  it('links each result to the student\'s results across exams', async () => {
+    const { fixture, el } = await setup();
+    (el.querySelectorAll<HTMLElement>('mat-button-toggle button')[1]).click();
+    fixture.detectChanges();
+    const link = el.querySelector<HTMLAnchorElement>('a.panel-row')!;
+    expect(link.getAttribute('href')).toBe('/exams/student/e1?examId=x1');
+  });
+
+  it('shows the class analysis', async () => {
+    const { fixture, el } = await setup();
+    (el.querySelectorAll<HTMLElement>('mat-button-toggle button')[2]).click();
+    fixture.detectChanges();
+    expect(el.querySelector('app-exam-analysis')).not.toBeNull();
+    expect(el.textContent).toContain('100%');
+    expect(el.textContent).toContain('exams.median');
+  });
+
+  it('publishes after the teacher confirms, and asks for unsaved marks to be saved first', async () => {
+    const { fixture, el, boxes, type } = await setup();
+    expect(el.textContent).toContain('exams.not_published');
+    const open = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => of(true) } as never);
+    const publish = () => el.querySelector<HTMLButtonElement>('.share button')!;
+
+    type(boxes()[2], '30');
+    publish().click();
+    expect(open).not.toHaveBeenCalled();
+    type(boxes()[2], '');
+
+    publish().click();
+    expect(open).toHaveBeenCalled();
+    const req = http.expectOne(`${API}/api/exams/x1/publish`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ ...detail(), publishedAt: '2026-10-14T08:00:00Z' });
+    fixture.detectChanges();
+    expect(el.textContent).toContain('exams.published_on');
+    expect(el.querySelector('.share button')).toBeNull();
   });
 });
