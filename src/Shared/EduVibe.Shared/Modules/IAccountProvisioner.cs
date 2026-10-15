@@ -37,4 +37,10 @@ public interface IAccountProvisioner
 
     /// <summary>Gives a student a new one-time password. Returns null for an account that is not a plain student account.</summary>
     Task<string?> ResetStudentPasswordAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Takes the Student role off an account, and deletes the account when nothing else is left on it (a teacher who is also a student keeps
+    /// their teacher account). What the audit log says about a deleted account is blanked. Used when a student asks for their data to be erased.
+    /// </summary>
+    Task RemoveStudentAccountAsync(Guid userId, CancellationToken cancellationToken = default);
 }

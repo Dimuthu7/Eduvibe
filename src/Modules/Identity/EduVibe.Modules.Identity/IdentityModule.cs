@@ -1,6 +1,7 @@
 using EduVibe.Modules.Identity.Endpoints;
 using EduVibe.Modules.Identity.Services;
 using EduVibe.Shared.Modules;
+using EduVibe.Shared.Privacy;
 using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +26,8 @@ public sealed class IdentityModule : IModule
         services.AddScoped<ITeacherDirectory, TeacherDirectory>();
         services.AddScoped<IAccountProvisioner, AccountProvisioner>();
         services.AddScoped<IUserDirectory, UserDirectory>();
+        services.AddScoped<IdentityPersonalData>();
+        services.AddScoped<IPersonalDataSource>(sp => sp.GetRequiredService<IdentityPersonalData>());
         services.AddScoped<IStatsSource, IdentityStats>();
         services.AddHostedService<SuperAdminSeeder>();
     }

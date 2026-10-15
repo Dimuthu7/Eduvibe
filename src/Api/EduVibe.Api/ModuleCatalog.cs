@@ -5,6 +5,7 @@ using EduVibe.Modules.Exams;
 using EduVibe.Modules.Fees;
 using EduVibe.Modules.Identity;
 using EduVibe.Modules.Plans;
+using EduVibe.Modules.Privacy;
 using EduVibe.Modules.Reports;
 using EduVibe.Modules.Students;
 using EduVibe.Shared.Modules;
@@ -25,5 +26,6 @@ public static class ModuleCatalog
         new ReportsModule(),
         new ExamsModule(),
         new PlansModule(),
+        new PrivacyModule(),
     ];
 }

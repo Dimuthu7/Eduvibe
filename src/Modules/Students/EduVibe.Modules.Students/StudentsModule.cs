@@ -1,3 +1,4 @@
+using EduVibe.Shared.Privacy;
 using EduVibe.Modules.Students.Endpoints;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
@@ -18,6 +19,7 @@ public sealed class StudentsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<StudentsDbContext>(configuration, ModuleName);
+        services.AddScoped<IPersonalDataSource, StudentsPersonalData>();
         services.AddScoped<IClassRoster, ClassRoster>();
         services.AddScoped<IReportSource, ClassListReport>();
         services.AddScoped<IStatsSource, StudentsStats>();

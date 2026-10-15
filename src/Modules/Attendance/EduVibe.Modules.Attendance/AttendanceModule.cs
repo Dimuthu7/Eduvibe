@@ -1,3 +1,4 @@
+using EduVibe.Shared.Privacy;
 using EduVibe.Modules.Attendance.Endpoints;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
@@ -18,6 +19,7 @@ public sealed class AttendanceModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<AttendanceDbContext>(configuration, ModuleName);
+        services.AddScoped<IPersonalDataSource, AttendancePersonalData>();
         services.AddScoped<IAttendanceLookup, AttendanceLookup>();
         services.AddScoped<IReportSource, AttendanceRegisterReport>();
     }
