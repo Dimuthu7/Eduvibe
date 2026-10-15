@@ -107,7 +107,7 @@ public sealed class AuditingInterceptor(ITenantContext tenant, TimeProvider cloc
 
         return new AuditLogEntry
         {
-            TenantId = (entry.Entity as ITenantOwned)?.TenantId ?? tenant.TenantId,
+            TenantId = (entry.Entity as ITenantOwned)?.TenantId ?? (entry.Entity as IAuditedForTenant)?.AuditTenantId ?? tenant.TenantId,
             UserId = tenant.UserId,
             Entity = entry.Metadata.ClrType.Name,
             EntityId = entry.Entity.Id,

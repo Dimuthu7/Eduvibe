@@ -33,9 +33,12 @@ const TEACHER_NAV: NavItem[] = [
   { route: '/venues', label: 'nav.venues', icon: 'place' },
 ];
 const ADMIN_NAV: NavItem[] = [
+  { route: '/admin/dashboard', label: 'nav.dashboard', icon: 'dashboard' },
   { route: '/admin/teachers', label: 'nav.teachers', icon: 'school' },
   { route: '/admin/institutes', label: 'nav.institutes', icon: 'apartment' },
+  { route: '/admin/plans', label: 'nav.plans', icon: 'workspace_premium' },
   { route: '/admin/catalog', label: 'nav.catalog', icon: 'tune' },
+  { route: '/admin/audit', label: 'nav.audit', icon: 'history' },
 ];
 
 const THEMES: { value: ThemePreference; label: string; icon: string }[] = [

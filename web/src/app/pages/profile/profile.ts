@@ -13,6 +13,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ToastService } from '../../core/ui/toast.service';
 import { applyServerError, fieldErrorKey, filled, nonEmptyArray } from '../../shared/forms';
 import { SubmitButton } from '../../shared/submit-button';
+import { MyPlanCard } from './my-plan';
 
 @Component({
   selector: 'app-profile',
@@ -27,6 +28,7 @@ import { SubmitButton } from '../../shared/submit-button';
     MatFormFieldModule,
     MatInputModule,
     SearchSelect,
+    MyPlanCard,
     TranslatePipe,
   ],
   template: `
@@ -71,6 +73,9 @@ import { SubmitButton } from '../../shared/submit-button';
         </form>
       </mat-card-content>
     </mat-card>
+    @if (auth.user()?.teacherId) {
+      <app-my-plan />
+    }
   `,
   styles: `
     .form { padding-top: 0.5rem; }

@@ -7,12 +7,21 @@ export function errorCode(error: unknown): string | null {
 
 /**
  * Message key for an error the person can fix, such as a wrong password: show it next to the form.
- * Returns '' for network, server and permission failures, which the HTTP error interceptor already
+ * Returns '' for network, server, permission and plan-limit failures, which the HTTP error interceptor already
  * announced with a toast, so the screen does not repeat them.
  */
 export function inlineError(error: unknown): string {
   const code = errorCode(error);
-  return code ? `error.${code}` : '';
+  return code && !isPlanRejection(error) ? `error.${code}` : '';
+}
+
+/**
+ * A plan limit reached or a feature locked. Any screen can hit these (adding a student, approving a request, restoring a class),
+ * so the HTTP error interceptor announces them rather than each screen.
+ */
+export function isPlanRejection(error: unknown): boolean {
+  const code = errorCode(error) ?? '';
+  return code.startsWith('plan_limit_') || code.startsWith('plan_feature_');
 }
 
 /** Message key for any error, used when a screen has nothing else to show. */

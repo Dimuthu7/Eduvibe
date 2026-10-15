@@ -10,6 +10,8 @@ using EduVibe.Modules.Identity.Services;
 using EduVibe.Modules.Attendance;
 using EduVibe.Modules.Exams;
 using EduVibe.Modules.Fees;
+using EduVibe.Modules.Plans;
+using EduVibe.Modules.Plans.Services;
 using EduVibe.Modules.Students;
 using EduVibe.Shared.Auditing;
 using EduVibe.Shared.Security;
@@ -111,6 +113,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("RateLimit:AuthPerMinute", "1000");
         builder.UseSetting("Catalog:SeedOnStartup", "false");
         builder.UseSetting("Fees:MonthlyJob", "false");
+        builder.UseSetting("Plans:SeedOnStartup", "false");
 
         builder.ConfigureServices(services =>
         {
@@ -121,6 +124,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<AttendanceDbContext>(services);
             UseSqlite<FeesDbContext>(services);
             UseSqlite<ExamsDbContext>(services);
+            UseSqlite<PlansDbContext>(services);
+            UseSqlite<AuditDbContext>(services);
         });
     }
 
@@ -139,6 +144,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<AttendanceDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<FeesDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<ExamsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<PlansDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
         var stream = new EducationStream { Name = "O/L", SortOrder = 10 };

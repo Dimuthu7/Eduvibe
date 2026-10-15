@@ -1,5 +1,6 @@
 using EduVibe.Modules.Classes.Domain;
 using EduVibe.Shared.Modules;
+using EduVibe.Shared.Plans;
 using EduVibe.Shared.Security;
 using EduVibe.Shared.Tenancy;
 using Microsoft.AspNetCore.Builder;
@@ -75,11 +76,16 @@ internal static class ClassEndpoints
     }
 
     private static async Task<IResult> Create(
-        ClassRequest request, ITenantContext tenant, ClassesDbContext db, ICatalogDirectory catalog, CancellationToken ct)
+        ClassRequest request, ITenantContext tenant, ClassesDbContext db, ICatalogDirectory catalog, IPlanGate plans, CancellationToken ct)
     {
         if (await Validate(request, tenant, db, catalog, ct) is { } problem)
         {
             return problem;
+        }
+
+        if (await ClassLimitReached(db, plans, ct))
+        {
+            return Problems.Reject("plan_limit_classes", StatusCodes.Status403Forbidden);
         }
 
         var row = new TuitionClass { Title = request.Title!.Trim(), Medium = ClassMediums.Canonical(request.Medium)! };
@@ -122,8 +128,15 @@ internal static class ClassEndpoints
     private static async Task<IResult> Archive(Guid id, TimeProvider clock, ClassesDbContext db, CancellationToken ct) =>
         await SetStatus(id, ClassStatus.Archived, clock.GetUtcNow(), db, ct);
 
-    private static async Task<IResult> Restore(Guid id, TimeProvider clock, ClassesDbContext db, CancellationToken ct) =>
-        await SetStatus(id, ClassStatus.Active, null, db, ct);
+    private static async Task<IResult> Restore(Guid id, ClassesDbContext db, IPlanGate plans, CancellationToken ct) =>
+        await db.Classes.AnyAsync(c => c.Id == id && c.Status == ClassStatus.Archived, ct) && await ClassLimitReached(db, plans, ct)
+            ? Problems.Reject("plan_limit_classes", StatusCodes.Status403Forbidden)
+            : await SetStatus(id, ClassStatus.Active, null, db, ct);
+
+    // The plan can cap how many active classes a teacher has; archived classes do not count.
+    private static async Task<bool> ClassLimitReached(ClassesDbContext db, IPlanGate plans, CancellationToken ct) =>
+        (await plans.CurrentAsync(ct)).LimitOf(PlanLimits.MaxClasses) is { } max
+        && await db.Classes.CountAsync(c => c.Status == ClassStatus.Active, ct) >= max;
 
     private static async Task<IResult> SetStatus(Guid id, ClassStatus status, DateTimeOffset? archivedAt, ClassesDbContext db, CancellationToken ct)
     {
