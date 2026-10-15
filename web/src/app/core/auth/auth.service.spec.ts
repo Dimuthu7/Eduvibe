@@ -101,7 +101,7 @@ describe('AuthService', () => {
     auth.login('0771234567', 'pw').subscribe();
     http.expectOne(`${API}/api/identity/login`).flush(session({ user: user({ roles: ['SuperAdmin'], teacherId: null }) }));
 
-    expect(auth.homeRoute()).toBe('/admin/teachers');
+    expect(auth.homeRoute()).toBe('/admin/dashboard');
   });
 
   it('sends a student to their own start screen, not the teacher home', () => {

@@ -10,11 +10,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { AdminService, TeacherSummary } from '../../../core/api/admin.service';
 import { CatalogStore } from '../../../core/api/catalog.service';
+import { Assignment, PlansService } from '../../../core/api/plans.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { TranslateService } from '../../../core/i18n/translate.service';
 import { Loadable } from '../../../core/state/loadable';
 import { ToastService } from '../../../core/ui/toast.service';
 import { CreatedTeacher, TeacherDialog } from './teacher-dialog';
+import { TeacherPlanDialog } from './teacher-plan-dialog';
 
 interface Handout {
   name: string;
@@ -94,6 +96,9 @@ interface Handout {
                     } @else if (teacher.mustChangePassword) {
                       <span class="status wait">{{ 'teachers.invited' | t }}</span>
                     }
+                    @if (planOf(teacher); as plan) {
+                      <span class="status plan">{{ plan }}</span>
+                    }
                   </div>
                   <div class="row-meta">
                     {{ teacher.phone }}
@@ -116,6 +121,10 @@ interface Handout {
                   <mat-icon>more_vert</mat-icon>
                 </button>
                 <mat-menu #menu="matMenu">
+                  <button mat-menu-item type="button" (click)="openPlan(teacher)">
+                    <mat-icon>workspace_premium</mat-icon>
+                    <span>{{ 'teachers.plan' | t }}</span>
+                  </button>
                   <button mat-menu-item type="button" (click)="reset(teacher)">
                     <mat-icon>key</mat-icon>
                     <span>{{ 'teachers.reset' | t }}</span>
@@ -160,10 +169,12 @@ interface Handout {
     .status { margin-left: 0.375rem; vertical-align: middle; padding: 0.125rem 0.625rem; border-radius: 999px; font: var(--mat-sys-label-small); white-space: nowrap; }
     .status.off { background: var(--mat-sys-surface-container-highest); color: var(--mat-sys-on-surface-variant); }
     .status.wait { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
+    .status.plan { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
   `,
 })
 export class AdminTeachers {
   private readonly api = inject(AdminService);
+  private readonly plans = inject(PlansService);
   private readonly dialog = inject(MatDialog);
   private readonly i18n = inject(TranslateService);
   private readonly toast = inject(ToastService);
@@ -172,6 +183,8 @@ export class AdminTeachers {
   protected readonly teachers = new Loadable<TeacherSummary[]>();
   protected readonly handout = signal<Handout | null>(null);
   protected readonly query = signal('');
+  /** The plan each teacher is on today, when it is not the default. */
+  private readonly assignments = signal<Map<string, string>>(new Map());
   protected readonly list = computed(() => this.teachers.data() ?? []);
   protected readonly shown = computed(() => {
     const q = this.query().trim().toLowerCase();
@@ -187,10 +200,27 @@ export class AdminTeachers {
   constructor() {
     this.catalog.ensureLoaded();
     this.load();
+    this.loadAssignments();
   }
 
   protected load(): void {
     this.teachers.load(this.api.teachers());
+  }
+
+  private loadAssignments(): void {
+    // The plan names are a nicety on the list; if they do not load, the list still works.
+    this.plans.assignments().subscribe((rows: Assignment[]) => this.assignments.set(new Map(rows.map((a) => [a.teacherId, a.planName]))));
+  }
+
+  protected planOf(teacher: TeacherSummary): string | undefined {
+    return this.assignments().get(teacher.id);
+  }
+
+  protected openPlan(teacher: TeacherSummary): void {
+    this.dialog
+      .open<TeacherPlanDialog, TeacherSummary>(TeacherPlanDialog, { data: teacher, width: '40rem', maxWidth: 'calc(100vw - 1rem)', autoFocus: 'first-tabbable' })
+      .afterClosed()
+      .subscribe(() => this.loadAssignments());
   }
 
   protected add(): void {

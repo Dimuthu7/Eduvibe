@@ -1,4 +1,4 @@
-import { addDays, addMonths, formatDate, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
+import { addDays, addMonths, formatDate, formatDateTime, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
 describe('format helpers', () => {
@@ -65,5 +65,13 @@ describe('month ranges', () => {
     expect(isMonthRange('2026-09-01', '2026-09-30', '2026-10-13')).toBe(true);
     expect(isMonthRange('2026-09-05', '2026-09-30', '2026-10-13')).toBe(false);
     expect(isMonthRange('2026-10-01', '2026-10-10', '2026-10-13')).toBe(false);
+  });
+});
+
+describe('formatDateTime', () => {
+  it('shows an instant in Sri Lanka time whatever the phone uses', () => {
+    // 11:00 UTC is 4:30 pm in Colombo (UTC+5:30); 20:00 UTC on the 12th is already 1:30 am on the 13th.
+    expect(formatDateTime('2026-10-12T11:00:00Z').toLowerCase()).toBe('12 oct 2026, 4:30 pm');
+    expect(formatDateTime('2026-10-12T20:00:00Z').toLowerCase()).toBe('13 oct 2026, 1:30 am');
   });
 });

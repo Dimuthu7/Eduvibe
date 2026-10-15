@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EduVibe.Modules.Reports;
 
 /// <summary>
-/// Turns reports into Excel files. It holds no data of its own: each module that owns data offers an <see cref="IReportSource"/>,
+/// Turns reports into Excel files, and shows the Super Admin the dashboard and the audit log. It holds no data of its own: each module that owns data offers an <see cref="IReportSource"/>,
 /// and a new report is a new source, with no change here.
 /// </summary>
 public sealed class ReportsModule : IModule
@@ -24,8 +24,9 @@ public sealed class ReportsModule : IModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Reports").RequireAuthorization(Policies.Teacher);
-        group.MapGet("/{key}", Download);
+        var reports = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Reports");
+        AdminEndpoints.Map(reports);
+        reports.MapGet("/{key}", Download).RequireAuthorization(Policies.Teacher);
     }
 
     private static async Task<IResult> Download(string key, HttpRequest request, IEnumerable<IReportSource> sources, CancellationToken ct)

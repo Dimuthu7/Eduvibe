@@ -1,5 +1,8 @@
+using EduVibe.Modules.Plans.Endpoints;
+using EduVibe.Modules.Plans.Services;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
+using EduVibe.Shared.Plans;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -8,6 +11,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EduVibe.Modules.Plans;
 
+/// <summary>
+/// Decides what a teacher can use. The Super Admin makes plans from a fixed list of features and limits and puts teachers on them;
+/// other modules ask <see cref="IPlanGate"/> before a gated action.
+/// </summary>
 public sealed class PlansModule : IModule
 {
     public const string ModuleName = "plans";
@@ -17,11 +24,17 @@ public sealed class PlansModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<PlansDbContext>(configuration, ModuleName);
+        services.AddScoped<PlanResolver>();
+        services.AddScoped<IPlanGate, PlanGate>();
+        services.AddScoped<IStatsSource, PlansStats>();
+        services.AddHostedService<PlanSeeder>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // This module's endpoints are added in its sprint; see the sprint plan.
-        endpoints.MapGroup($"/api/{ModuleName}").WithTags("Plans");
+        var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Plans");
+        PlanEndpoints.Map(group);
+        TeacherPlanEndpoints.Map(group);
+        MyPlanEndpoints.Map(group);
     }
 }

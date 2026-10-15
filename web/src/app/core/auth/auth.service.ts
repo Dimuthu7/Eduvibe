@@ -45,7 +45,7 @@ export class AuthService {
     const user = this.user();
     if (!user) return '/login';
     if (needsSetup(user)) return '/change-password';
-    if (this.hasRole('SuperAdmin')) return '/admin/teachers';
+    if (this.hasRole('SuperAdmin')) return '/admin/dashboard';
     return this.hasRole('Teacher') ? '/home' : '/welcome';
   }
 

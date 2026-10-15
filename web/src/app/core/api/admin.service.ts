@@ -81,3 +81,60 @@ export class AdminService {
     return this.http.get<Institute[]>(`${this.base}/api/classes/my-institutes`);
   }
 }
+
+/** One dashboard number. The screen names it from the key; a plan carries its own name in label. */
+export interface Stat {
+  key: string;
+  value: number;
+  label: string | null;
+}
+
+export interface AuditRow {
+  id: string;
+  at: string;
+  entity: string;
+  entityId: string;
+  action: 'created' | 'updated' | 'deleted';
+  userId: string | null;
+  userName: string | null;
+  tenantId: string | null;
+  before: string | null;
+  after: string | null;
+}
+
+export interface AuditPage {
+  items: AuditRow[];
+  hasMore: boolean;
+}
+
+export interface AuditFilter {
+  teacherId?: string;
+  entity?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+  skip?: number;
+}
+
+/** Super Admin calls across all teachers: the dashboard numbers and the audit log. */
+@Injectable({ providedIn: 'root' })
+export class AdminOverviewService {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${inject(AppConfig).apiBaseUrl}/api/reports`;
+
+  dashboard() {
+    return this.http.get<Stat[]>(`${this.base}/dashboard`);
+  }
+
+  audit(filter: AuditFilter) {
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== undefined && value !== '' && value !== 0) params[key] = String(value);
+    }
+    return this.http.get<AuditPage>(`${this.base}/audit`, { params });
+  }
+
+  auditEntities() {
+    return this.http.get<string[]>(`${this.base}/audit/entities`);
+  }
+}

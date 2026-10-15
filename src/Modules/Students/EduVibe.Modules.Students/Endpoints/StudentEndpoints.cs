@@ -1,6 +1,7 @@
 using EduVibe.Modules.Students.Domain;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Phone;
+using EduVibe.Shared.Plans;
 using EduVibe.Shared.Security;
 using EduVibe.Shared.Tenancy;
 using Microsoft.AspNetCore.Builder;
@@ -102,7 +103,7 @@ internal static class StudentEndpoints
 
     private static async Task<IResult> Add(
         AddStudentRequest request, StudentsDbContext db, IClassDirectory classes, IAccountProvisioner accounts,
-        TimeProvider clock, CancellationToken ct)
+        IPlanGate plans, TimeProvider clock, CancellationToken ct)
     {
         var (clean, error) = StudentRules.Validate(
             request.Phone, request.FirstName, request.LastName, request.School, request.Grade,
@@ -160,6 +161,11 @@ internal static class StudentEndpoints
             db.Students.Add(student);
         }
 
+        if (await ClassIsFull(db, plans, cls, ct))
+        {
+            return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
+        }
+
         var (enrolment, problem) = await EnrolAsync(db, student, newStudent, cls, request.IndexNumber, plan.Value, discount.Value, EnrolmentStatus.Active, clock, ct);
         if (enrolment is null)
         {
@@ -198,7 +204,7 @@ internal static class StudentEndpoints
     }
 
     private static async Task<IResult> Enrol(
-        Guid id, EnrolRequest request, StudentsDbContext db, IClassDirectory classes, TimeProvider clock, CancellationToken ct)
+        Guid id, EnrolRequest request, StudentsDbContext db, IClassDirectory classes, IPlanGate plans, TimeProvider clock, CancellationToken ct)
     {
         // The student must already be one of this teacher's students.
         if (!await db.Enrolments.AnyAsync(e => e.StudentId == id, ct))
@@ -224,6 +230,11 @@ internal static class StudentEndpoints
             return Problems.Reject(discountError!);
         }
 
+        if (await ClassIsFull(db, plans, cls, ct))
+        {
+            return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
+        }
+
         var student = await db.Students.SingleAsync(s => s.Id == id, ct);
         var (enrolment, problem) = await EnrolAsync(db, student, false, cls, request.IndexNumber, plan.Value, discount.Value, EnrolmentStatus.Active, clock, ct);
         if (enrolment is null)
@@ -247,7 +258,7 @@ internal static class StudentEndpoints
     }
 
     private static async Task<IResult> UpdateEnrolment(
-        Guid id, UpdateEnrolmentRequest request, StudentsDbContext db, IClassDirectory classes, TimeProvider clock, CancellationToken ct)
+        Guid id, UpdateEnrolmentRequest request, StudentsDbContext db, IClassDirectory classes, IPlanGate plans, TimeProvider clock, CancellationToken ct)
     {
         var row = await db.Enrolments.Include(e => e.Student).SingleOrDefaultAsync(e => e.Id == id, ct);
         if (row is null)
@@ -297,6 +308,11 @@ internal static class StudentEndpoints
             row.IndexNumber = index;
         }
 
+        if (row.Status == EnrolmentStatus.Left && status == EnrolmentStatus.Active && await ClassIsFull(db, plans, cls, ct))
+        {
+            return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
+        }
+
         if (status != row.Status)
         {
             row.LeftOn = status == EnrolmentStatus.Left ? Problems.Today(clock) : null;
@@ -308,7 +324,7 @@ internal static class StudentEndpoints
         return await SaveAsync(db, ct) ?? Results.Ok(ToRow(row, TitlesOf(cls)));
     }
 
-    private static async Task<IResult> Approve(Guid id, StudentsDbContext db, IClassDirectory classes, TimeProvider clock, CancellationToken ct)
+    private static async Task<IResult> Approve(Guid id, StudentsDbContext db, IClassDirectory classes, IPlanGate plans, TimeProvider clock, CancellationToken ct)
     {
         var row = await db.Enrolments.Include(e => e.Student).SingleOrDefaultAsync(e => e.Id == id, ct);
         if (row is null)
@@ -319,6 +335,12 @@ internal static class StudentEndpoints
         if (row.Status != EnrolmentStatus.Pending)
         {
             return Problems.Reject("not_pending", StatusCodes.Status409Conflict);
+        }
+
+        var cls = await classes.FindAsync(row.ClassId, ct);
+        if (cls is not null && await ClassIsFull(db, plans, cls, ct))
+        {
+            return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
         }
 
         row.Status = EnrolmentStatus.Active;
@@ -345,6 +367,11 @@ internal static class StudentEndpoints
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
     }
+
+    /// <summary>True when the teacher's plan caps students per class and the class already has that many active students. Pending requests do not count.</summary>
+    private static async Task<bool> ClassIsFull(StudentsDbContext db, IPlanGate plans, ClassSummary cls, CancellationToken ct) =>
+        (await plans.ForTeacherAsync(cls.TenantId, ct)).LimitOf(PlanLimits.MaxStudentsPerClass) is { } max
+        && await db.Enrolments.CountAsync(e => e.ClassId == cls.Id && e.Status == EnrolmentStatus.Active, ct) >= max;
 
     /// <summary>The class must exist for this teacher and not be archived.</summary>
     private static async Task<(ClassSummary? Class, IResult? Problem)> FindOpenClass(Guid? classId, IClassDirectory classes, CancellationToken ct)

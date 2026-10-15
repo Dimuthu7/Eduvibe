@@ -23,4 +23,7 @@ internal sealed class TeacherDirectory(IdentityDbContext db) : ITeacherDirectory
             .SingleOrDefaultAsync(cancellationToken);
         return user is null ? null : $"{user.FirstName} {user.LastName}".Trim();
     }
+
+    public Task<int> CountActiveAsync(CancellationToken cancellationToken = default) =>
+        db.Teachers.CountAsync(t => db.Users.Any(u => u.Id == t.UserId && u.IsActive), cancellationToken);
 }

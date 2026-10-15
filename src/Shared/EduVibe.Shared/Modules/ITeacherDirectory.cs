@@ -11,4 +11,7 @@ public interface ITeacherDirectory
 
     /// <summary>The teacher's full name, or null when there is no such teacher.</summary>
     Task<string?> FindNameAsync(Guid teacherId, CancellationToken cancellationToken = default);
+
+    /// <summary>How many active teachers there are, across all of them.</summary>
+    Task<int> CountActiveAsync(CancellationToken cancellationToken = default);
 }

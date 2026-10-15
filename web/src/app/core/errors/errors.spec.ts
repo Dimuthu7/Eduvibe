@@ -52,6 +52,12 @@ describe('HTTP error interceptor', () => {
 
     expect(toast.error).not.toHaveBeenCalled();
   });
+
+  it('toasts a plan limit, which any screen can hit, with its own message', () => {
+    fail(403, { code: 'plan_limit_students' });
+
+    expect(toast.error).toHaveBeenCalledWith('error.plan_limit_students');
+  });
 });
 
 describe('error keys', () => {
@@ -64,6 +70,11 @@ describe('error keys', () => {
   it('shows nothing inline for failures the interceptor already announced', () => {
     expect(inlineError(response(500, null))).toBe('');
     expect(inlineError(new Error('x'))).toBe('');
+  });
+
+  it('leaves plan limits to the interceptor', () => {
+    expect(inlineError(response(403, { code: 'plan_limit_classes' }))).toBe('');
+    expect(inlineError(response(400, { code: 'plan_invalid' }))).toBe('error.plan_invalid');
   });
 
   it('falls back to a general message', () => {

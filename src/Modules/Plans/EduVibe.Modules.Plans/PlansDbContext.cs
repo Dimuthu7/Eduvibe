@@ -1,3 +1,4 @@
+using EduVibe.Modules.Plans.Domain;
 using EduVibe.Shared.Persistence;
 using EduVibe.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,11 @@ public sealed class PlansDbContext(DbContextOptions<PlansDbContext> options, ITe
     : ModuleDbContext(options, tenant)
 {
     public override string Schema => PlansModule.ModuleName;
+
+    public DbSet<Plan> Plans => Set<Plan>();
+    public DbSet<PlanFeature> Features => Set<PlanFeature>();
+    public DbSet<TeacherSubscription> Subscriptions => Set<TeacherSubscription>();
+    public DbSet<PlanPayment> Payments => Set<PlanPayment>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

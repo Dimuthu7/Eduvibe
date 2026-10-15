@@ -36,6 +36,10 @@ export const monthStart = (date: string): string => `${date.slice(0, 8)}01`;
 export const formatDate = (date: string): string =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
+/** An instant as Sri Lanka time, for example "12 Oct 2026, 4:30 pm", whatever the phone's own time zone is. */
+export const formatDateTime = (instant: string): string =>
+  new Date(instant).toLocaleString('en-GB', { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+
 /** The "yyyy-MM" fee month a "yyyy-MM-dd" date falls in. */
 export const monthOf = (date: string): string => date.slice(0, 7);
 

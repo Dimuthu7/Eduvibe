@@ -95,6 +95,11 @@ const FIELD_FOR_CODE: Record<string, string> = {
   reason_too_long: 'reason',
   name_too_long: 'name',
   held_on_required: 'heldOn',
+  description_too_long: 'description',
+  price_invalid: 'monthlyPrice',
+  plan_invalid: 'planId',
+  dates_invalid: 'endsOn',
+  reference_too_long: 'reference',
 };
 
 /**
