@@ -3,13 +3,16 @@ export interface PdfPage {
   jpeg: Uint8Array;
   width: number;
   height: number;
+  /** The page size in PDF points when it is not portrait A4 (a wide table is printed on landscape A4). */
+  pageWidth?: number;
+  pageHeight?: number;
 }
 
 /** A4 in PDF points (1/72 inch). */
 export const A4 = { width: 595.28, height: 841.89 };
 
 /**
- * Wraps page pictures into a PDF file, one picture per A4 page. The pictures are drawn in the browser so every
+ * Wraps page pictures into a PDF file, one picture per page (A4 portrait unless the page says otherwise). The pictures are drawn in the browser so every
  * language (Sinhala and Tamil included) looks right without bundling fonts or a PDF library.
  */
 export function pdfFromPages(pages: PdfPage[]): Blob {
@@ -39,11 +42,13 @@ export function pdfFromPages(pages: PdfPage[]): Blob {
 
   pages.forEach((page, i) => {
     const id = pageId(i);
+    const pageWidth = page.pageWidth ?? A4.width;
+    const pageHeight = page.pageHeight ?? A4.height;
     startObject(id);
     write(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.width} ${A4.height}] /Resources << /XObject << /Im0 ${id + 2} 0 R >> >> /Contents ${id + 1} 0 R >>\nendobj\n`,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 ${id + 2} 0 R >> >> /Contents ${id + 1} 0 R >>\nendobj\n`,
     );
-    const draw = `q ${A4.width} 0 0 ${A4.height} 0 0 cm /Im0 Do Q`;
+    const draw = `q ${pageWidth} 0 0 ${pageHeight} 0 0 cm /Im0 Do Q`;
     startObject(id + 1);
     write(`<< /Length ${draw.length} >>\nstream\n${draw}\nendstream\nendobj\n`);
     startObject(id + 2);

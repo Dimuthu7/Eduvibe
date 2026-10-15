@@ -32,4 +32,11 @@ describe('pdfFromPages', () => {
     const pdf = await textOf(pdfFromPages([page(33)]));
     expect(pdf).toContain('/Length 33 >>\nstream\n');
   });
+
+  it('gives a page its own size when it is not portrait A4', async () => {
+    const pdf = await textOf(pdfFromPages([page(30), { ...page(30), pageWidth: A4.height, pageHeight: A4.width }]));
+    expect(pdf).toContain(`/MediaBox [0 0 ${A4.width} ${A4.height}]`);
+    expect(pdf).toContain(`/MediaBox [0 0 ${A4.height} ${A4.width}]`);
+    expect(pdf).toContain(`q ${A4.height} 0 0 ${A4.width} 0 0 cm`);
+  });
 });

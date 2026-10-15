@@ -9,13 +9,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ExamDetail, ExamPart, ExamsService, MarkRow, StudentResult } from '../../core/api/exams.service';
-import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
-import { fileNamePart, saveBlob } from '../../shared/download';
+import { fileNamePart } from '../../shared/download';
+import { ExportService } from '../../shared/export.service';
 import { parseMark, previewRow, RowPreview } from '../../shared/exam-calc';
 import { formatDate } from '../../shared/format';
 import { ExamAnalysis } from './exam-analysis';
@@ -56,6 +56,10 @@ interface Entry {
               <p class="page-subtitle">{{ d.classTitle }} · {{ date(d.heldOn) }} · {{ 'exams.out_of' | t }} {{ d.maxTotal }}</p>
             </div>
             <div class="row-wrap">
+              <button mat-stroked-button type="button" (click)="exportResults(d)">
+                <mat-icon>ios_share</mat-icon>
+                {{ 'export.button' | t }}
+              </button>
               <button mat-icon-button type="button" [matMenuTriggerFor]="menu" [attr.aria-label]="'common.actions' | t">
                 <mat-icon>more_vert</mat-icon>
               </button>
@@ -63,10 +67,6 @@ interface Entry {
                 <button mat-menu-item type="button" (click)="edit(d)">
                   <mat-icon>edit</mat-icon>
                   <span>{{ 'exams.edit' | t }}</span>
-                </button>
-                <button mat-menu-item type="button" (click)="exportExcel(d)" [disabled]="exporting()">
-                  <mat-icon>download</mat-icon>
-                  <span>{{ 'exams.export' | t }}</span>
                 </button>
                 @if (d.publishedAt) {
                   <button mat-menu-item type="button" (click)="unpublish(d)">
@@ -282,7 +282,7 @@ export class ExamScreen {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly reports = inject(ReportsService);
+  private readonly exporter = inject(ExportService);
   private readonly i18n = inject(TranslateService);
 
   protected readonly exam = new Loadable<ExamDetail>();
@@ -290,7 +290,6 @@ export class ExamScreen {
   protected readonly view = signal<'marks' | 'results' | 'analysis'>('marks');
   protected readonly saving = signal(false);
   protected readonly publishing = signal(false);
-  protected readonly exporting = signal(false);
   protected readonly date = formatDate;
 
   /** What is typed in each box, by student then part. Starts from the saved marks. */
@@ -437,14 +436,14 @@ export class ExamScreen {
     });
   }
 
-  protected exportExcel(d: ExamDetail): void {
-    this.exporting.set(true);
-    this.reports.download('exam-results', { examId: d.id }).subscribe({
-      next: (file) => {
-        this.exporting.set(false);
-        saveBlob(file, `${fileNamePart(`${this.i18n.translate('exams.results')} ${d.classTitle} ${d.name}`)}.xlsx`);
-      },
-      error: () => this.exporting.set(false),
+  protected exportResults(d: ExamDetail): void {
+    const t = (key: string) => this.i18n.translate(key);
+    this.exporter.open({
+      key: 'exam-results',
+      params: { examId: d.id },
+      title: t('exams.results'),
+      facts: [`${t('export.class')}: ${d.classTitle}`, `${t('export.exam')}: ${d.name}`, `${t('export.date')}: ${formatDate(d.heldOn)}`],
+      fileName: fileNamePart(`${t('exams.results')} ${d.classTitle} ${d.name}`),
     });
   }
 

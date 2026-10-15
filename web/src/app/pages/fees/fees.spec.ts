@@ -38,7 +38,7 @@ describe('Fees', () => {
     expect(text).toContain('Grade 6 ICT');
     expect(text).toContain('fees.collected');
     // The Excel export is for one class, so it is not offered here.
-    expect(text).not.toContain('fees.export');
+    expect(text).not.toContain('export.button');
   });
 
   it('shows the students of one class and offers the Excel export', () => {
@@ -51,6 +51,6 @@ describe('Fees', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Amara Silva');
     expect(text).toContain('fees.status.Unpaid');
-    expect(text).toContain('fees.export');
+    expect(text).toContain('export.button');
   });
 });

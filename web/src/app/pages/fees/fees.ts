@@ -8,13 +8,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { catchError, combineLatest, EMPTY, Observable, switchMap, tap } from 'rxjs';
 import { ClassesService } from '../../core/api/classes.service';
 import { ClassMonth, FeeOverview, FeesService } from '../../core/api/fees.service';
-import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
-import { fileNamePart, saveBlob } from '../../shared/download';
-import { formatLkr, monthOf, todayColombo } from '../../shared/format';
+import { fileNamePart } from '../../shared/download';
+import { ExportService } from '../../shared/export.service';
+import { formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/format';
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 
@@ -39,9 +39,9 @@ export const ALL_CLASSES = 'all';
           {{ 'fees.unpaid_attendees' | t }}
         </a>
         @if (isClass()) {
-          <button mat-stroked-button type="button" (click)="exportExcel()" [disabled]="exporting()">
-            <mat-icon>download</mat-icon>
-            {{ 'fees.export' | t }}
+          <button mat-stroked-button type="button" (click)="exportFees()">
+            <mat-icon>ios_share</mat-icon>
+            {{ 'export.button' | t }}
           </button>
         }
       </div>
@@ -169,7 +169,7 @@ export class Fees {
   readonly month = input<string>('');
 
   private readonly api = inject(FeesService);
-  private readonly reports = inject(ReportsService);
+  private readonly exporter = inject(ExportService);
   private readonly router = inject(Router);
   private readonly i18n = inject(TranslateService);
 
@@ -179,7 +179,6 @@ export class Fees {
   protected readonly all = new Loadable<FeeOverview>();
   protected readonly classOptions = signal<SelectOption[]>([]);
   protected readonly classesLoaded = signal(false);
-  protected readonly exporting = signal(false);
   protected readonly classControl = new FormControl('', { nonNullable: true });
   protected readonly chosen = computed(() => this.classId());
   protected readonly isAll = computed(() => this.chosen() === ALL_CLASSES);
@@ -240,16 +239,16 @@ export class Fees {
     this.refresh.update((n) => n + 1);
   }
 
-  /** Saves this class's month as an Excel file. */
-  protected exportExcel(): void {
+  /** Opens the Export / Share sheet for this class's month. */
+  protected exportFees(): void {
+    const t = (key: string) => this.i18n.translate(key);
     const classTitle = this.classOptions().find((o) => o.value === this.chosen())?.label ?? '';
-    this.exporting.set(true);
-    this.reports.download('fee-status', { classId: this.chosen(), month: this.chosenMonth() }).subscribe({
-      next: (file) => {
-        this.exporting.set(false);
-        saveBlob(file, `${fileNamePart(`${this.i18n.translate('fees.title')} ${classTitle} ${this.chosenMonth()}`)}.xlsx`);
-      },
-      error: () => this.exporting.set(false),
+    this.exporter.open({
+      key: 'fee-status',
+      params: { classId: this.chosen(), month: this.chosenMonth() },
+      title: t('fees.title'),
+      facts: [`${t('export.class')}: ${classTitle}`, `${t('export.month')}: ${formatMonth(this.chosenMonth())}`],
+      fileName: fileNamePart(`${t('fees.title')} ${classTitle} ${this.chosenMonth()}`),
     });
   }
 
