@@ -18,6 +18,7 @@ public sealed record AuditPageDto(AuditRowDto[] Items, bool HasMore);
 internal static class AdminEndpoints
 {
     private const int PageSize = 50;
+    private const int MaxSkip = 100_000;
     private static readonly TimeSpan Colombo = TimeSpan.FromMinutes(330);
 
     public static void Map(RouteGroupBuilder group)
@@ -68,17 +69,17 @@ internal static class AdminEndpoints
 
         if (from is { } start)
         {
-            var at = new DateTimeOffset(start.ToDateTime(TimeOnly.MinValue), Colombo).ToUniversalTime();
+            var at = new DateTimeOffset(Within(start).ToDateTime(TimeOnly.MinValue), Colombo).ToUniversalTime();
             query = query.Where(e => e.At >= at);
         }
 
         if (to is { } end)
         {
-            var at = new DateTimeOffset(end.AddDays(1).ToDateTime(TimeOnly.MinValue), Colombo).ToUniversalTime();
+            var at = new DateTimeOffset(Within(end).AddDays(1).ToDateTime(TimeOnly.MinValue), Colombo).ToUniversalTime();
             query = query.Where(e => e.At < at);
         }
 
-        var rows = await query.OrderByDescending(e => e.Id).Skip(Math.Max(skip ?? 0, 0)).Take(PageSize + 1).ToListAsync(ct);
+        var rows = await query.OrderByDescending(e => e.Id).Skip(Math.Clamp(skip ?? 0, 0, MaxSkip)).Take(PageSize + 1).ToListAsync(ct);
         var names = await users.NamesAsync(rows.Where(r => r.UserId is not null).Select(r => r.UserId!.Value), ct);
         return Results.Ok(new AuditPageDto(
             [.. rows.Take(PageSize).Select(r => new AuditRowDto(
@@ -86,6 +87,9 @@ internal static class AdminEndpoints
                 r.UserId is { } id && names.TryGetValue(id, out var name) ? name : null, r.TenantId, r.Before, r.After))],
             rows.Count > PageSize));
     }
+
+    // Dates far outside any real log would overflow the time arithmetic, so they are pulled into a sensible range.
+    private static DateOnly Within(DateOnly date) => date < new DateOnly(2000, 1, 1) ? new DateOnly(2000, 1, 1) : date > new DateOnly(2100, 1, 1) ? new DateOnly(2100, 1, 1) : date;
 
     private static async Task<IResult> AuditEntities(AuditDbContext db, CancellationToken ct) =>
         Results.Ok(await db.Entries.Select(e => e.Entity).Distinct().OrderBy(e => e).ToListAsync(ct));

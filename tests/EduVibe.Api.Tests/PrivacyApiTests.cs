@@ -193,6 +193,30 @@ public class PrivacyApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task A_student_export_includes_what_hangs_off_payments_and_the_void_reason_goes_with_the_student()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        var admin = await factory.AdminClientAsync();
+        var classId = await ClassOf(teacher.Client, "Allocation class");
+        var student = await Enrol(teacher.Client, classId, "Withdues");
+        await teacher.Client.GetAsync($"/api/fees/classes/{classId}"); // makes this month's due
+        await Fill(teacher.Client, student);
+        var payment = (await Json(await teacher.Client.GetAsync($"/api/fees/enrolments/{student.EnrolmentId}"))).GetProperty("payments").EnumerateArray().First().GetProperty("id").GetGuid();
+        await teacher.Client.PostAsJsonAsync($"/api/fees/payments/{payment}/void", new { reason = "Mother Withdues Perera said wrong amount" });
+
+        var text = await (await admin.GetAsync($"/api/privacy/students/{student.StudentId}/export")).Content.ReadAsStringAsync();
+        Assert.Contains("payment_allocations", text);
+        Assert.Contains("Mother Withdues Perera said wrong amount", text);
+
+        await admin.PostAsJsonAsync($"/api/privacy/students/{student.StudentId}/erase", new { confirm = "Withdues Perera" });
+
+        var after = await (await admin.GetAsync($"/api/privacy/teachers/{teacher.Id}/export")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Withdues", after);
+        Assert.Contains("payment_allocations", after);
+        Assert.Equal(0, await AuditRowsHolding(teacher.Id, "Mother Withdues"));
+    }
+
+    [Fact]
     public async Task Erasing_a_student_removes_who_they_are_but_teachers_keep_their_records()
     {
         var teacher = await factory.NewTeacherAsync();

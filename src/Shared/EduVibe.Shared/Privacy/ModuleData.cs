@@ -18,11 +18,37 @@ public static class ModuleData
     public static Task<PersonalData> ReadTenantAsync(DbContext db, Guid tenantId, CancellationToken ct) =>
         ReadAsync(db, TenantOwnedTypes(db), type => Equal(type, nameof(ITenantOwned.TenantId), tenantId), ct);
 
-    /// <summary>Every table with an EnrolmentId column: the rows that hang off these enrolments.</summary>
-    public static Task<PersonalData> ReadByEnrolmentsAsync(DbContext db, IReadOnlyCollection<Guid> enrolmentIds, CancellationToken ct) =>
-        enrolmentIds.Count == 0
-            ? Task.FromResult(new PersonalData())
-            : ReadAsync(db, db.Model.GetEntityTypes().Where(t => t.FindProperty("EnrolmentId")?.ClrType == typeof(Guid)), type => Contains(type, "EnrolmentId", enrolmentIds), ct);
+    /// <summary>
+    /// Every table with an EnrolmentId column, and the tables that hang off those (a payment's allocations, a result's part marks),
+    /// so nothing recorded about the enrolments is left out.
+    /// </summary>
+    public static async Task<PersonalData> ReadByEnrolmentsAsync(DbContext db, IReadOnlyCollection<Guid> enrolmentIds, CancellationToken ct)
+    {
+        if (enrolmentIds.Count == 0)
+        {
+            return [];
+        }
+
+        var roots = db.Model.GetEntityTypes().Where(t => t.FindProperty("EnrolmentId")?.ClrType == typeof(Guid)).ToList();
+        var data = await ReadAsync(db, roots, type => Contains(type, "EnrolmentId", enrolmentIds), ct);
+        foreach (var child in db.Model.GetEntityTypes().Except(roots))
+        {
+            var link = child.GetForeignKeys().FirstOrDefault(fk => roots.Contains(fk.PrincipalEntityType) && fk.Properties.Count == 1);
+            if (link is null || !data.TryGetValue(link.PrincipalEntityType.GetTableName() ?? link.PrincipalEntityType.ClrType.Name, out var parents))
+            {
+                continue;
+            }
+
+            var ids = parents.Cast<Dictionary<string, object?>>().Select(r => (Guid)r["Id"]!).ToList();
+            var column = link.Properties[0].Name;
+            foreach (var (table, rows) in await ReadAsync(db, [child], type => Contains(type, column, ids), ct))
+            {
+                data[table] = rows;
+            }
+        }
+
+        return data;
+    }
 
     /// <summary>Deletes every tenant-owned row of one teacher, children before parents. Bypasses change tracking, so no audit row is written per row.</summary>
     public static async Task EraseTenantAsync(DbContext db, Guid tenantId, CancellationToken ct)

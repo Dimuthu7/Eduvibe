@@ -131,6 +131,12 @@ internal static class StudentEndpoints
             return Problems.Reject(discountError!);
         }
 
+        // Checked before anything is saved: the sign-in account is created below and must not outlive a refused add.
+        if (await ClassIsFull(db, plans, cls, ct))
+        {
+            return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
+        }
+
         var student = await db.Students.SingleOrDefaultAsync(s => s.Phone == clean.Phone, ct);
         string? otp = null;
         var newStudent = student is null;
@@ -159,11 +165,6 @@ internal static class StudentEndpoints
                 Grade = clean.Grade, GuardianName = clean.GuardianName, GuardianPhone = clean.GuardianPhone, UserId = account.UserId,
             };
             db.Students.Add(student);
-        }
-
-        if (await ClassIsFull(db, plans, cls, ct))
-        {
-            return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
         }
 
         var (enrolment, problem) = await EnrolAsync(db, student, newStudent, cls, request.IndexNumber, plan.Value, discount.Value, EnrolmentStatus.Active, clock, ct);
@@ -308,7 +309,7 @@ internal static class StudentEndpoints
             row.IndexNumber = index;
         }
 
-        if (row.Status == EnrolmentStatus.Left && status == EnrolmentStatus.Active && await ClassIsFull(db, plans, cls, ct))
+        if (row.Status != EnrolmentStatus.Active && status == EnrolmentStatus.Active && await ClassIsFull(db, plans, cls, ct))
         {
             return Problems.Reject("plan_limit_students", StatusCodes.Status403Forbidden);
         }

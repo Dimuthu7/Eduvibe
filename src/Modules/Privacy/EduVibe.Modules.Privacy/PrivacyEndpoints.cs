@@ -27,6 +27,12 @@ internal static class PrivacyEndpoints
 
     public static void Map(RouteGroupBuilder group)
     {
+        // What these return is personal data: nothing between the server and the Super Admin's screen should keep a copy.
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            context.HttpContext.Response.Headers.CacheControl = "no-store";
+            return await next(context);
+        });
         group.MapGet("/teachers/{id:guid}/export", ExportTeacher);
         group.MapPost("/teachers/{id:guid}/erase", EraseTeacher);
         group.MapGet("/students/{id:guid}/export", ExportStudent);

@@ -292,6 +292,36 @@ public class PlansApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task A_refused_add_leaves_no_sign_in_behind_and_a_pending_student_cannot_skip_the_limit_by_an_update()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        await Assign(teacher.Id, await NewPlan(limits: new { max_students_per_class = 1 }));
+        var classId = await NewClass(teacher.Client, "Tiny");
+        var first = await Json(await AddStudent(teacher.Client, classId));
+        var phone = $"077{Interlocked.Increment(ref _phoneCounter):D7}";
+        object Body() => new { phone, firstName = "Late", lastName = "Comer", classId, feePlan = "Full" };
+
+        var refused = await teacher.Client.PostAsJsonAsync("/api/students", Body());
+        Assert.Equal("plan_limit_students", await Code(refused));
+
+        // Someone signs up with the class link; the class is full, so approving by an update is refused like approving by Approve.
+        var invite = await Json(await teacher.Client.PostAsJsonAsync("/api/students/invites", new { classId }));
+        var token = invite.GetProperty("token").GetString()!;
+        var registered = await factory.CreateClient().PostAsJsonAsync($"/api/students/register/{token}",
+            new { phone = $"077{Interlocked.Increment(ref _phoneCounter):D7}", firstName = "Dilani", lastName = "Silva", school = "S", grade = "G", password = "Student-pass-1" });
+        Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+        var pending = (await teacher.Client.GetFromJsonAsync<JsonElement>($"/api/students?classId={classId}&status=pending")).EnumerateArray().Single();
+        var sneak = await teacher.Client.PutAsJsonAsync($"/api/students/enrolments/{pending.GetProperty("enrolmentId").GetGuid()}", new { status = "Active" });
+        Assert.Equal("plan_limit_students", await Code(sneak));
+
+        // Room appears; the add that was refused now works and the teacher gets the one-time password, so no account was left from the refusal.
+        await teacher.Client.PutAsJsonAsync($"/api/students/enrolments/{first.GetProperty("row").GetProperty("enrolmentId").GetGuid()}", new { status = "Left" });
+        var again = await teacher.Client.PostAsJsonAsync("/api/students", Body());
+        Assert.Equal(HttpStatusCode.Created, again.StatusCode);
+        Assert.Equal(JsonValueKind.String, (await Json(again)).GetProperty("oneTimePassword").ValueKind);
+    }
+
+    [Fact]
     public async Task Plan_changes_are_in_the_audit_log_under_the_teacher()
     {
         var teacher = await factory.NewTeacherAsync();

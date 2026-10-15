@@ -30,16 +30,12 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
 
     public override async Task EraseTeacherAsync(Guid teacherId, CancellationToken ct)
     {
+        // Students who were only this teacher's have no reason to stay; students of other teachers keep their record.
+        // The orphans are worked out from the enrolments, so those go last, in one transaction with the students: if anything
+        // fails the enrolments are still there and running the erasure again finds the same orphans.
         var ids = await StudentIdsOfAsync(teacherId, ct);
-        await base.EraseTeacherAsync(teacherId, ct);
-
-        // Students who were only this teacher's have no reason to stay. Students of other teachers keep their record.
-        var stillEnrolled = await Db.Enrolments.IgnoreQueryFilters().Where(e => ids.Contains(e.StudentId)).Select(e => e.StudentId).Distinct().ToListAsync(ct);
-        var orphans = ids.Except(stillEnrolled).ToList();
-        if (orphans.Count == 0)
-        {
-            return;
-        }
+        var elsewhere = await Db.Enrolments.IgnoreQueryFilters().Where(e => ids.Contains(e.StudentId) && e.TenantId != teacherId).Select(e => e.StudentId).Distinct().ToListAsync(ct);
+        var orphans = ids.Except(elsewhere).ToList();
 
         var userIds = await Db.Students.IgnoreQueryFilters().Where(s => orphans.Contains(s.Id) && s.UserId != null).Select(s => s.UserId!.Value).ToListAsync(ct);
         foreach (var userId in userIds)
@@ -47,7 +43,10 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
             await accounts.RemoveStudentAccountAsync(userId, ct);
         }
 
+        await using var transaction = await Db.Database.BeginTransactionAsync(ct);
+        await base.EraseTeacherAsync(teacherId, ct);
         await Db.Students.IgnoreQueryFilters().Where(s => orphans.Contains(s.Id)).ExecuteDeleteAsync(ct);
+        await transaction.CommitAsync(ct);
         await AuditRedaction.RedactRecordsAsync(audit, nameof(Student), orphans, ct);
     }
 
