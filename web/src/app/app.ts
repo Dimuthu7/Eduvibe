@@ -31,6 +31,7 @@ const TEACHER_NAV: NavItem[] = [
   { route: '/exams', label: 'nav.exams', icon: 'quiz' },
   { route: '/timetable', label: 'nav.timetable', icon: 'calendar_month' },
   { route: '/venues', label: 'nav.venues', icon: 'place' },
+  { route: '/help', label: 'nav.help', icon: 'help' },
 ];
 const ADMIN_NAV: NavItem[] = [
   { route: '/admin/dashboard', label: 'nav.dashboard', icon: 'dashboard' },

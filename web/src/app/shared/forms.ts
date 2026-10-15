@@ -58,6 +58,7 @@ const FIELD_FOR_CODE: Record<string, string> = {
   stream_invalid: 'streamId',
   subjects_required: 'subjectIds',
   subject_invalid: 'subjectIds|subjectId',
+  confirm_mismatch: 'confirm',
   name_required: 'name',
   name_taken: 'name',
   title_required: 'title',
