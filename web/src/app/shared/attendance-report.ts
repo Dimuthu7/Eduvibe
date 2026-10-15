@@ -1,4 +1,5 @@
 import { PdfPage, pdfFromPages } from './pdf';
+import { ACCENT, BAND, canvasToPage, FONT, INK, LINE, MUTED, newCanvas, fit, text } from './pdf-draw';
 
 export type ReportStatus = 'Present' | 'Late' | 'Absent';
 
@@ -48,19 +49,11 @@ export interface AttendanceReportLabels {
   madeOn: string;
 }
 
-// A report is shared outside the app, so it always has a light background whatever theme the app is in.
-const INK = '#1b1b1f';
-const MUTED = '#5f6368';
-const ACCENT = '#0b57d0';
-const LINE = '#dadce0';
-const BAND = '#f3f4f7';
 const STATUS_COLOUR: Record<ReportStatus, string> = { Present: '#1e7d32', Late: '#a15c00', Absent: '#b3261e' };
-const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif';
 
 // Layout in A4 points; the canvas is drawn larger so the text stays sharp when zoomed.
 const W = 595;
 const H = 842;
-const SCALE = 2.5;
 const PAD = 40;
 const ROW = 26;
 const FIRST_TOP = 330;
@@ -101,16 +94,7 @@ async function drawPage(
   index: number,
   total: number,
 ): Promise<PdfPage> {
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(W * SCALE);
-  canvas.height = Math.round(H * SCALE);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas is not available');
-  ctx.scale(SCALE, SCALE);
-  ctx.textBaseline = 'alphabetic';
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
+  const { canvas, ctx } = newCanvas(W, H);
   ctx.fillStyle = ACCENT;
   ctx.fillRect(0, 0, W, 8);
 
@@ -189,25 +173,5 @@ async function drawPage(
   text(ctx, `${labels.madeOn} ${data.madeOn}`, PAD, H - 28, `400 11px ${FONT}`, MUTED);
   text(ctx, `${labels.page} ${index + 1} ${labels.of} ${total}`, W - PAD, H - 28, `400 11px ${FONT}`, MUTED, 'right');
 
-  const jpeg = await new Promise<Blob>((resolve, reject) =>
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not make the page'))), 'image/jpeg', 0.92),
-  );
-  return { jpeg: new Uint8Array(await jpeg.arrayBuffer()), width: canvas.width, height: canvas.height };
-}
-
-function text(ctx: CanvasRenderingContext2D, value: string, x: number, y: number, font: string, colour: string, align: CanvasTextAlign = 'left'): void {
-  ctx.font = font;
-  ctx.fillStyle = colour;
-  ctx.textAlign = align;
-  ctx.fillText(value, x, y);
-  ctx.textAlign = 'left';
-}
-
-/** Shortens text with an ellipsis so it fits the width. */
-function fit(ctx: CanvasRenderingContext2D, value: string, width: number, font: string): string {
-  ctx.font = font;
-  if (ctx.measureText(value).width <= width) return value;
-  let shorter = value;
-  while (shorter.length > 1 && ctx.measureText(`${shorter}…`).width > width) shorter = shorter.slice(0, -1);
-  return `${shorter.trimEnd()}…`;
+  return canvasToPage(canvas);
 }

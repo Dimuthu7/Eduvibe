@@ -11,11 +11,12 @@ import { CatalogStore } from '../../core/api/catalog.service';
 import { ClassesService, TuitionClass } from '../../core/api/classes.service';
 import { ExamListItem, ExamsService } from '../../core/api/exams.service';
 import { ClassMonth, FeesService } from '../../core/api/fees.service';
-import { ReportsService } from '../../core/api/reports.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
-import { fileNamePart, saveBlob } from '../../shared/download';
+import { fileNamePart } from '../../shared/download';
+import { ExportService } from '../../shared/export.service';
 import { formatDate, formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
 import { openExamDialog } from '../exams/exam-dialog';
@@ -52,6 +53,10 @@ import { openExtraClass } from './extra-session-dialog';
                 <mat-icon>groups</mat-icon>
                 {{ 'nav.students' | t }}
               </a>
+              <button mat-stroked-button type="button" (click)="exportClassList(c)">
+                <mat-icon>ios_share</mat-icon>
+                {{ 'export.button' | t }}
+              </button>
               @if (c.status === 'Active') {
                 <button mat-stroked-button type="button" (click)="edit(c)">
                   <mat-icon>edit</mat-icon>
@@ -62,10 +67,6 @@ import { openExtraClass } from './extra-session-dialog';
                 <mat-icon>more_vert</mat-icon>
               </button>
               <mat-menu #menu="matMenu">
-                <button mat-menu-item type="button" (click)="exportClassList(c)">
-                  <mat-icon>download</mat-icon>
-                  <span>{{ 'classes.export_list' | t }}</span>
-                </button>
                 @if (c.status === 'Active') {
                   <button mat-menu-item type="button" (click)="archive(c)">
                     <mat-icon>archive</mat-icon>
@@ -255,7 +256,8 @@ export class ClassHome {
   private readonly attendance = inject(AttendanceService);
   private readonly fees = inject(FeesService);
   private readonly exams = inject(ExamsService);
-  private readonly reports = inject(ReportsService);
+  private readonly exporter = inject(ExportService);
+  private readonly i18n = inject(TranslateService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
@@ -296,9 +298,16 @@ export class ClassHome {
       });
   }
 
-  /** Saves the class list (every active student with contact details and fee plan) as an Excel file. */
+  /** Opens the Export / Share sheet for the class list: every active student with contact details and fee plan. */
   protected exportClassList(c: TuitionClass): void {
-    this.reports.download('class-list', { classId: c.id }).subscribe((file) => saveBlob(file, `${fileNamePart(c.title)}.xlsx`));
+    const t = (key: string) => this.i18n.translate(key);
+    this.exporter.open({
+      key: 'class-list',
+      params: { classId: c.id },
+      title: t('classes.list_title'),
+      facts: [`${t('export.class')}: ${c.title}`],
+      fileName: fileNamePart(`${t('classes.list_title')} ${c.title}`),
+    });
   }
 
   protected addExtra(c: TuitionClass): void {

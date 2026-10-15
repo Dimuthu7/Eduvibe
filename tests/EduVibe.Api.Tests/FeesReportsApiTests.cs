@@ -189,6 +189,31 @@ public class FeesReportsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Every_report_is_also_offered_as_rows_for_the_pdf_and_follows_the_same_rules()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        var classId = await DailyClass(teacher.Client, "Maths", 2000m);
+        var aruni = await AddStudent(teacher.Client, classId, "Aruni");
+        await Pay(teacher.Client, aruni, 2000m);
+
+        var response = await teacher.Client.GetAsync($"/api/reports/fee-status/table?classId={classId}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.False(string.IsNullOrWhiteSpace(json.GetProperty("title").GetString()));
+        Assert.True(json.GetProperty("headers").GetArrayLength() >= 3);
+        var rows = json.GetProperty("rows");
+        Assert.True(rows.GetArrayLength() >= 2); // the student and the total
+        Assert.Contains("Aruni Silva", rows.GetRawText());
+
+        // Same refusals as the Excel file.
+        var other = await factory.NewTeacherAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await other.Client.GetAsync($"/api/reports/fee-status/table?classId={classId}")).StatusCode);
+        Assert.Equal("report_not_found", await Code(await teacher.Client.GetAsync("/api/reports/nothing/table")));
+        Assert.Equal("class_not_found", await Code(await teacher.Client.GetAsync("/api/reports/class-list/table")));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().GetAsync($"/api/reports/class-list/table?classId={classId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task The_class_list_report_has_each_students_contact_details()
     {
         var teacher = await factory.NewTeacherAsync();
