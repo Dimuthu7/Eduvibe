@@ -22,6 +22,9 @@
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/EduVibe.Modules.Identity/EduVibe.Modules.Identity.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/EduVibe.Modules.Notifications/EduVibe.Modules.Notifications.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Plans/">
     <Project Path="src/Modules/Plans/EduVibe.Modules.Plans/EduVibe.Modules.Plans.csproj" />
   </Folder>

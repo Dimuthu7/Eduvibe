@@ -3,7 +3,6 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
 import { InviteLink, StudentsService } from '../../core/api/students.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
@@ -12,11 +11,11 @@ import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmData, ConfirmDialog } from '../../shared/confirm-dialog';
 import { InviteDialog } from './invite-dialog';
 
-/** The sign-up links of one class: make one, send it to students, and switch it off when it has done its job. */
+/** The sign-up links of one class: make one, send it to students, and cancel it when it has done its job. */
 @Component({
   selector: 'app-invite-links',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
+  imports: [DatePipe, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <div class="head">
       <div>
@@ -46,24 +45,23 @@ import { InviteDialog } from './invite-dialog';
                     {{ 'invites.until' | t }} {{ link.expiresAt | date: 'mediumDate' }} ·
                     {{ link.usedCount }}@if (link.maxUses) { / {{ link.maxUses }} } {{ 'invites.used' | t }}
                   </div>
+                  @if (link.status === 'Active') {
+                    <div class="actions">
+                      <button mat-stroked-button type="button" (click)="copy(link)">
+                        <mat-icon>content_copy</mat-icon>
+                        {{ 'invites.copy' | t }}
+                      </button>
+                      <a mat-stroked-button [href]="whatsapp(link)" target="_blank" rel="noopener">
+                        <mat-icon>send</mat-icon>
+                        {{ 'students.share_whatsapp' | t }}
+                      </a>
+                      <button mat-stroked-button type="button" class="cancel" (click)="confirmRevoke(link)">
+                        <mat-icon>link_off</mat-icon>
+                        {{ 'invites.revoke' | t }}
+                      </button>
+                    </div>
+                  }
                 </div>
-                @if (link.status === 'Active') {
-                  <button mat-icon-button type="button" (click)="copy(link)" [attr.aria-label]="'invites.copy' | t">
-                    <mat-icon>content_copy</mat-icon>
-                  </button>
-                  <a mat-icon-button [href]="whatsapp(link)" target="_blank" rel="noopener" [attr.aria-label]="'students.share_whatsapp' | t">
-                    <mat-icon>send</mat-icon>
-                  </a>
-                  <button mat-icon-button type="button" [matMenuTriggerFor]="menu" [attr.aria-label]="'common.actions' | t">
-                    <mat-icon>more_vert</mat-icon>
-                  </button>
-                  <mat-menu #menu="matMenu">
-                    <button mat-menu-item type="button" (click)="confirmRevoke(link)">
-                      <mat-icon>link_off</mat-icon>
-                      <span>{{ 'invites.revoke' | t }}</span>
-                    </button>
-                  </mat-menu>
-                }
               </div>
             }
           </div>
@@ -85,6 +83,8 @@ import { InviteDialog } from './invite-dialog';
     .head .section-title { margin: 0; }
     .subtitle { margin: 0.125rem 0 0; font: var(--mat-sys-body-small); }
     .off .avatar, .off .row-title { opacity: 0.55; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.625rem; }
+    .cancel { --mat-button-outlined-label-text-color: var(--mat-sys-error); --mat-button-outlined-outline-color: var(--mat-sys-error); }
   `,
 })
 export class InviteLinks {
@@ -142,7 +142,7 @@ export class InviteLinks {
   protected confirmRevoke(link: InviteLink): void {
     this.dialog
       .open<ConfirmDialog, ConfirmData, boolean>(ConfirmDialog, {
-        data: { title: 'invites.revoke', message: 'invites.revoke_confirm', confirm: 'invites.revoke' },
+        data: { title: 'invites.revoke', message: 'invites.revoke_confirm', confirm: 'invites.revoke', dismiss: 'invites.keep' },
         maxWidth: 'calc(100vw - 1rem)',
       })
       .afterClosed()

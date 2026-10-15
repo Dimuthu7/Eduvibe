@@ -1,7 +1,8 @@
 namespace EduVibe.Shared.Modules;
 
 /// <summary>One student in one class, as another module may see them. EnrolmentId is the key attendance and fees hang off.</summary>
-public sealed record RosterEntry(Guid EnrolmentId, Guid StudentId, Guid ClassId, int IndexNumber, string FullName);
+/// <param name="UserId">The student's sign-in account, when they have one. Used to notify them.</param>
+public sealed record RosterEntry(Guid EnrolmentId, Guid StudentId, Guid ClassId, int IndexNumber, string FullName, Guid? UserId = null);
 
 /// <summary>An enrolment of the signed-in student, across all teachers.</summary>
 public sealed record MyEnrolment(Guid EnrolmentId, Guid StudentId, Guid ClassId, Guid TenantId);
@@ -12,7 +13,7 @@ public sealed record MyEnrolment(Guid EnrolmentId, Guid StudentId, Guid ClassId,
 /// </summary>
 public sealed record FeeBasis(
     Guid EnrolmentId, Guid StudentId, Guid TenantId, Guid ClassId, string FullName, int IndexNumber,
-    string FeePlan, decimal DiscountAmount, DateOnly JoinedOn, bool IsActive);
+    string FeePlan, decimal DiscountAmount, DateOnly JoinedOn, bool IsActive, Guid? UserId = null);
 
 /// <summary>
 /// Who is in a class. The Students module implements it; Attendance and later modules use it instead of

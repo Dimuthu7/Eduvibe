@@ -11,7 +11,7 @@ namespace EduVibe.Modules.Students;
 /// invite links, and then the students nobody else teaches. Erasing a student removes who they are (name, phone, school, guardian,
 /// sign-in account) and leaves their enrolments, so every teacher's fee, attendance and marks records stay whole, without a name.
 /// </summary>
-internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisioner accounts, IClassDirectory classes, AuditDbContext audit)
+internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisioner accounts, IClassDirectory classes, INotifier notifier, AuditDbContext audit)
     : TenantTablesSource<StudentsDbContext>(db, StudentsModule.ModuleName), IPersonalDataSource
 {
     public override async Task<PersonalData> ExportTeacherAsync(Guid teacherId, CancellationToken ct)
@@ -41,6 +41,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         foreach (var userId in userIds)
         {
             await accounts.RemoveStudentAccountAsync(userId, ct);
+            await notifier.ForgetAsync(userId, ct);
         }
 
         await using var transaction = await Db.Database.BeginTransactionAsync(ct);
@@ -86,6 +87,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         if (student.UserId is { } userId)
         {
             await accounts.RemoveStudentAccountAsync(userId, ct);
+            await notifier.ForgetAsync(userId, ct);
         }
 
         // The phone number must stay unique and fit its column, so it becomes a marker rather than null.

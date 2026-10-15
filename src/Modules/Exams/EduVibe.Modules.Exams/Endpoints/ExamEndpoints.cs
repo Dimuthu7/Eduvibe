@@ -178,13 +178,15 @@ internal static class ExamEndpoints
 
     // Shares the results: each student in the class then sees their own marks, grade and rank. Marks can still be changed
     // after this, and students see the change. Publishing again keeps the first date.
-    private static async Task<IResult> Publish(Guid id, ExamsDbContext db, ExamReader reader, TimeProvider clock, CancellationToken ct) =>
-        await SetPublished(id, db, reader, clock.GetUtcNow(), ct);
+    private static async Task<IResult> Publish(
+        Guid id, ExamsDbContext db, ExamReader reader, IClassRoster roster, IClassDirectory classes, INotifier notifier, TimeProvider clock, CancellationToken ct) =>
+        await SetPublished(id, db, reader, clock.GetUtcNow(), (roster, classes, notifier), ct);
 
     private static async Task<IResult> Unpublish(Guid id, ExamsDbContext db, ExamReader reader, CancellationToken ct) =>
-        await SetPublished(id, db, reader, null, ct);
+        await SetPublished(id, db, reader, null, null, ct);
 
-    private static async Task<IResult> SetPublished(Guid id, ExamsDbContext db, ExamReader reader, DateTimeOffset? at, CancellationToken ct)
+    private static async Task<IResult> SetPublished(
+        Guid id, ExamsDbContext db, ExamReader reader, DateTimeOffset? at, (IClassRoster Roster, IClassDirectory Classes, INotifier Notifier)? tell, CancellationToken ct)
     {
         var exam = await db.Exams.SingleOrDefaultAsync(e => e.Id == id, ct);
         if (exam is null)
@@ -196,6 +198,16 @@ internal static class ExamEndpoints
         {
             exam.PublishedAt = at;
             await db.SaveChangesAsync(ct);
+            if (at is not null && tell is { } who)
+            {
+                // Students are told when results first go out. The key is the exam, so publishing again after taking it back tells nobody twice.
+                var title = (await who.Classes.FindAsync(exam.ClassId, ct))?.Title ?? "";
+                var roster = await who.Roster.ActiveRosterAsync(exam.ClassId, ct);
+                await who.Notifier.NotifyAsync(
+                    [.. roster.Where(r => r.UserId is not null).Select(r => new NotifyRequest(
+                        r.UserId!.Value, "results_published", new { exam = exam.Name, classTitle = title }, Link: "/results", OnceKey: $"results:{exam.Id}"))],
+                    ct);
+            }
         }
 
         return Results.Ok(await reader.DetailAsync(id, ct));

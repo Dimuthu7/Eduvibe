@@ -6,7 +6,7 @@ A teacher or a student can ask for the data EduVibe holds about them, or for it 
 
 In the app: **Teachers**, the menu on the teacher's row.
 
-- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams and plan history. Passwords, sign-in tokens and invite tokens are never included.
+- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications and plan history. Passwords, sign-in tokens and invite tokens are never included.
 - **Delete data** appears only for a teacher who has been switched off (**Deactivate** first). It asks for the teacher's full name. Then it deletes the teacher, everything they own, and the students nobody else teaches (with their sign-in accounts).
 
 Students who also study with another teacher stay, with that other teacher's records.
@@ -20,7 +20,11 @@ GET  /api/privacy/students/{id}/export
 POST /api/privacy/students/{id}/erase     { "confirm": "<student's full name>" }
 ```
 
-Erasing a student removes who they are (name, phone, school, guardian, sign-in account) and keeps their enrolments, so every teacher's fee, attendance and marks totals stay correct. The records read "Deleted student".
+Erasing a student removes who they are (name, phone, school, guardian, sign-in account) and keeps their enrolments, so every teacher's fee, attendance and marks totals stay correct. The records read "Deleted student". Their notifications are deleted with the account.
+
+## Notifications
+
+In-app notifications are addressed to one person (a teacher or a student account). A teacher's are included in their export and deleted with them. Read ones are removed after 90 days and any after 180 days. They hold names only inside the short text parameters of the notification (for example a class title or an amount).
 
 ## What the audit log keeps
 

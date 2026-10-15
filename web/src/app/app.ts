@@ -13,6 +13,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { filter, map } from 'rxjs';
 import { AuthService, needsSetup } from './core/auth/auth.service';
 import { TranslatePipe } from './core/i18n/translate.pipe';
+import { TranslateService } from './core/i18n/translate.service';
+import { UnreadNotifications } from './core/state/unread-notifications';
 import { LoadingService } from './core/ui/loading.service';
 import { ThemePreference, ThemeService } from './core/ui/theme.service';
 
@@ -73,6 +75,8 @@ export class App {
   protected readonly loading = inject(LoadingService);
   protected readonly theme = inject(ThemeService);
   protected readonly themes = THEMES;
+  protected readonly unread = inject(UnreadNotifications);
+  private readonly i18n = inject(TranslateService);
 
   private readonly sidenav = viewChild(MatSidenav);
 
@@ -87,6 +91,21 @@ export class App {
   protected readonly menuVisible = computed(() => {
     const user = this.auth.user();
     return !!user && !needsSetup(user);
+  });
+
+  /** Teachers and students are told things; the Super Admin has no notifications. */
+  protected readonly showsNotifications = computed(() => this.menuVisible() && (this.auth.hasRole('Teacher') || this.auth.hasRole('Student')));
+
+  /** The number on the profile icon: nothing when there is nothing new, and "9+" so it never grows wide. */
+  protected readonly badge = computed(() => {
+    const count = this.unread.count();
+    return !this.showsNotifications() || count === 0 ? '' : count > 9 ? '9+' : String(count);
+  });
+
+  protected readonly accountLabel = computed(() => {
+    const label = this.i18n.translate('nav.account');
+    const count = this.unread.count();
+    return this.showsNotifications() && count > 0 ? `${label}, ${count} ${this.i18n.translate('notifications.unread')}` : label;
   });
 
   protected readonly nav = computed(() => (this.auth.hasRole('SuperAdmin') ? ADMIN_NAV : this.auth.hasRole('Teacher') ? TEACHER_NAV : []));

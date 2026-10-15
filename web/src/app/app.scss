@@ -38,10 +38,23 @@
   color: inherit;
 }
 
+.menu-count {
+  margin-left: 0.75rem;
+  min-width: 1.25rem;
+  text-align: center;
+  padding: 0 0.5rem;
+  border-radius: 1rem;
+  background: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
+  font: var(--mat-sys-label-small);
+  line-height: 1.25rem;
+}
+
 .account {
   display: flex;
   flex-direction: column;
   padding: 0.5rem 1rem;
+  min-width: 12rem;
 }
 
 // Reserve the bar's height so the page does not jump when loading starts and stops.
@@ -61,4 +74,21 @@ mat-sidenav {
 
 main {
   min-height: 100%;
+}
+
+.account-badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  z-index: 1;
+  min-width: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 1rem;
+  background: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
+  font: var(--mat-sys-label-small);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  text-align: center;
+  pointer-events: none;
 }

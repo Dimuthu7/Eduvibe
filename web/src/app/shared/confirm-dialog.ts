@@ -8,6 +8,8 @@ export interface ConfirmData {
   message: string;
   /** Label of the button that goes ahead. */
   confirm: string;
+  /** Label of the button that backs out; "Cancel" when left out. Set it when the confirm label also says cancel. */
+  dismiss?: string;
 }
 
 /** Asks before something that is hard to take back. Closes with true when the person goes ahead. */
@@ -19,7 +21,7 @@ export interface ConfirmData {
     <h2 mat-dialog-title>{{ data.title | t }}</h2>
     <mat-dialog-content>{{ data.message | t }}</mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button type="button" mat-dialog-close>{{ 'common.cancel' | t }}</button>
+      <button mat-button type="button" mat-dialog-close>{{ (data.dismiss ?? 'common.cancel') | t }}</button>
       <button mat-flat-button type="button" [mat-dialog-close]="true">{{ data.confirm | t }}</button>
     </mat-dialog-actions>
   `,

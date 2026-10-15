@@ -23,6 +23,14 @@ export const guestGuard: CanActivateFn = async () => {
   return (await auth.restore()) ? inject(Router).parseUrl(auth.homeRoute()) : true;
 };
 
+/** Needs a user with any one of the roles (the notifications screen is for teachers and students). */
+export const anyRoleGuard =
+  (...roles: Role[]): CanActivateFn =>
+  () => {
+    const auth = inject(AuthService);
+    return roles.some((role) => auth.hasRole(role)) ? true : inject(Router).parseUrl(auth.homeRoute());
+  };
+
 export const roleGuard =
   (role: Role): CanActivateFn =>
   () => {
