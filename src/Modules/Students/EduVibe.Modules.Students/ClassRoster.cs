@@ -66,7 +66,7 @@ internal sealed class ClassRoster(StudentsDbContext db) : IClassRoster
 
     private static FeeBasis ToBasis(Enrolment e) => new(
         e.Id, e.StudentId, e.TenantId, e.ClassId, e.Student.FullName, e.IndexNumber,
-        e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn, e.Status == EnrolmentStatus.Active);
+        e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn, e.Status == EnrolmentStatus.Active, e.Student.UserId);
 
-    private static RosterEntry ToEntry(Enrolment e) => new(e.Id, e.StudentId, e.ClassId, e.IndexNumber, e.Student.FullName);
+    private static RosterEntry ToEntry(Enrolment e) => new(e.Id, e.StudentId, e.ClassId, e.IndexNumber, e.Student.FullName, e.Student.UserId);
 }

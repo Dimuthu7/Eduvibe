@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { activeGuard, guestGuard, roleGuard, signedInGuard } from './core/auth/guards';
+import { activeGuard, anyRoleGuard, guestGuard, roleGuard, signedInGuard } from './core/auth/guards';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'home' },
@@ -36,6 +36,11 @@ export const routes: Routes = [
       { path: 'timetable', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/timetable/timetable').then((m) => m.Timetable) },
       { path: 'venues', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/venues/venues').then((m) => m.Venues) },
       { path: 'help', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/help/help').then((m) => m.Help) },
+      {
+        path: 'notifications',
+        canActivate: [anyRoleGuard('Teacher', 'Student')],
+        loadComponent: () => import('./pages/notifications/notifications').then((m) => m.Notifications),
+      },
       { path: 'profile', loadComponent: () => import('./pages/profile/profile').then((m) => m.Profile) },
       {
         path: 'admin',

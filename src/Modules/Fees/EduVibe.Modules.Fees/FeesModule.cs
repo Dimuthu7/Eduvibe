@@ -23,6 +23,7 @@ public sealed class FeesModule : IModule
         services.AddScoped<IPersonalDataSource, FeesPersonalData>();
         services.AddScoped<FeeDueService>();
         services.AddScoped<ClassMonthService>();
+        services.AddScoped<FeeReminderService>();
         services.AddScoped<IReportSource, FeeStatusReport>();
         services.AddHostedService<FeeDueJob>();
     }

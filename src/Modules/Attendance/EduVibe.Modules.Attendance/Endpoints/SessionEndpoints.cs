@@ -90,7 +90,7 @@ internal static class SessionEndpoints
     }
 
     private static async Task<IResult> AddExtra(
-        AddSessionRequest request, AttendanceDbContext db, IClassDirectory classes, TimeProvider clock, CancellationToken ct)
+        AddSessionRequest request, AttendanceDbContext db, IClassDirectory classes, IClassRoster roster, INotifier notifier, TimeProvider clock, CancellationToken ct)
     {
         var today = Problems.Today(clock);
         if (request.Date is not { } date)
@@ -128,6 +128,20 @@ internal static class SessionEndpoints
         var session = new ClassSession { ClassId = cls.Id, Date = date, Start = start, End = end, IsExtra = true, Note = note };
         db.Sessions.Add(session);
         await db.SaveChangesAsync(ct);
+
+        // An extra class can only be added for today or earlier, so the only one worth telling students about is one still to come today.
+        var now = TimeOnly.FromDateTime(clock.GetUtcNow().ToOffset(TimeSpan.FromMinutes(330)).DateTime);
+        if (date == today && end > now)
+        {
+            var students = await roster.ActiveRosterAsync(cls.Id, ct);
+            await notifier.NotifyAsync(
+                [.. students.Where(s => s.UserId is not null).Select(s => new NotifyRequest(
+                    s.UserId!.Value, "extra_class",
+                    new { classTitle = cls.Title, start = start.ToString("HH:mm"), end = end.ToString("HH:mm"), note },
+                    Link: "/welcome", OnceKey: $"extra:{session.Id}"))],
+                ct);
+        }
+
         var dto = (await ToDtosAsync([session], db, classes, today, ct))[0];
         return Results.Created($"/api/attendance/sessions/{session.Id}", dto);
     }

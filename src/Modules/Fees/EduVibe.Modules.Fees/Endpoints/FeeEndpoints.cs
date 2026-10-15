@@ -92,8 +92,8 @@ internal static class FeeEndpoints
 
     // The amount goes to the months asked for, oldest first, or to the oldest unpaid months when none are named.
     private static async Task<IResult> RecordPayment(
-        RecordPaymentRequest request, FeesDbContext db, FeeDueService dues, IClassRoster roster, ITenantContext user,
-        TimeProvider clock, CancellationToken ct)
+        RecordPaymentRequest request, FeesDbContext db, FeeDueService dues, IClassRoster roster, IClassDirectory classes, INotifier notifier,
+        ITenantContext user, TimeProvider clock, CancellationToken ct)
     {
         var today = Problems.Today(clock);
         var current = FeeMonths.Current(clock);
@@ -182,6 +182,17 @@ internal static class FeeEndpoints
             try
             {
                 await db.SaveChangesAsync(ct);
+                if (basis.UserId is { } studentUser)
+                {
+                    var title = (await classes.FindAsync(basis.ClassId, ct))?.Title ?? "";
+                    await notifier.NotifyAsync(
+                    [
+                        new NotifyRequest(
+                            studentUser, "payment_received", new { amount, receiptNo = payment.ReceiptNo, classTitle = title },
+                            Link: "/welcome", OnceKey: $"payment:{payment.Id}"),
+                    ], ct);
+                }
+
                 return Results.Created($"/api/fees/enrolments/{basis.EnrolmentId}", (await ToDtosAsync(db, [payment], ct))[0]);
             }
             catch (DbUpdateException) when (attempt < 3)

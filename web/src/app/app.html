@@ -20,8 +20,11 @@
   </mat-menu>
 
   @if (auth.user(); as user) {
-    <button mat-icon-button type="button" [matMenuTriggerFor]="accountMenu" [attr.aria-label]="'nav.account' | t">
-      <mat-icon>account_circle</mat-icon>
+    <button mat-icon-button type="button" [matMenuTriggerFor]="accountMenu" [attr.aria-label]="accountLabel()">
+      <mat-icon aria-hidden="false">account_circle</mat-icon>
+      @if (badge() !== '') {
+        <span class="account-badge" aria-hidden="true">{{ badge() }}</span>
+      }
     </button>
     <mat-menu #accountMenu="matMenu">
       <div class="account" (click)="$event.stopPropagation()">
@@ -33,6 +36,15 @@
         <a mat-menu-item routerLink="/profile">
           <mat-icon>person</mat-icon>
           <span>{{ 'nav.profile' | t }}</span>
+        </a>
+      }
+      @if (showsNotifications()) {
+        <a mat-menu-item routerLink="/notifications">
+          <mat-icon>notifications</mat-icon>
+          <span>{{ 'nav.notifications' | t }}</span>
+          @if (badge() !== '') {
+            <span class="menu-count" aria-hidden="true">{{ unread.count() }}</span>
+          }
         </a>
       }
       <button mat-menu-item type="button" (click)="logout()">

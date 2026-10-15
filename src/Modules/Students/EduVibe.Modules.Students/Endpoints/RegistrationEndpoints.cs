@@ -42,7 +42,7 @@ internal static class RegistrationEndpoints
 
     private static async Task<IResult> Submit(
         string token, RegisterRequest request, StudentsDbContext db, IClassDirectory classes, IAccountProvisioner accounts,
-        TimeProvider clock, CancellationToken ct)
+        INotifier notifier, TimeProvider clock, CancellationToken ct)
     {
         var (invite, cls, problem) = await Resolve(token, db, classes, clock, ct);
         if (invite is null || cls is null)
@@ -97,7 +97,19 @@ internal static class RegistrationEndpoints
         }
 
         invite.UsedCount++;
-        return await StudentEndpoints.SaveAsync(db, ct) ?? Results.Ok(new RegisteredDto(newStudent ? "created" : "existing_account", cls.Title));
+        if (await StudentEndpoints.SaveAsync(db, ct) is { } failed)
+        {
+            return failed;
+        }
+
+        // The teacher is told once for each class while they have not looked: "3 students asked to join", not three lines.
+        await notifier.NotifyAsync(
+        [
+            new NotifyRequest(
+                cls.TenantId, "join_request", new { classTitle = cls.Title, student = student.FullName }, Link: "/students",
+                GroupKey: $"join:{cls.Id}"),
+        ], ct);
+        return Results.Ok(new RegisteredDto(newStudent ? "created" : "existing_account", cls.Title));
     }
 
     private static async Task<(InviteLink? Invite, ClassSummary? Class, IResult? Problem)> Resolve(

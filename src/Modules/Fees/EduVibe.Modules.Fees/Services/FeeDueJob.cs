@@ -7,7 +7,7 @@ namespace EduVibe.Modules.Fees.Services;
 
 /// <summary>
 /// Makes this month's fee dues for every active enrolment of every teacher, shortly after the app starts and then every few
-/// hours, so a new month's dues appear on their own. It is safe to run any number of times. Turn off with Fees:MonthlyJob=false.
+/// hours, so a new month's dues appear on their own, and then tells people about them (see FeeReminderService). It is safe to run any number of times. Turn off with Fees:MonthlyJob=false.
 /// </summary>
 internal sealed class FeeDueJob(IServiceScopeFactory scopes, IConfiguration configuration, TimeProvider clock, ILogger<FeeDueJob> log)
     : BackgroundService
@@ -45,6 +45,8 @@ internal sealed class FeeDueJob(IServiceScopeFactory scopes, IConfiguration conf
             var made = await scope.ServiceProvider.GetRequiredService<FeeDueService>()
                 .EnsureForAllTeachersAsync([FeeMonths.Current(clock)], ct);
             log.LogInformation("Monthly fee dues: {Count} made or updated", made);
+            var told = await scope.ServiceProvider.GetRequiredService<FeeReminderService>().RunAsync(ct);
+            log.LogInformation("Fee reminders: {Count} offered", told);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

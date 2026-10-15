@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { errorCode, errorKey, isPlanRejection } from '../api/problem';
+import { QUIET } from '../api/quiet';
 import { ToastService } from '../ui/toast.service';
 
 /**
@@ -10,6 +11,7 @@ import { ToastService } from '../ui/toast.service';
  * (wrong password, phone already used) are left for the screen to show beside the form. 401 is handled by the auth interceptor.
  */
 export const httpErrorInterceptor: HttpInterceptorFn = (request, next) => {
+  if (request.context.get(QUIET)) return next(request);
   const toast = inject(ToastService);
 
   return next(request).pipe(
