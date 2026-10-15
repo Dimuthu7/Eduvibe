@@ -1,3 +1,4 @@
+using EduVibe.Shared.Privacy;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -18,6 +19,7 @@ public sealed class ClassesModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<ClassesDbContext>(configuration, ModuleName);
+        services.AddScoped<IPersonalDataSource, ClassesPersonalData>();
         services.AddScoped<IClassDirectory, ClassDirectory>();
         services.AddScoped<IStatsSource, ClassesStats>();
     }

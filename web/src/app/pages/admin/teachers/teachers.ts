@@ -11,11 +11,14 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AdminService, TeacherSummary } from '../../../core/api/admin.service';
 import { CatalogStore } from '../../../core/api/catalog.service';
 import { Assignment, PlansService } from '../../../core/api/plans.service';
+import { PrivacyService } from '../../../core/api/privacy.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { TranslateService } from '../../../core/i18n/translate.service';
 import { Loadable } from '../../../core/state/loadable';
 import { ToastService } from '../../../core/ui/toast.service';
+import { fileNamePart, saveBlob } from '../../../shared/download';
 import { CreatedTeacher, TeacherDialog } from './teacher-dialog';
+import { TeacherEraseDialog } from './teacher-erase-dialog';
 import { TeacherPlanDialog } from './teacher-plan-dialog';
 
 interface Handout {
@@ -133,6 +136,16 @@ interface Handout {
                     <mat-icon>{{ teacher.isActive ? 'block' : 'check_circle' }}</mat-icon>
                     <span>{{ (teacher.isActive ? 'teachers.deactivate' : 'teachers.activate') | t }}</span>
                   </button>
+                  <button mat-menu-item type="button" (click)="download(teacher)">
+                    <mat-icon>download</mat-icon>
+                    <span>{{ 'privacy.download' | t }}</span>
+                  </button>
+                  @if (!teacher.isActive) {
+                    <button mat-menu-item type="button" (click)="erase(teacher)">
+                      <mat-icon>delete_forever</mat-icon>
+                      <span>{{ 'privacy.erase' | t }}</span>
+                    </button>
+                  }
                 </mat-menu>
               </div>
             }
@@ -175,6 +188,7 @@ interface Handout {
 export class AdminTeachers {
   private readonly api = inject(AdminService);
   private readonly plans = inject(PlansService);
+  private readonly privacy = inject(PrivacyService);
   private readonly dialog = inject(MatDialog);
   private readonly i18n = inject(TranslateService);
   private readonly toast = inject(ToastService);
@@ -256,6 +270,21 @@ export class AdminTeachers {
         this.replace({ ...teacher, isActive });
       },
     });
+  }
+
+  protected download(teacher: TeacherSummary): void {
+    this.privacy.exportTeacher(teacher.id).subscribe((file) => saveBlob(file, `${fileNamePart(`${this.i18n.translate('privacy.file')} ${teacher.fullName}`)}.json`));
+  }
+
+  protected erase(teacher: TeacherSummary): void {
+    this.dialog
+      .open<TeacherEraseDialog, TeacherSummary, boolean>(TeacherEraseDialog, { data: teacher, width: '32rem', maxWidth: 'calc(100vw - 1rem)', autoFocus: 'first-tabbable' })
+      .afterClosed()
+      .subscribe((done) => {
+        if (!done) return;
+        this.toast.success('privacy.erased');
+        this.teachers.update((all) => all.filter((t) => t.id !== teacher.id));
+      });
   }
 
   protected async copy(text: string): Promise<void> {

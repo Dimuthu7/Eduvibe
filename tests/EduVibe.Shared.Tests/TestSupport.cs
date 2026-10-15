@@ -62,5 +62,7 @@ public sealed class TestDatabase : IDisposable
         return new TestDbContext(options, tenant);
     }
 
+    public AuditDbContext CreateAudit() => new(new DbContextOptionsBuilder<AuditDbContext>().UseSqlite(_connection).Options);
+
     public void Dispose() => _connection.Dispose();
 }

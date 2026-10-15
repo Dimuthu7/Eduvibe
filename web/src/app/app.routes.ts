@@ -35,6 +35,7 @@ export const routes: Routes = [
       { path: 'welcome', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/welcome/welcome').then((m) => m.Welcome) },
       { path: 'timetable', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/timetable/timetable').then((m) => m.Timetable) },
       { path: 'venues', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/venues/venues').then((m) => m.Venues) },
+      { path: 'help', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/help/help').then((m) => m.Help) },
       { path: 'profile', loadComponent: () => import('./pages/profile/profile').then((m) => m.Profile) },
       {
         path: 'admin',

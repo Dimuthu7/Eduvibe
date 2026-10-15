@@ -1,5 +1,8 @@
 namespace EduVibe.Shared.Modules;
 
+/// <summary>A teacher as the Super Admin sees them for a privacy request, active or not.</summary>
+public sealed record TeacherIdentity(Guid Id, string FullName, bool IsActive);
+
 /// <summary>
 /// Lets other modules ask whether teachers exist without reading the Identity module's tables.
 /// Identity implements it; Classes and later modules use it.
@@ -14,4 +17,7 @@ public interface ITeacherDirectory
 
     /// <summary>How many active teachers there are, across all of them.</summary>
     Task<int> CountActiveAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The teacher whatever their status, or null when there is no such teacher. For privacy requests, which reach switched-off teachers too.</summary>
+    Task<TeacherIdentity?> FindIdentityAsync(Guid teacherId, CancellationToken cancellationToken = default);
 }

@@ -1,3 +1,4 @@
+using EduVibe.Shared.Privacy;
 using EduVibe.Modules.Plans.Endpoints;
 using EduVibe.Modules.Plans.Services;
 using EduVibe.Shared.Modules;
@@ -24,6 +25,7 @@ public sealed class PlansModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<PlansDbContext>(configuration, ModuleName);
+        services.AddScoped<IPersonalDataSource, PlansPersonalData>();
         services.AddScoped<PlanResolver>();
         services.AddScoped<IPlanGate, PlanGate>();
         services.AddScoped<IStatsSource, PlansStats>();

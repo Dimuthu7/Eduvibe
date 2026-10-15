@@ -5,6 +5,9 @@
 
 - [Backups](backups.md) — the nightly encrypted database backup and how to restore it.
 - [Free test deployment](deploy-free.md) — web on Azure, API on Render, database on Neon.
+- [Privacy requests](privacy.md) — downloading and deleting a teacher's or a student's data.
+- [Performance check](performance.md) — phone timings and how to repeat them.
+- [Launch checklist](launch.md) — what to confirm before real teachers use the app.
 
 ## Ticket ids
 

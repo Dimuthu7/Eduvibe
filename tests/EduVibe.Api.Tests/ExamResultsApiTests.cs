@@ -210,7 +210,8 @@ public class ExamResultsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
             mine.GetProperty("parts").EnumerateArray().Select(p => $"{p.GetProperty("name").GetString()}:{p.GetProperty("mark").GetDecimal():0.##}"));
         // Nothing about the other students is sent.
         Assert.DoesNotContain("Bandula", mine.GetRawText());
-        Assert.DoesNotContain("85", mine.GetRawText());
+        // As a whole number only: ids in the JSON are random and can contain the digits 85 by chance.
+        Assert.DoesNotMatch(@"(?<![\w.-])85(?![\w.-])", mine.GetRawText());
 
         // Publishing again keeps the first date; marks changed after publishing reach the student.
         var again = await Json(await teacher.Client.PostAsync($"/api/exams/{examId}/publish", null));

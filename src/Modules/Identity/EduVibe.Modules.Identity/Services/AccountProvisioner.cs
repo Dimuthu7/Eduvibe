@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EduVibe.Modules.Identity.Services;
 
-internal sealed class AccountProvisioner(IdentityDbContext db, PasswordService passwords, AuthService auth) : IAccountProvisioner
+internal sealed class AccountProvisioner(IdentityDbContext db, PasswordService passwords, AuthService auth, IdentityPersonalData erasure) : IAccountProvisioner
 {
     // Accounts with any of these roles are never reset through a teacher: that would hand a teacher someone else's login.
     private static readonly string[] StaffRoles = [Roles.SuperAdmin, Roles.Teacher, Roles.InstituteAdmin];
@@ -69,5 +69,14 @@ internal sealed class AccountProvisioner(IdentityDbContext db, PasswordService p
         await auth.RevokeAllAsync(user.Id, ct);
         await db.SaveChangesAsync(ct);
         return otp;
+    }
+
+    public async Task RemoveStudentAccountAsync(Guid userId, CancellationToken ct = default)
+    {
+        await db.UserRoles.Where(r => r.UserId == userId && r.Role == Roles.Student).ExecuteDeleteAsync(ct);
+        if (!await db.UserRoles.AnyAsync(r => r.UserId == userId, ct) && await db.Users.AnyAsync(u => u.Id == userId, ct))
+        {
+            await erasure.DeleteUserAsync(userId, ct);
+        }
     }
 }

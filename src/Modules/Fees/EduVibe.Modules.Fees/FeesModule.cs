@@ -1,3 +1,4 @@
+using EduVibe.Shared.Privacy;
 using EduVibe.Modules.Fees.Endpoints;
 using EduVibe.Modules.Fees.Services;
 using EduVibe.Shared.Modules;
@@ -19,6 +20,7 @@ public sealed class FeesModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<FeesDbContext>(configuration, ModuleName);
+        services.AddScoped<IPersonalDataSource, FeesPersonalData>();
         services.AddScoped<FeeDueService>();
         services.AddScoped<ClassMonthService>();
         services.AddScoped<IReportSource, FeeStatusReport>();

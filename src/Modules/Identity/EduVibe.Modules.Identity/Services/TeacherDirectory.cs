@@ -26,4 +26,13 @@ internal sealed class TeacherDirectory(IdentityDbContext db) : ITeacherDirectory
 
     public Task<int> CountActiveAsync(CancellationToken cancellationToken = default) =>
         db.Teachers.CountAsync(t => db.Users.Any(u => u.Id == t.UserId && u.IsActive), cancellationToken);
+
+    public async Task<TeacherIdentity?> FindIdentityAsync(Guid teacherId, CancellationToken cancellationToken = default)
+    {
+        var row = await db.Teachers
+            .Where(t => t.Id == teacherId)
+            .Join(db.Users, t => t.UserId, u => u.Id, (t, u) => new { u.FirstName, u.LastName, u.IsActive })
+            .SingleOrDefaultAsync(cancellationToken);
+        return row is null ? null : new TeacherIdentity(teacherId, $"{row.FirstName} {row.LastName}".Trim(), row.IsActive);
+    }
 }

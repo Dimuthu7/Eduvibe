@@ -1,3 +1,4 @@
+using EduVibe.Shared.Privacy;
 using EduVibe.Modules.Exams.Endpoints;
 using EduVibe.Modules.Exams.Services;
 using EduVibe.Shared.Modules;
@@ -19,6 +20,7 @@ public sealed class ExamsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<ExamsDbContext>(configuration, ModuleName);
+        services.AddScoped<IPersonalDataSource, ExamsPersonalData>();
         services.AddScoped<GradeSchemeService>();
         services.AddScoped<ExamReader>();
         services.AddScoped<IReportSource, ExamResultsReport>();
