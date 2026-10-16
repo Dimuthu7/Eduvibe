@@ -1,5 +1,6 @@
 import { AppNotification } from '../../core/api/notifications.service';
-import { describe as view, fill } from './describe';
+import { fill } from '../../core/i18n/fill';
+import { describe as view } from './describe';
 
 const t = (key: string) =>
   ({

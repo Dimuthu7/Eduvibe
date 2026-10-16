@@ -1,112 +1,100 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
-import { AdminService, Institute } from '../../core/api/admin.service';
-import { AttendanceService, ClassSession } from '../../core/api/attendance.service';
+import { finalize } from 'rxjs';
+import { DashboardLayout, DashboardService, WidgetSetting } from '../../core/api/dashboard.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
-import { formatTime, todayColombo } from '../../shared/format';
+import { ToastService } from '../../core/ui/toast.service';
+import { formatDate, todayColombo } from '../../shared/format';
+import { Customise } from './customise';
+import { isDefaultLayout, resolveLayout } from './layout';
+import { AttendanceWidget } from './widgets/attendance-widget';
+import { ExamsWidget } from './widgets/exams-widget';
+import { FeesWidget } from './widgets/fees-widget';
+import { InstitutesWidget } from './widgets/institutes-widget';
+import { JoinsWidget } from './widgets/joins-widget';
+import { TodayWidget } from './widgets/today-widget';
 
-/** A teacher's start screen: today's classes first, then the rest as later sprints add it. */
+/**
+ * A teacher's start screen: widgets the teacher turns on and orders, each loading its own data so a slow one never holds up the rest.
+ * The layout is saved on the server, so it follows the teacher to another phone.
+ */
 @Component({
   selector: 'app-home',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatCardModule, MatIconModule, MatListModule, TranslatePipe],
+  imports: [
+    MatButtonModule, MatIconModule, TranslatePipe, Customise,
+    TodayWidget, JoinsWidget, FeesWidget, AttendanceWidget, ExamsWidget, InstitutesWidget,
+  ],
   template: `
-    <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
-    <h2 class="section-title first">{{ 'home.today' | t }}</h2>
-    @switch (today.status()) {
-      @case ('ready') {
-        <div class="panel">
-          @for (s of today.data(); track s.id) {
-            <a class="panel-row link" [routerLink]="['/attendance', s.id]">
-              <div class="time">
-                <strong>{{ time(s.start) }}</strong>
-                <span class="muted">{{ time(s.end) }}</span>
-              </div>
-              <div class="row-main">
-                <div class="row-title">{{ s.classTitle }}</div>
-                <div class="row-meta">
-                  @if (s.taken) {
-                    {{ 'attendance.present' | t }} {{ s.present + s.late }} · {{ 'attendance.absent' | t }} {{ s.absent }}
-                  } @else {
-                    {{ 'attendance.not_marked' | t }}
-                  }
-                </div>
-              </div>
-              @if (s.taken) {
-                <mat-icon class="done" aria-hidden="true">check_circle</mat-icon>
-              } @else {
-                <span class="mark">{{ 'attendance.mark' | t }}</span>
-              }
-            </a>
-          } @empty {
-            <div class="panel-row muted">{{ 'home.no_classes_today' | t }}</div>
-          }
+    @if (editing()) {
+      <app-customise [initial]="widgets()" [busy]="saving()" (save)="save($event)" (cancel)="editing.set(false)" />
+    } @else {
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
+          <p class="page-subtitle">{{ today }}</p>
         </div>
-      }
-      @case ('error') {
-        <p class="muted">{{ 'error.load_failed' | t }}</p>
-      }
-      @default {
+        <button mat-stroked-button type="button" (click)="editing.set(true)">
+          <mat-icon>tune</mat-icon>
+          {{ 'dashboard.customise.button' | t }}
+        </button>
+      </div>
+
+      @if (layout.status() === 'idle' || layout.status() === 'loading') {
         <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      } @else {
+        @for (w of active(); track w.key) {
+          @switch (w.key) {
+            @case ('today') { <app-today-widget /> }
+            @case ('joins') { <app-joins-widget /> }
+            @case ('fees') { <app-fees-widget /> }
+            @case ('attendance') { <app-attendance-widget /> }
+            @case ('exams') { <app-exams-widget /> }
+            @case ('institutes') { <app-institutes-widget /> }
+          }
+        } @empty {
+          <div class="empty">
+            <mat-icon aria-hidden="true">widgets</mat-icon>
+            <p>{{ 'dashboard.none_on' | t }}</p>
+            <button mat-flat-button type="button" (click)="editing.set(true)">{{ 'dashboard.customise.button' | t }}</button>
+          </div>
+        }
       }
     }
-
-    <mat-card appearance="outlined" class="institutes">
-      <mat-card-header>
-        <mat-card-title>{{ 'home.institutes' | t }}</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        @switch (institutes.status()) {
-          @case ('ready') {
-            <mat-list>
-              @for (institute of institutes.data(); track institute.id) {
-                <mat-list-item>
-                  <mat-icon matListItemIcon>apartment</mat-icon>
-                  <span matListItemTitle>{{ institute.name }}</span>
-                  @if (institute.district) {
-                    <span matListItemLine>{{ institute.district }}</span>
-                  }
-                </mat-list-item>
-              } @empty {
-                <p class="muted">{{ 'home.no_institutes' | t }}</p>
-              }
-            </mat-list>
-          }
-          @case ('error') {
-            <p class="muted">{{ 'error.load_failed' | t }}</p>
-          }
-          @default {
-            <div class="skeleton"></div>
-          }
-        }
-      </mat-card-content>
-    </mat-card>
-    <p class="muted">{{ 'home.more_soon' | t }}</p>
-  `,
-  styles: `
-    .section-title.first { margin-top: 1rem; }
-    .institutes { margin-top: 1.5rem; }
-    .time { display: flex; flex-direction: column; min-width: 4.5rem; font: var(--mat-sys-body-small); }
-    a.link { color: inherit; text-decoration: none; }
-    a.link:hover { background: var(--mat-sys-surface-container); }
-    .done { color: var(--mat-sys-primary); }
-    .mark { color: var(--mat-sys-primary); font: var(--mat-sys-label-large); }
   `,
 })
 export class Home {
   protected readonly auth = inject(AuthService);
-  protected readonly institutes = new Loadable<Institute[]>();
-  protected readonly today = new Loadable<ClassSession[]>();
-  protected readonly time = formatTime;
+  private readonly api = inject(DashboardService);
+  private readonly toast = inject(ToastService);
+
+  protected readonly layout = new Loadable<DashboardLayout>();
+  protected readonly editing = signal(false);
+  protected readonly saving = signal(false);
+  protected readonly today = formatDate(todayColombo());
+
+  /** The saved layout made whole. If it could not be read, the default one shows and the screen still works. */
+  protected readonly widgets = computed(() => resolveLayout(this.layout.data()?.widgets ?? []));
+  protected readonly active = computed(() => this.widgets().filter((w) => w.enabled));
 
   constructor() {
-    this.institutes.load(inject(AdminService).myInstitutes());
-    this.today.load(inject(AttendanceService).sessions(todayColombo()));
+    this.layout.load(this.api.layout());
+  }
+
+  protected save(list: WidgetSetting[]): void {
+    this.saving.set(true);
+    // A layout that is just the default is cleared rather than saved, so the teacher keeps getting the app's own order as it grows.
+    const request = isDefaultLayout(list) ? this.api.resetLayout() : this.api.saveLayout(list);
+    request.pipe(finalize(() => this.saving.set(false))).subscribe((saved) => {
+      this.layout.data.set(saved);
+      this.layout.status.set('ready');
+      this.editing.set(false);
+      this.toast.success('dashboard.saved');
+    });
   }
 }

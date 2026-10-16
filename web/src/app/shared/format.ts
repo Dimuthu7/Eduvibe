@@ -75,3 +75,14 @@ export function isMonthRange(from: string, to: string, today: string): boolean {
   const range = monthRange(monthOf(from), today);
   return range.from === from && range.to === to;
 }
+
+/** A percentage to one decimal place without a trailing zero: 61 as "61%", 63.33 as "63.3%". */
+export const formatPercent = (value: number): string => `${Math.round(value * 10) / 10}%`;
+
+/** Today's weekday in Sri Lanka (1 Monday to 7 Sunday) and the minutes since midnight there, whatever the phone's own time zone is. */
+export function colomboNow(now: Date = new Date()): { day: number; minutes: number } {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Colombo', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const day = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(get('weekday')) + 1;
+  return { day, minutes: Number(get('hour')) * 60 + Number(get('minute')) };
+}

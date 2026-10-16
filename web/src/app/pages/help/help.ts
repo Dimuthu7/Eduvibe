@@ -11,7 +11,7 @@ export interface HelpTopic {
 }
 
 export const HELP_TOPICS: readonly HelpTopic[] = [
-  { id: 'start', icon: 'rocket_launch', steps: 4 },
+  { id: 'start', icon: 'rocket_launch', steps: 5 },
   { id: 'classes', icon: 'menu_book', steps: 3 },
   { id: 'students', icon: 'groups', steps: 4 },
   { id: 'attendance', icon: 'fact_check', steps: 4 },

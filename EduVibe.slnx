@@ -13,6 +13,9 @@
   <Folder Name="/src/Modules/Classes/">
     <Project Path="src/Modules/Classes/EduVibe.Modules.Classes/EduVibe.Modules.Classes.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Dashboard/">
+    <Project Path="src/Modules/Dashboard/EduVibe.Modules.Dashboard/EduVibe.Modules.Dashboard.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Exams/">
     <Project Path="src/Modules/Exams/EduVibe.Modules.Exams/EduVibe.Modules.Exams.csproj" />
   </Folder>

@@ -30,6 +30,7 @@ public sealed class ExamsModule : IModule
     {
         var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Exams");
         GradeSchemeEndpoints.Map(group);
+        ProgressEndpoints.Map(group);
         ExamEndpoints.Map(group);
         HistoryEndpoints.Map(group);
     }

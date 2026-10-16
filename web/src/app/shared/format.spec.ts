@@ -1,4 +1,4 @@
-import { addDays, addMonths, formatDate, formatDateTime, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
+import { addDays, addMonths, colomboNow, formatPercent, formatDate, formatDateTime, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
 describe('format helpers', () => {
@@ -73,5 +73,22 @@ describe('formatDateTime', () => {
     // 11:00 UTC is 4:30 pm in Colombo (UTC+5:30); 20:00 UTC on the 12th is already 1:30 am on the 13th.
     expect(formatDateTime('2026-10-12T11:00:00Z').toLowerCase()).toBe('12 oct 2026, 4:30 pm');
     expect(formatDateTime('2026-10-12T20:00:00Z').toLowerCase()).toBe('13 oct 2026, 1:30 am');
+  });
+});
+
+describe('formatPercent', () => {
+  it('shows one decimal at most', () => {
+    expect(formatPercent(61)).toBe('61%');
+    expect(formatPercent(63.33)).toBe('63.3%');
+    expect(formatPercent(0)).toBe('0%');
+  });
+});
+
+describe('colomboNow', () => {
+  it('reads the weekday and the time in Sri Lanka, not the phone', () => {
+    // 20:00 UTC on Thursday 15 Oct 2026 is 01:30 on Friday in Sri Lanka.
+    expect(colomboNow(new Date('2026-10-15T20:00:00Z'))).toEqual({ day: 5, minutes: 90 });
+    // 04:00 UTC on Sunday 18 Oct 2026 is 09:30 the same day.
+    expect(colomboNow(new Date('2026-10-18T04:00:00Z'))).toEqual({ day: 7, minutes: 570 });
   });
 });

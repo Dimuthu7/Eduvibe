@@ -6,7 +6,7 @@ A teacher or a student can ask for the data EduVibe holds about them, or for it 
 
 In the app: **Teachers**, the menu on the teacher's row.
 
-- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications and plan history. Passwords, sign-in tokens and invite tokens are never included.
+- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, dashboard layout and plan history. Passwords, sign-in tokens and invite tokens are never included.
 - **Delete data** appears only for a teacher who has been switched off (**Deactivate** first). It asks for the teacher's full name. Then it deletes the teacher, everything they own, and the students nobody else teaches (with their sign-in accounts).
 
 Students who also study with another teacher stay, with that other teacher's records.
