@@ -14,6 +14,7 @@ import { filter, map } from 'rxjs';
 import { AuthService, needsSetup } from './core/auth/auth.service';
 import { TranslatePipe } from './core/i18n/translate.pipe';
 import { TranslateService } from './core/i18n/translate.service';
+import { LanguageMenu } from './shared/language-menu';
 import { UnreadNotifications } from './core/state/unread-notifications';
 import { LoadingService } from './core/ui/loading.service';
 import { ThemePreference, ThemeService } from './core/ui/theme.service';
@@ -66,6 +67,7 @@ const THEMES: { value: ThemePreference; label: string; icon: string }[] = [
     MatSidenavModule,
     MatToolbarModule,
     TranslatePipe,
+    LanguageMenu,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

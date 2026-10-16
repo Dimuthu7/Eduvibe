@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { AppConfig } from '../config/app-config';
+import { TranslateService } from '../i18n/translate.service';
 import { Session, User } from './auth.models';
 import { AuthService } from './auth.service';
 import { authInterceptor } from './auth.interceptor';
@@ -170,5 +171,61 @@ describe('AuthService', () => {
 
     expect(auth.user()).toBeNull();
     expect(auth.accessToken).toBeNull();
+  });
+
+  describe('language', () => {
+    const signIn = (auth: AuthService, signedIn: Session) => {
+      auth.login('0771234567', 'pw').subscribe();
+      http.expectOne(`${API}/api/identity/login`).flush(signedIn);
+    };
+
+    it('shows the app in the language saved on the account', async () => {
+      const auth = setup();
+      const i18n = TestBed.inject(TranslateService);
+      const use = vi.spyOn(i18n, 'use').mockResolvedValue();
+
+      signIn(auth, session({ user: user({ language: 'si' }) }));
+
+      expect(use).toHaveBeenCalledWith('si');
+    });
+
+    it('keeps a language picked on the sign-in screen and saves it on the account', () => {
+      const auth = setup();
+      const i18n = TestBed.inject(TranslateService);
+      vi.spyOn(i18n, 'use').mockResolvedValue();
+      void i18n.pickBeforeSignIn('si');
+
+      signIn(auth, session({ user: user({ language: 'en' }) }));
+
+      const save = http.expectOne(`${API}/api/identity/me/language`);
+      expect(save.request.method).toBe('PUT');
+      expect(save.request.body).toEqual({ language: 'si' });
+      save.flush(user({ language: 'si' }));
+      expect(auth.user()?.language).toBe('si');
+      expect(auth.user()?.firstName).toBe('Nimal');
+    });
+
+    it('uses the account language when nothing was picked before signing in', () => {
+      const auth = setup();
+      const i18n = TestBed.inject(TranslateService);
+      const use = vi.spyOn(i18n, 'use').mockResolvedValue();
+
+      signIn(auth, session({ user: user({ language: 'en' }) }));
+
+      expect(use).toHaveBeenCalledWith('en');
+      http.expectNone(`${API}/api/identity/me/language`);
+    });
+
+    it('keeps the Super Admin in English, even when a language was picked, without remembering it for the device', () => {
+      const auth = setup();
+      const i18n = TestBed.inject(TranslateService);
+      const use = vi.spyOn(i18n, 'use').mockResolvedValue();
+      void i18n.pickBeforeSignIn('si');
+
+      signIn(auth, session({ user: user({ roles: ['SuperAdmin'], teacherId: null, language: 'si' }) }));
+
+      expect(use).toHaveBeenLastCalledWith('en', false);
+      http.expectNone(`${API}/api/identity/me/language`);
+    });
   });
 });

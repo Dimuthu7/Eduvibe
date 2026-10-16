@@ -4,6 +4,8 @@ public sealed record LoginRequest(string? Username, string? Password);
 public sealed record RefreshRequest(string? RefreshToken);
 public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword, string? Username);
 
+public sealed record SetLanguageRequest(string? Language);
+
 public sealed record UpdateProfileRequest(
     string? FirstName, string? LastName, string? Email, string? Language,
     string? District, Guid? StreamId, Guid[]? SubjectIds);

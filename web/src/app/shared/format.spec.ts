@@ -1,3 +1,4 @@
+import { currentLanguage } from '../core/i18n/language';
 import { addDays, addMonths, colomboNow, formatPercent, formatDate, formatDateTime, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
@@ -90,5 +91,30 @@ describe('colomboNow', () => {
     expect(colomboNow(new Date('2026-10-15T20:00:00Z'))).toEqual({ day: 5, minutes: 90 });
     // 04:00 UTC on Sunday 18 Oct 2026 is 09:30 the same day.
     expect(colomboNow(new Date('2026-10-18T04:00:00Z'))).toEqual({ day: 7, minutes: 570 });
+  });
+});
+
+describe('format helpers in Sinhala', () => {
+  beforeEach(() => currentLanguage.set('si'));
+  afterEach(() => currentLanguage.set('en'));
+
+  it('writes dates, months and times in Sinhala', () => {
+    // The exact month names and time separator differ between versions of the browser's own Sinhala data, so only the shape is checked.
+    const sinhalaLetters = /[\u0D80-\u0DFF]/;
+    expect(formatDate('2026-10-12')).toMatch(sinhalaLetters);
+    expect(formatDate('2026-10-12')).toContain('2026');
+    expect(formatMonth('2026-10')).toMatch(sinhalaLetters);
+    expect(formatTime('16:00:00')).toMatch(/^ප\.ව\.\s4[.:]00$/);
+    expect(formatDateTime('2026-10-12T10:30:00Z')).toMatch(/ප\.ව\.\s4[.:]00/);
+  });
+
+  it('writes rupees the way people in Sri Lanka say them, keeping ordinary digits', () => {
+    expect(formatLkr(2500)).toMatch(/^රු\.?\s?2,500$/);
+  });
+
+  it('goes back to English when the language does', () => {
+    currentLanguage.set('en');
+    expect(formatTime('16:00:00')).toBe('4:00 PM');
+    expect(formatLkr(2500)).toMatch(/LKR\s?2,500/);
   });
 });

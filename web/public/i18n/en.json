@@ -74,6 +74,7 @@
   "theme.system": "Match my device",
   "theme.light": "Light",
   "theme.dark": "Dark",
+  "language.title": "Language",
   "toast.close": "Close",
   "teachers.copied": "Password copied",
   "teachers.copy_failed": "Could not copy. Select the password and copy it by hand.",

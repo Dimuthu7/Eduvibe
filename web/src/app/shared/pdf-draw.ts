@@ -6,7 +6,7 @@ export const MUTED = '#5f6368';
 export const ACCENT = '#0b57d0';
 export const LINE = '#dadce0';
 export const BAND = '#f3f4f7';
-export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif';
+export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Inter, "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif';
 
 /** The canvas is drawn larger than the page so the text stays sharp when zoomed. */
 export const SCALE = 2.5;
