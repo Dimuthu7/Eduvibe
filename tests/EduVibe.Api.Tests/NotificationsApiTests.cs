@@ -137,6 +137,58 @@ public class NotificationsApiTests(ApiFactory factory) : IClassFixture<ApiFactor
     }
 
     [Fact]
+    public async Task Closing_a_notification_removes_it_for_that_person_only_and_a_repeat_does_not_bring_it_back()
+    {
+        var teacher = await factory.NewTeacherAsync();
+        var classId = await NewClass(teacher.Client);
+        var amara = await NewStudent(teacher.Client, classId, "Amara");
+        var bimal = await NewStudent(teacher.Client, classId, "Bimal");
+        var amaraClient = await SignInStudent(amara.Phone, amara.Otp);
+        var bimalClient = await SignInStudent(bimal.Phone, bimal.Otp);
+        var first = await PublishedExam(teacher.Client, classId, "Term 1");
+        var second = await PublishedExam(teacher.Client, classId, "Term 2");
+        await teacher.Client.PostAsync($"/api/exams/{first.Id}/publish", null);
+        await teacher.Client.PostAsync($"/api/exams/{second.Id}/publish", null);
+
+        var list = await Notifications(amaraClient);
+        var ids = Of(list, "results_published").Select(n => n.GetProperty("id").GetGuid()).ToArray();
+        Assert.Equal(2, ids.Length);
+
+        // Somebody else cannot close it, and it is still there afterwards.
+        Assert.Equal(HttpStatusCode.NotFound, (await bimalClient.DeleteAsync($"/api/notifications/{ids[0]}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await teacher.Client.DeleteAsync($"/api/notifications/{ids[0]}")).StatusCode);
+        Assert.Equal(2, (await Notifications(amaraClient)).GetProperty("items").GetArrayLength());
+
+        // Closing an unread one takes it out of the list and off the count, and says how many are left.
+        var closed = await amaraClient.DeleteAsync($"/api/notifications/{ids[0]}");
+        Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+        Assert.Equal(1, (await Json(closed)).GetProperty("unread").GetInt32());
+        var after = await Notifications(amaraClient);
+        Assert.Equal(1, after.GetProperty("unread").GetInt32());
+        Assert.DoesNotContain(ids[0], after.GetProperty("items").EnumerateArray().Select(n => n.GetProperty("id").GetGuid()));
+        Assert.Equal(1, (await Json(await amaraClient.GetAsync("/api/notifications/unread"))).GetProperty("unread").GetInt32());
+        Assert.Equal(2, (await Notifications(bimalClient)).GetProperty("items").GetArrayLength());
+
+        // It cannot be closed twice or read once it is gone.
+        Assert.Equal(HttpStatusCode.NotFound, (await amaraClient.DeleteAsync($"/api/notifications/{ids[0]}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await amaraClient.PostAsync($"/api/notifications/{ids[0]}/read", null)).StatusCode);
+
+        // The same results sent out again do not bring back what was closed.
+        await teacher.Client.PostAsync($"/api/exams/{first.Id}/unpublish", null);
+        await teacher.Client.PostAsync($"/api/exams/{first.Id}/publish", null);
+        await teacher.Client.PostAsync($"/api/exams/{second.Id}/unpublish", null);
+        await teacher.Client.PostAsync($"/api/exams/{second.Id}/publish", null);
+        Assert.Single(Of(await Notifications(amaraClient), "results_published"));
+
+        // A read one can be closed too, without touching the count.
+        var remaining = Of(await Notifications(amaraClient), "results_published").Single().GetProperty("id").GetGuid();
+        await amaraClient.PostAsync($"/api/notifications/{remaining}/read", null);
+        var last = await amaraClient.DeleteAsync($"/api/notifications/{remaining}");
+        Assert.Equal(0, (await Json(last)).GetProperty("unread").GetInt32());
+        Assert.Empty((await Notifications(amaraClient)).GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Students_who_join_through_a_link_are_one_line_for_the_teacher_until_they_look()
     {
         var teacher = await factory.NewTeacherAsync();

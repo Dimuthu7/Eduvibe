@@ -31,6 +31,7 @@ internal static class NotificationEndpoints
         mine.MapGet("/unread", Unread);
         mine.MapPost("/{id:guid}/read", Read);
         mine.MapPost("/read-all", ReadAll);
+        mine.MapDelete("/{id:guid}", Dismiss);
     }
 
     private static async Task<IResult> List(NotificationsDbContext db, ITenantContext user, CancellationToken ct)
@@ -41,7 +42,7 @@ internal static class NotificationEndpoints
         }
 
         // Newest first by id (ids are time ordered), then by the last change, so a notification that grew moves to the top.
-        var rows = await db.Notifications.AsNoTracking().Where(n => mine.Contains(n.RecipientId)).OrderByDescending(n => n.Id).Take(Shown * 2).ToListAsync(ct);
+        var rows = await db.Notifications.AsNoTracking().Where(n => mine.Contains(n.RecipientId) && n.DismissedAt == null).OrderByDescending(n => n.Id).Take(Shown * 2).ToListAsync(ct);
         var items = rows.OrderByDescending(n => n.UpdatedAt).Take(Shown).Select(ToDto).ToArray();
         return Results.Ok(new NotificationListDto(await UnreadCount(db, mine, ct), items));
     }
@@ -56,7 +57,7 @@ internal static class NotificationEndpoints
             return Results.Unauthorized();
         }
 
-        var row = await db.Notifications.SingleOrDefaultAsync(n => n.Id == id && mine.Contains(n.RecipientId), ct);
+        var row = await db.Notifications.SingleOrDefaultAsync(n => n.Id == id && mine.Contains(n.RecipientId) && n.DismissedAt == null, ct);
         if (row is null)
         {
             return Results.NotFound();
@@ -71,6 +72,27 @@ internal static class NotificationEndpoints
         return Results.Ok(new UnreadDto(await UnreadCount(db, mine, ct)));
     }
 
+    /// <summary>Closing one removes it from the person's list. It is kept out of sight, not erased, so a repeat of the same reminder stays gone.</summary>
+    private static async Task<IResult> Dismiss(Guid id, NotificationsDbContext db, ITenantContext user, TimeProvider clock, CancellationToken ct)
+    {
+        if (Mine(user) is not { } mine)
+        {
+            return Results.Unauthorized();
+        }
+
+        var row = await db.Notifications.SingleOrDefaultAsync(n => n.Id == id && mine.Contains(n.RecipientId) && n.DismissedAt == null, ct);
+        if (row is null)
+        {
+            return Results.NotFound();
+        }
+
+        var now = clock.GetUtcNow();
+        row.ReadAt ??= now;
+        row.DismissedAt = now;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new UnreadDto(await UnreadCount(db, mine, ct)));
+    }
+
     private static async Task<IResult> ReadAll(NotificationsDbContext db, ITenantContext user, TimeProvider clock, CancellationToken ct)
     {
         if (Mine(user) is not { } mine)
@@ -79,7 +101,7 @@ internal static class NotificationEndpoints
         }
 
         var now = clock.GetUtcNow();
-        var open = await db.Notifications.Where(n => mine.Contains(n.RecipientId) && n.ReadAt == null).ToListAsync(ct);
+        var open = await db.Notifications.Where(n => mine.Contains(n.RecipientId) && n.DismissedAt == null && n.ReadAt == null).ToListAsync(ct);
         foreach (var row in open)
         {
             row.ReadAt = now;
@@ -94,7 +116,7 @@ internal static class NotificationEndpoints
         user.UserId is not { } userId ? null : user.TenantId is { } tenantId ? [userId, tenantId] : [userId];
 
     private static Task<int> UnreadCount(NotificationsDbContext db, List<Guid> mine, CancellationToken ct) =>
-        db.Notifications.CountAsync(n => mine.Contains(n.RecipientId) && n.ReadAt == null, ct);
+        db.Notifications.CountAsync(n => mine.Contains(n.RecipientId) && n.DismissedAt == null && n.ReadAt == null, ct);
 
     private static NotificationDto ToDto(Notification n) =>
         new(n.Id, n.Kind, JsonDocument.Parse(n.ParamsJson).RootElement.Clone(), n.Link, n.Count, n.ReadAt is not null, n.UpdatedAt);

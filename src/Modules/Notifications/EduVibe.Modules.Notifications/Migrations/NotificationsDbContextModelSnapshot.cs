@@ -38,6 +38,10 @@ namespace EduVibe.Modules.Notifications.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateTimeOffset?>("DismissedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dismissed_at");
+
                     b.Property<string>("GroupKey")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
