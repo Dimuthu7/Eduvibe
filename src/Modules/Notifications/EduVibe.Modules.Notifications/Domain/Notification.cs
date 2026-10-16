@@ -29,4 +29,10 @@ public sealed class Notification : Entity
     public int Count { get; set; } = 1;
 
     public DateTimeOffset? ReadAt { get; set; }
+
+    /// <summary>
+    /// Set when the person closed it. It is hidden from them but kept until cleanup, so a reminder that is sent again by a daily
+    /// check (the monthly unpaid fees) does not bring back what they already dismissed.
+    /// </summary>
+    public DateTimeOffset? DismissedAt { get; set; }
 }

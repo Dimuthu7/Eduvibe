@@ -7,6 +7,7 @@ import { TranslateService } from '../../../core/i18n/translate.service';
 import { Loadable } from '../../../core/state/loadable';
 import { formatDate, formatPercent } from '../../../shared/format';
 import { WidgetCard } from './widget-card';
+import { WidgetEmpty } from './widget-empty';
 import { WidgetState } from './widget-state';
 
 /** How the class average moved from the exam before, in points, or null when there is nothing to compare. */
@@ -17,9 +18,9 @@ export const averageChange = (c: ExamProgressClass): number | null =>
 @Component({
   selector: 'app-exams-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetState],
+  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
   template: `
-    <app-widget-card icon="trending_up" title="dashboard.exams.title" link="/exams" linkLabel="dashboard.exams.all">
+    <app-widget-card icon="trending_up" title="dashboard.exams.title" tone="secondary" link="/exams" linkLabel="dashboard.exams.all">
       <app-widget-state [status]="state.status()" (retry)="load()">
         @if (state.data(); as p) {
           @for (c of p.classes; track c.classId) {
@@ -46,7 +47,7 @@ export const averageChange = (c: ExamProgressClass): number | null =>
               <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
             </a>
           } @empty {
-            <p class="line muted">{{ 'dashboard.exams.empty' | t }}</p>
+            <app-widget-empty icon="quiz">{{ 'dashboard.exams.empty' | t }}</app-widget-empty>
           }
           @if (p.dropped.length > 0) {
             <h3 class="sub">{{ 'dashboard.exams.dropped' | t }}</h3>
@@ -71,14 +72,16 @@ export const averageChange = (c: ExamProgressClass): number | null =>
     mat-icon { font-size: 1.5rem; }
     a.link { color: inherit; text-decoration: none; }
     a.link:hover { background: var(--mat-sys-surface-container); }
+    a.link:active { background: var(--mat-sys-surface-container-high); }
     .panel-row + .panel-row, .sub + .panel-row { border-top: 1px solid var(--mat-sys-outline-variant); }
     .warn { color: var(--mat-sys-error); }
     .avg { display: flex; flex-direction: column; align-items: flex-end; font: var(--mat-sys-title-medium); }
-    .delta { display: inline-flex; align-items: center; font: var(--mat-sys-label-small); color: var(--mat-sys-on-surface-variant); }
+    .avg strong { font-weight: 600; }
+    .delta { display: inline-flex; align-items: center; padding: 0 0.375rem 0 0.125rem; border-radius: 999px; background: var(--mat-sys-surface-container-highest); font: var(--mat-sys-label-small); color: var(--mat-sys-on-surface-variant); }
     .delta mat-icon, .fall mat-icon { font-size: 1rem; width: 1rem; height: 1rem; }
-    .delta.up { color: var(--mat-sys-primary); }
-    .delta.down { color: var(--mat-sys-error); }
-    .fall { display: inline-flex; align-items: center; gap: 0.25rem; font: var(--mat-sys-label-large); color: var(--mat-sys-error); white-space: nowrap; }
+    .delta.up { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+    .delta.down { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    .fall { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--mat-sys-error-container); font: var(--mat-sys-label-large); color: var(--mat-sys-on-error-container); white-space: nowrap; }
     .chevron { color: var(--mat-sys-on-surface-variant); }
     .sub { margin: 0; padding: 0.625rem 1rem; border-top: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface-container); font: var(--mat-sys-label-large); color: var(--mat-sys-on-surface-variant); }
     .line { display: block; margin: 0; padding: 0.875rem 1rem; font: var(--mat-sys-body-medium); }

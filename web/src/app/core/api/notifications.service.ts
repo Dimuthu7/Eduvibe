@@ -41,4 +41,9 @@ export class NotificationsService {
   readAll() {
     return this.http.post<{ unread: number }>(`${this.base}/read-all`, {});
   }
+
+  /** Closes one for good: it no longer shows in the person's list. Says how many are still unread. */
+  dismiss(id: string) {
+    return this.http.delete<{ unread: number }>(`${this.base}/${id}`);
+  }
 }

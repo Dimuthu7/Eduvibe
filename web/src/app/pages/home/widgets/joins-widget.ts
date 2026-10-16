@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 import { DashboardService } from '../../../core/api/dashboard.service';
 import { StudentRow } from '../../../core/api/students.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -7,6 +8,7 @@ import { TranslateService } from '../../../core/i18n/translate.service';
 import { Loadable } from '../../../core/state/loadable';
 import { formatDate } from '../../../shared/format';
 import { WidgetCard } from './widget-card';
+import { WidgetEmpty } from './widget-empty';
 import { WidgetState } from './widget-state';
 
 const SHOWN = 3;
@@ -15,9 +17,9 @@ const SHOWN = 3;
 @Component({
   selector: 'app-joins-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, TranslatePipe, WidgetCard, WidgetState],
+  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
   template: `
-    <app-widget-card icon="person_add" title="dashboard.joins.title" [count]="state.data()?.length ?? 0" link="/students" linkLabel="dashboard.joins.review">
+    <app-widget-card icon="person_add" title="dashboard.joins.title" tone="tertiary" [count]="state.data()?.length ?? 0" link="/students" linkLabel="dashboard.joins.review">
       <app-widget-state [status]="state.status()" (retry)="load()">
         @if (state.data(); as rows) {
           @for (row of rows.slice(0, shown); track row.enrolmentId) {
@@ -27,9 +29,10 @@ const SHOWN = 3;
                 <div class="row-title">{{ row.fullName }}</div>
                 <div class="row-meta">{{ row.classTitle }} · {{ date(row.joinedOn) }}</div>
               </div>
+              <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
             </a>
           } @empty {
-            <p class="line muted">{{ 'dashboard.joins.empty' | t }}</p>
+            <app-widget-empty icon="how_to_reg" [good]="true">{{ 'dashboard.joins.empty' | t }}</app-widget-empty>
           }
           @if (rows.length > shown) {
             <a class="line more" routerLink="/students">{{ more(rows.length - shown) }}</a>
@@ -39,8 +42,12 @@ const SHOWN = 3;
     </app-widget-card>
   `,
   styles: `
+    mat-icon { font-size: 1.5rem; }
+    .avatar { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); font: var(--mat-sys-title-small); text-transform: uppercase; }
+    .chevron { color: var(--mat-sys-on-surface-variant); }
     a.link { color: inherit; text-decoration: none; }
     a.link:hover { background: var(--mat-sys-surface-container); }
+    a.link:active { background: var(--mat-sys-surface-container-high); }
     .line { display: block; margin: 0; padding: 0.875rem 1rem; font: var(--mat-sys-body-medium); }
     .more { border-top: 1px solid var(--mat-sys-outline-variant); color: var(--mat-sys-primary); text-decoration: none; }
   `,

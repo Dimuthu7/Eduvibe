@@ -4,15 +4,16 @@ import { Institute } from '../../../core/api/admin.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { Loadable } from '../../../core/state/loadable';
 import { WidgetCard } from './widget-card';
+import { WidgetEmpty } from './widget-empty';
 import { WidgetState } from './widget-state';
 
 /** The institutes the teacher is linked to. Off by default: most teachers see it as clutter. */
 @Component({
   selector: 'app-institutes-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [TranslatePipe, WidgetCard, WidgetState],
+  imports: [TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
   template: `
-    <app-widget-card icon="apartment" title="dashboard.institutes.title">
+    <app-widget-card icon="apartment" title="dashboard.institutes.title" tone="secondary">
       <app-widget-state [status]="state.status()" (retry)="load()">
         @for (institute of state.data(); track institute.id) {
           <div class="panel-row">
@@ -24,13 +25,10 @@ import { WidgetState } from './widget-state';
             </div>
           </div>
         } @empty {
-          <p class="line muted">{{ 'home.no_institutes' | t }}</p>
+          <app-widget-empty icon="apartment">{{ 'home.no_institutes' | t }}</app-widget-empty>
         }
       </app-widget-state>
     </app-widget-card>
-  `,
-  styles: `
-    .line { margin: 0; padding: 0.875rem 1rem; font: var(--mat-sys-body-medium); }
   `,
 })
 export class InstitutesWidget {

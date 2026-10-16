@@ -8,6 +8,7 @@ import { TranslateService } from '../../../core/i18n/translate.service';
 import { Loadable } from '../../../core/state/loadable';
 import { formatLkr, formatMonth, monthOf, todayColombo } from '../../../shared/format';
 import { WidgetCard } from './widget-card';
+import { WidgetEmpty } from './widget-empty';
 import { WidgetState } from './widget-state';
 
 const SHOWN = 4;
@@ -26,23 +27,25 @@ export const collectedPercent = (o: FeeOverview): number => (o.totals.due > 0 ? 
 @Component({
   selector: 'app-fees-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetState],
+  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
   template: `
-    <app-widget-card icon="payments" title="dashboard.fees.title" link="/fees" linkLabel="dashboard.fees.all">
+    <app-widget-card icon="payments" title="dashboard.fees.title" tone="tertiary" [subtitle]="month()" link="/fees" linkLabel="dashboard.fees.all">
       <app-widget-state [status]="state.status()" (retry)="load()">
         @if (state.data(); as o) {
           @if (o.totals.due === 0) {
-            <p class="line muted">{{ 'dashboard.fees.none' | t }}</p>
+            <app-widget-empty icon="payments">{{ 'dashboard.fees.none' | t }}</app-widget-empty>
           } @else {
             <div class="summary">
-              <div class="owed">
-                @if (o.totals.outstanding > 0) {
-                  <strong>{{ lkr(o.totals.outstanding) }}</strong>
-                  <span class="muted">{{ 'dashboard.fees.to_collect' | t }} · {{ month() }}</span>
-                } @else {
-                  <strong>{{ 'dashboard.fees.all_paid' | t }}</strong>
-                  <span class="muted">{{ month() }}</span>
-                }
+              <div class="hero">
+                <div class="owed">
+                  @if (o.totals.outstanding > 0) {
+                    <strong>{{ lkr(o.totals.outstanding) }}</strong>
+                    <span class="muted">{{ 'dashboard.fees.to_collect' | t }}</span>
+                  } @else {
+                    <strong class="settled"><mat-icon aria-hidden="true">check_circle</mat-icon>{{ 'dashboard.fees.all_paid' | t }}</strong>
+                  }
+                </div>
+                <span class="pct" [class.settled]="o.totals.outstanding === 0">{{ percent(o) }}%</span>
               </div>
               <div class="bar" role="progressbar" [attr.aria-valuenow]="percent(o)" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="collectedText(o)">
                 <div class="fill" [style.width.%]="percent(o)"></div>
@@ -75,14 +78,19 @@ export const collectedPercent = (o: FeeOverview): number => (o.totals.due > 0 ? 
   `,
   styles: `
     mat-icon { font-size: 1.5rem; }
-    .summary { display: grid; gap: 0.5rem; padding: 0.875rem 1rem; }
-    .owed { display: flex; flex-direction: column; }
+    .summary { display: grid; gap: 0.625rem; padding: 1rem; }
+    .hero { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+    .owed { display: flex; flex-direction: column; min-width: 0; }
     .owed strong { font: var(--mat-sys-headline-small); font-weight: 600; }
-    .bar { height: 0.5rem; border-radius: 999px; background: var(--mat-sys-surface-container-highest); overflow: hidden; }
-    .fill { height: 100%; border-radius: 999px; background: var(--mat-sys-primary); }
+    .owed .settled { display: flex; align-items: center; gap: 0.5rem; color: var(--mat-sys-primary); }
+    .pct { flex: none; padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); font: var(--mat-sys-label-large); }
+    .pct.settled { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+    .bar { height: 0.625rem; border-radius: 999px; background: var(--mat-sys-surface-container-highest); overflow: hidden; }
+    .fill { height: 100%; min-width: 0.625rem; border-radius: 999px; background: var(--mat-sys-tertiary); }
     a.link { color: inherit; text-decoration: none; border-top: 1px solid var(--mat-sys-outline-variant); }
     a.link:hover { background: var(--mat-sys-surface-container); }
-    .amount { font: var(--mat-sys-label-large); white-space: nowrap; }
+    a.link:active { background: var(--mat-sys-surface-container-high); }
+    .amount { font: var(--mat-sys-label-large); color: var(--mat-sys-error); white-space: nowrap; }
     .chevron { color: var(--mat-sys-on-surface-variant); }
     .line { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.875rem 1rem; font: var(--mat-sys-body-medium); }
     .more { border-top: 1px solid var(--mat-sys-outline-variant); color: var(--mat-sys-primary); text-decoration: none; }

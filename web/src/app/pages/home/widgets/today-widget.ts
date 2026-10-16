@@ -10,6 +10,7 @@ import { Loadable } from '../../../core/state/loadable';
 import { colomboNow, formatTime, todayColombo } from '../../../shared/format';
 import { nextClass, NextClass, SessionState, sessionStates } from './next-class';
 import { WidgetCard } from './widget-card';
+import { WidgetEmpty } from './widget-empty';
 import { WidgetState } from './widget-state';
 
 interface TodayData {
@@ -23,13 +24,13 @@ interface TodayData {
 @Component({
   selector: 'app-today-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetState],
+  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
   template: `
-    <app-widget-card icon="event" title="dashboard.today.title" link="/timetable" linkLabel="dashboard.today.timetable">
+    <app-widget-card icon="event" title="dashboard.today.title" tone="primary" link="/timetable" linkLabel="dashboard.today.timetable">
       <app-widget-state [status]="state.status()" (retry)="load()">
         @if (state.data(); as data) {
           @for (s of data.sessions; track s.id; let i = $index) {
-            <a class="panel-row link" [routerLink]="['/attendance', s.id]" [class.over]="data.states[i] === 'over' && s.taken">
+            <a class="panel-row link" [routerLink]="['/attendance', s.id]" [class.over]="data.states[i] === 'over' && s.taken" [class.live]="data.states[i] === 'now'">
               <div class="time">
                 <strong>{{ time(s.start) }}</strong>
                 <span class="muted">{{ time(s.end) }}</span>
@@ -60,7 +61,7 @@ interface TodayData {
               }
             </a>
           } @empty {
-            <p class="line muted">{{ 'home.no_classes_today' | t }}</p>
+            <app-widget-empty icon="event_available">{{ 'home.no_classes_today' | t }}</app-widget-empty>
           }
           @if (data.later; as n) {
             <p class="line">
@@ -74,16 +75,22 @@ interface TodayData {
   `,
   styles: `
     mat-icon { font-size: 1.5rem; }
-    .time { display: flex; flex-direction: column; min-width: 4.5rem; font: var(--mat-sys-body-small); }
-    a.link { color: inherit; text-decoration: none; }
+    .time { display: flex; flex-direction: column; align-items: center; min-width: 3.75rem; padding: 0.375rem 0.25rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container); font: var(--mat-sys-body-small); line-height: 1.25; }
+    .time strong { font: var(--mat-sys-label-large); font-weight: 600; }
+    a.link { position: relative; color: inherit; text-decoration: none; }
     a.link:hover { background: var(--mat-sys-surface-container); }
-    .over { opacity: 0.8; }
+    a.link:active { background: var(--mat-sys-surface-container-high); }
+    a.link.live { background: color-mix(in srgb, var(--mat-sys-primary-container) 45%, transparent); }
+    a.link.live::before { content: ''; position: absolute; inset-block: 0.5rem; inset-inline-start: 0; width: 0.25rem; border-radius: 0 999px 999px 0; background: var(--mat-sys-primary); }
+    a.link.live .time { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
+    a.link.live .time .muted { color: inherit; opacity: 0.8; }
+    .over { opacity: 0.75; }
     .done { color: var(--mat-sys-primary); }
     .chevron { color: var(--mat-sys-on-surface-variant); }
-    .mark { color: var(--mat-sys-primary); font: var(--mat-sys-label-large); }
+    .mark { padding: 0.375rem 0.875rem; border-radius: 999px; background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); font: var(--mat-sys-label-large); }
     .chip { margin-right: 0.375rem; padding: 0.0625rem 0.5rem; border-radius: 999px; background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); font: var(--mat-sys-label-small); vertical-align: middle; }
     .chip.now { background: var(--mat-sys-primary); color: var(--mat-sys-on-primary); }
-    .line { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.875rem 1rem; font: var(--mat-sys-body-medium); }
+    .line { display: flex; align-items: center; gap: 0.625rem; margin: 0; padding: 0.875rem 1rem; background: var(--mat-sys-surface-container); font: var(--mat-sys-body-medium); }
     .line + .panel-row, .panel-row + .line { border-top: 1px solid var(--mat-sys-outline-variant); }
     .line mat-icon { flex: none; font-size: 1.25rem; width: 1.25rem; height: 1.25rem; color: var(--mat-sys-primary); }
   `,
