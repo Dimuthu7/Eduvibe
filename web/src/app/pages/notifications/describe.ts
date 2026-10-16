@@ -1,3 +1,4 @@
+import { fill } from '../../core/i18n/fill';
 import { AppNotification } from '../../core/api/notifications.service';
 import { formatLkr, formatMonth, formatTime } from '../../shared/format';
 
@@ -9,11 +10,6 @@ export interface NotificationView {
 }
 
 type Translate = (key: string) => string;
-
-/** Puts values into text such as "{count} students asked to join {class}". */
-export function fill(text: string, values: Record<string, string | number>): string {
-  return text.replace(/\{(\w+)\}/g, (whole, name: string) => (name in values ? String(values[name]) : whole));
-}
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 const number = (value: unknown): number => (typeof value === 'number' ? value : Number(value) || 0);

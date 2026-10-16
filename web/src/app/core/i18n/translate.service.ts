@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, provideAppInitializer, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { fill } from './fill';
 
 export type Language = 'en' | 'si' | 'ta';
 
@@ -36,6 +37,11 @@ export class TranslateService {
 
   translate(key: string): string {
     return this.messages()[key] ?? this.fallback[key] ?? key;
+  }
+
+  /** Text with its {values} filled in, for example "{count} students". */
+  format(key: string, values: Record<string, string | number>): string {
+    return fill(this.translate(key), values);
   }
 
   private fetch(language: Language): Promise<Record<string, string>> {

@@ -8,6 +8,7 @@ using EduVibe.Modules.Identity;
 using EduVibe.Modules.Identity.Domain;
 using EduVibe.Modules.Identity.Services;
 using EduVibe.Modules.Attendance;
+using EduVibe.Modules.Dashboard;
 using EduVibe.Modules.Exams;
 using EduVibe.Modules.Fees;
 using EduVibe.Modules.Notifications;
@@ -127,6 +128,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<FeesDbContext>(services);
             UseSqlite<ExamsDbContext>(services);
             UseSqlite<NotificationsDbContext>(services);
+            UseSqlite<DashboardDbContext>(services);
             UseSqlite<PlansDbContext>(services);
             UseSqlite<AuditDbContext>(services);
         });
@@ -148,6 +150,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<FeesDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<ExamsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<DashboardDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<PlansDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
