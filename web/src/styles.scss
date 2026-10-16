@@ -25,6 +25,35 @@ html[data-theme='dark'] {
   color-scheme: dark;
 }
 
+// Fonts are declared here, woff2 only (every phone the app supports reads it), to keep the first download small. The files come from Fontsource.
+@each $weight in 400, 500, 600 {
+  @font-face {
+    font-family: Inter;
+    font-display: swap;
+    font-weight: $weight;
+    src: url('../node_modules/@fontsource/inter/files/inter-latin-#{$weight}-normal.woff2') format('woff2');
+  }
+}
+
+@font-face {
+  font-family: 'Material Icons';
+  font-display: swap;
+  src: url('../node_modules/@fontsource/material-icons/files/material-icons-latin-400-normal.woff2') format('woff2');
+}
+
+// Sinhala letters under the same name as Inter, so every piece of text that uses Inter can show Sinhala without a longer font list. Each weight
+// Inter has gets a matching Sinhala one (browsers pair faces of the same weight), all from one variable file that is downloaded only
+// when Sinhala text is on screen, so English users never fetch it.
+@each $weight in 400, 500, 600 {
+  @font-face {
+    font-family: Inter;
+    font-display: swap;
+    font-weight: $weight;
+    src: url('../node_modules/@fontsource-variable/noto-sans-sinhala/files/noto-sans-sinhala-sinhala-wght-normal.woff2') format('woff2-variations');
+    unicode-range: U+0964-0965, U+0D81-0DF4, U+200C-200D, U+25CC;
+  }
+}
+
 // Fontsource ships only the font; this is the class mat-icon uses to turn names like "menu" into icons.
 .material-icons {
   font-family: 'Material Icons';

@@ -36,7 +36,7 @@ import { TodayWidget } from './widgets/today-widget';
       <div class="page-header">
         <div>
           <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
-          <p class="page-subtitle">{{ today }}</p>
+          <p class="page-subtitle">{{ today() }}</p>
         </div>
         <button mat-stroked-button type="button" (click)="editing.set(true)">
           <mat-icon>tune</mat-icon>
@@ -76,7 +76,7 @@ export class Home {
   protected readonly layout = new Loadable<DashboardLayout>();
   protected readonly editing = signal(false);
   protected readonly saving = signal(false);
-  protected readonly today = formatDate(todayColombo());
+  protected readonly today = computed(() => formatDate(todayColombo()));
 
   /** The saved layout made whole. If it could not be read, the default one shows and the screen still works. */
   protected readonly widgets = computed(() => resolveLayout(this.layout.data()?.widgets ?? []));

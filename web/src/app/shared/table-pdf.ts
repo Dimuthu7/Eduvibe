@@ -1,3 +1,4 @@
+import { currentLanguage, localeOf } from '../core/i18n/language';
 import { A4, PdfPage, pdfFromPages } from './pdf';
 import { ACCENT, BAND, canvasToPage, FONT, INK, LINE, MUTED, fit, newCanvas, text } from './pdf-draw';
 
@@ -76,7 +77,7 @@ export function formatCell(value: Cell): string {
   if (value === null || value === '') return '';
   if (typeof value === 'number') return number.format(value);
   if (isoDate.test(value)) {
-    return new Date(`${value}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
   }
   return value;
 }

@@ -204,6 +204,27 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Language_can_be_switched_on_its_own_and_only_to_one_the_app_has()
+    {
+        var admin = await AdminClient();
+        var created = await CreateTeacher(admin, NewPhone());
+        var session = await ChangePassword(await Login(created.Teacher.Phone, created.OneTimePassword), created.OneTimePassword, "My-new-pass-1");
+        var teacher = As(factory.CreateClient(), session.AccessToken);
+        Assert.Equal("en", (await teacher.GetFromJsonAsync<JsonElement>("/api/identity/me")).GetProperty("language").GetString());
+
+        var switched = await teacher.PutAsJsonAsync("/api/identity/me/language", new { language = "si" });
+        Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
+        Assert.Equal("si", (await switched.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("language").GetString());
+        var me = await teacher.GetFromJsonAsync<JsonElement>("/api/identity/me");
+        Assert.Equal("si", me.GetProperty("language").GetString());
+        Assert.Equal(created.Teacher.FirstName, me.GetProperty("firstName").GetString());
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await teacher.PutAsJsonAsync("/api/identity/me/language", new { language = "fr" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await teacher.PutAsJsonAsync("/api/identity/me/language", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().PutAsJsonAsync("/api/identity/me/language", new { language = "en" })).StatusCode);
+    }
+
+    [Fact]
     public async Task A_phone_number_can_only_be_used_once()
     {
         var admin = await AdminClient();

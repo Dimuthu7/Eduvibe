@@ -1,11 +1,22 @@
-const lkr = new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 });
+import { currentLanguage, knowsSinhala, Language, localeOf } from '../core/i18n/language';
 
-/** Money in rupees, for example "LKR 2,500". */
-export const formatLkr = (amount: number): string => lkr.format(amount);
+// Everything people read here follows the language on screen. Reading the language signal is what redraws a screen when it changes.
+const sinhala = (): boolean => currentLanguage() === 'si' && knowsSinhala;
 
-/** "16:00:00" or "16:00" as "4:00 PM". */
+const lkr: Record<Language, Intl.NumberFormat> = {
+  en: new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }),
+  si: new Intl.NumberFormat(knowsSinhala ? 'si-LK' : 'en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }),
+};
+
+/** Money in rupees, for example "LKR 2,500", or "රු. 2,500" in Sinhala. */
+export const formatLkr = (amount: number): string => lkr[currentLanguage()].format(amount);
+
+/** "16:00:00" or "16:00" as "4:00 PM" (in Sinhala "ප.ව. 4.00"). */
 export function formatTime(time: string): string {
   const [h, m] = time.split(':').map(Number);
+  if (sinhala()) {
+    return new Intl.DateTimeFormat('si-LK', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
+  }
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
@@ -34,11 +45,11 @@ export const monthStart = (date: string): string => `${date.slice(0, 8)}01`;
 
 /** "yyyy-MM-dd" as "Mon, 12 Oct 2026". */
 export const formatDate = (date: string): string =>
-  new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  new Date(`${date}T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
 /** An instant as Sri Lanka time, for example "12 Oct 2026, 4:30 pm", whatever the phone's own time zone is. */
 export const formatDateTime = (instant: string): string =>
-  new Date(instant).toLocaleString('en-GB', { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+  new Date(instant).toLocaleString(localeOf(currentLanguage()), { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
 
 /** The "yyyy-MM" fee month a "yyyy-MM-dd" date falls in. */
 export const monthOf = (date: string): string => date.slice(0, 7);
@@ -52,11 +63,11 @@ export function addMonths(month: string, months: number): string {
 
 /** "2026-10" as "October 2026". */
 export const formatMonth = (month: string): string =>
-  new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' });
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', month: 'long', year: 'numeric' });
 
 /** "2026-10" as "Oct 2026", for tight places. */
 export const formatMonthShort = (month: string): string =>
-  new Date(`${month}-01T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+  new Date(`${month}-01T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', month: 'short', year: 'numeric' });
 
 /** The last day of a "yyyy-MM" month as "yyyy-MM-dd". */
 export function monthEnd(month: string): string {

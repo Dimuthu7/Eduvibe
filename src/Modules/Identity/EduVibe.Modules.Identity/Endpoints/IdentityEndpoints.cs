@@ -24,6 +24,7 @@ internal static class IdentityEndpoints
         group.MapPost("/change-password", ChangePassword).RequireAuthorization(Policies.SignedIn);
         group.MapGet("/me", GetMe).RequireAuthorization(Policies.SignedIn);
         group.MapPut("/me", UpdateMe);
+        group.MapPut("/me/language", SetLanguage).RequireAuthorization(Policies.SignedIn);
     }
 
     private static async Task<IResult> Login(LoginRequest request, AuthService auth, IdentityDbContext db, CancellationToken ct)
@@ -131,6 +132,20 @@ internal static class IdentityEndpoints
     {
         var user = await LoadUser(db, tenant.UserId!.Value, ct);
         return user is null ? Results.Unauthorized() : Results.Ok(user);
+    }
+
+    /// <summary>Just the language, so switching it from any screen never needs the rest of the profile (a teacher's profile has rules of its own).</summary>
+    private static async Task<IResult> SetLanguage(SetLanguageRequest request, ITenantContext tenant, IdentityDbContext db, CancellationToken ct)
+    {
+        if (request.Language is not ("en" or "si"))
+        {
+            return Problem(StatusCodes.Status400BadRequest, "language_unsupported");
+        }
+
+        var user = await db.Users.SingleAsync(u => u.Id == tenant.UserId, ct);
+        user.Language = request.Language;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(await LoadUser(db, user.Id, ct));
     }
 
     private static async Task<IResult> UpdateMe(

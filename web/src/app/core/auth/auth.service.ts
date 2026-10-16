@@ -3,6 +3,8 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom, tap } from 'rxjs';
 import { AppConfig } from '../config/app-config';
+import { asLanguage, Language } from '../i18n/language';
+import { TranslateService } from '../i18n/translate.service';
 import { ProfileInput, Role, Session, User } from './auth.models';
 
 const STORAGE_KEY = 'eduvibe.session';
@@ -21,6 +23,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly config = inject(AppConfig);
   private readonly router = inject(Router);
+  private readonly i18n = inject(TranslateService);
 
   private tokens: StoredSession | null = this.read();
   private refreshing: Promise<boolean> | null = null;
@@ -53,14 +56,14 @@ export class AuthService {
   login(username: string, password: string) {
     return this.http
       .post<Session>(this.url('/api/identity/login'), { username, password })
-      .pipe(tap((session) => this.accept(session)));
+      .pipe(tap((session) => { this.accept(session); this.applyLanguage(session.user, true); }));
   }
 
   /** Sets a new password and, for a first sign-in, the username. Either can be left out when not needed. */
   changePassword(currentPassword: string, newPassword: string, username?: string) {
     return this.http
       .post<Session>(this.url('/api/identity/change-password'), { currentPassword, newPassword: newPassword || null, username })
-      .pipe(tap((session) => this.accept(session)));
+      .pipe(tap((session) => { this.accept(session); this.applyLanguage(session.user, false); }));
   }
 
   updateProfile(profile: ProfileInput) {
@@ -69,12 +72,21 @@ export class AuthService {
       .pipe(tap((user) => this.user.set(user)));
   }
 
+  /** Saves the language on the account, so it follows the person to another phone. */
+  setLanguage(language: Language) {
+    return this.http
+      .put<User>(this.url('/api/identity/me/language'), { language })
+      .pipe(tap((user) => this.user.update((current) => (current ? { ...current, language: user.language } : user))));
+  }
+
   /** Restores the user after a page reload. Returns false when there is no valid session. */
   async restore(): Promise<boolean> {
     if (this.user()) return true;
     if (!this.tokens) return false;
     try {
-      this.user.set(await firstValueFrom(this.http.get<User>(this.url('/api/identity/me'))));
+      const user = await firstValueFrom(this.http.get<User>(this.url('/api/identity/me')));
+      this.user.set(user);
+      this.applyLanguage(user, false);
       return true;
     } catch {
       return (await this.refresh()) && this.user() !== null;
@@ -113,6 +125,23 @@ export class AuthService {
   expire(): void {
     this.clear();
     void this.router.navigateByUrl('/login');
+  }
+
+  /**
+   * Puts the app in the signed-in person's language. A language picked on the sign-in screen just before signing in is what they want
+   * and is saved on their account. The Super Admin always sees English and has no menu to change it.
+   */
+  private applyLanguage(user: User, signingIn: boolean): void {
+    if (user.roles.includes('SuperAdmin')) {
+      void this.i18n.use('en', false);
+      return;
+    }
+    const picked = this.i18n.takePickedBeforeSignIn();
+    if (signingIn && picked && picked !== asLanguage(user.language)) {
+      this.setLanguage(picked).subscribe();
+      return;
+    }
+    void this.i18n.use(asLanguage(user.language));
   }
 
   private accept(session: Session): void {
