@@ -20,6 +20,7 @@ import { parseMark, previewRow, RowPreview } from '../../shared/exam-calc';
 import { formatDate } from '../../shared/format';
 import { ExamAnalysis } from './exam-analysis';
 import { openExamDialog } from './exam-dialog';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 interface Entry {
   student: StudentResult;
@@ -39,7 +40,7 @@ interface Entry {
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    RouterLink, ExamAnalysis, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
+    StudentAvatar, RouterLink, ExamAnalysis, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
   ],
   template: `
     <a mat-button routerLink="/exams" [queryParams]="{ classId: detail()?.classId }" class="back">
@@ -113,7 +114,7 @@ interface Entry {
               @for (entry of entries(); track entry.student.enrolmentId) {
                 <div class="panel-row entry" [class.absent]="entry.absent" [class.dirty]="entry.dirty">
                   <div class="who">
-                    <span class="avatar" aria-hidden="true">{{ entry.student.indexNumber }}</span>
+                    <app-student-avatar [name]="entry.student.fullName" [of]="entry.student.enrolmentId" [badge]="entry.student.indexNumber" />
                     <div class="row-main">
                       <div class="row-title">{{ entry.student.fullName }}</div>
                       <div class="row-meta summary">

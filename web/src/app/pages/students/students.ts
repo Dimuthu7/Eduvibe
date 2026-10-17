@@ -15,6 +15,8 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
+import { StudentAvatar } from '../../shared/student-avatar';
+import { StudentPhotos } from '../../shared/student-photos';
 import { PasswordDialog } from './password-dialog';
 import { StudentDialog } from './student-dialog';
 
@@ -25,7 +27,7 @@ type View = 'current' | 'left';
   selector: 'app-students',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
+  imports: [ReactiveFormsModule, RouterLink, SearchSelect, StudentAvatar, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -46,7 +48,7 @@ type View = 'current' | 'left';
       <div class="panel pending">
         @for (row of pending(); track row.enrolmentId) {
           <div class="panel-row request">
-            <span class="avatar" aria-hidden="true">{{ initials(row) }}</span>
+            <app-student-avatar [name]="row.fullName" [of]="row.studentId" />
             <div class="row-main">
               <div class="row-title">{{ row.fullName }}</div>
               <div class="row-meta">{{ row.classTitle }}</div>
@@ -82,7 +84,7 @@ type View = 'current' | 'left';
           <div class="panel">
             @for (row of shown(); track row.enrolmentId) {
               <a class="panel-row link" [routerLink]="['/students', row.studentId]">
-                <span class="avatar" aria-hidden="true">{{ initials(row) }}</span>
+                <app-student-avatar [name]="row.fullName" [of]="row.studentId" />
                 <div class="row-main">
                   <div class="row-title">{{ row.fullName }}</div>
                   <div class="row-meta">{{ row.classTitle }} · #{{ row.indexNumber }}</div>
@@ -168,6 +170,7 @@ export class Students {
   );
 
   constructor() {
+    inject(StudentPhotos).refresh();
     this.classesApi.classes('all').subscribe((list) => this.classOptions.set(list.map((c) => ({ value: c.id, label: c.title }))));
 
     queueMicrotask(() => {
@@ -203,10 +206,6 @@ export class Students {
 
   private loadPending(): void {
     this.pendingRows.load(this.api.students({ status: 'pending' }));
-  }
-
-  protected initials(row: StudentRow): string {
-    return `${row.firstName[0] ?? ''}${row.lastName[0] ?? ''}`;
   }
 
   protected add(): void {

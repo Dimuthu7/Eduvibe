@@ -15,13 +15,14 @@ import { formatDate, formatLkr, formatMonth, formatMonthShort } from '../../shar
 import { drawReceipt, shareOrSave } from '../../shared/receipt';
 import { PaymentDialog } from './payment-dialog';
 import { VoidDialog } from './void-dialog';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 /** One student's fees in one class: every month with what is due and paid, and every payment with its receipt number. */
 @Component({
   selector: 'app-student-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FeeStatus, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, RouterLink, FeeStatus, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/fees" [queryParams]="{ classId: fees()?.classId, month: month() || null }" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -32,9 +33,12 @@ import { VoidDialog } from './void-dialog';
       @case ('ready') {
         @if (fees(); as f) {
           <header class="page-header">
-            <div>
-              <h1 class="page-title">{{ f.fullName }}</h1>
-              <p class="page-subtitle">#{{ f.indexNumber }} · {{ f.classTitle }} · {{ planText(f) }}</p>
+            <div class="who">
+              <app-student-avatar [name]="f.fullName" [of]="f.studentId" size="lg" />
+              <div>
+                <h1 class="page-title">{{ f.fullName }}</h1>
+                <p class="page-subtitle">#{{ f.indexNumber }} · {{ f.classTitle }} · {{ planText(f) }}</p>
+              </div>
             </div>
             <button mat-flat-button type="button" (click)="pay(f)" [disabled]="f.feePlan === 'FreeCard'">
               <mat-icon>add</mat-icon>
@@ -103,6 +107,8 @@ import { VoidDialog } from './void-dialog';
     }
   `,
   styles: `
+    .who { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+    .who > div { min-width: 0; }
     .back { margin-left: -0.75rem; margin-bottom: 0.5rem; }
     .owing { display: grid; gap: 0.125rem; margin-bottom: 0.5rem; padding: 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     .owing .muted { color: inherit; opacity: 0.8; }

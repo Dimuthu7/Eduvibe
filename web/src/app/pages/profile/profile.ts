@@ -12,6 +12,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ToastService } from '../../core/ui/toast.service';
 import { applyServerError, fieldErrorKey, filled, nonEmptyArray } from '../../shared/forms';
+import { StudentAvatar } from '../../shared/student-avatar';
+import { StudentPhotos } from '../../shared/student-photos';
 import { SubmitButton } from '../../shared/submit-button';
 import { MyPlanCard } from './my-plan';
 
@@ -22,6 +24,7 @@ import { MyPlanCard } from './my-plan';
   imports: [
     ReactiveFormsModule,
     RouterLink,
+    StudentAvatar,
     SubmitButton,
     MatButtonModule,
     MatCardModule,
@@ -33,9 +36,17 @@ import { MyPlanCard } from './my-plan';
   ],
   template: `
     <header class="page-header">
-      <div>
-        <h1 class="page-title">{{ 'profile.title' | t }}</h1>
-        <p class="page-subtitle">{{ auth.user()?.phone }}</p>
+      <div class="who">
+        @if (isStudent) {
+          <app-student-avatar [name]="auth.user()?.fullName ?? ''" [url]="photos.mine()" size="lg" />
+        }
+        <div>
+          <h1 class="page-title">{{ 'profile.title' | t }}</h1>
+          <p class="page-subtitle">{{ auth.user()?.phone }}</p>
+          @if (isStudent) {
+            <p class="muted photo-hint">{{ 'profile.photo_hint' | t }}</p>
+          }
+        </div>
       </div>
     </header>
     <mat-card appearance="outlined">
@@ -78,6 +89,9 @@ import { MyPlanCard } from './my-plan';
     }
   `,
   styles: `
+    .who { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+    .who > div { min-width: 0; }
+    .photo-hint { margin: 0.25rem 0 0; font: var(--mat-sys-body-small); }
     .form { padding-top: 0.5rem; }
     .actions { margin-top: 0.5rem; }
   `,
@@ -85,6 +99,8 @@ import { MyPlanCard } from './my-plan';
 export class Profile {
   protected readonly auth = inject(AuthService);
   protected readonly catalog = inject(CatalogStore);
+  protected readonly photos = inject(StudentPhotos);
+  protected readonly isStudent = this.auth.hasRole('Student');
   private readonly toast = inject(ToastService);
 
   protected readonly busy = signal(false);
@@ -101,6 +117,7 @@ export class Profile {
 
   constructor() {
     this.catalog.ensureLoaded();
+    if (this.isStudent) this.photos.loadMine();
     if (this.user?.teacherId) {
       const { district, streamId, subjectIds } = this.form.controls;
       district.addValidators(Validators.required);

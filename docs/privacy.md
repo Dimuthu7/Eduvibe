@@ -6,7 +6,7 @@ A teacher or a student can ask for the data EduVibe holds about them, or for it 
 
 In the app: **Teachers**, the menu on the teacher's row.
 
-- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, dashboard layout and plan history. Passwords, sign-in tokens and invite tokens are never included.
+- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, dashboard layout and plan history, and the students' profile photos (as base64 text under `student_photos`). Passwords, sign-in tokens and invite tokens are never included.
 - **Delete data** appears only for a teacher who has been switched off (**Deactivate** first). It asks for the teacher's full name. Then it deletes the teacher, everything they own, and the students nobody else teaches (with their sign-in accounts).
 
 Students who also study with another teacher stay, with that other teacher's records.
@@ -20,7 +20,11 @@ GET  /api/privacy/students/{id}/export
 POST /api/privacy/students/{id}/erase     { "confirm": "<student's full name>" }
 ```
 
-Erasing a student removes who they are (name, phone, school, guardian, sign-in account) and keeps their enrolments, so every teacher's fee, attendance and marks totals stay correct. The records read "Deleted student". Their notifications are deleted with the account.
+Erasing a student removes who they are (name, phone, school, guardian, profile photo, sign-in account) and keeps their enrolments, so every teacher's fee, attendance and marks totals stay correct. The records read "Deleted student". Their notifications are deleted with the account.
+
+## Profile photos
+
+A student's photo is one small JPEG (about 320 px square, 15 to 40 kB) in `students.student_photos`, shared like the student record: any teacher who teaches the student can see or replace it. It is part of the student's export, is deleted with the student when a teacher's erasure removes students nobody else teaches, and is deleted when the student is erased. It is never shown to other students.
 
 ## Notifications
 

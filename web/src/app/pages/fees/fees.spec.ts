@@ -26,7 +26,13 @@ describe('Fees', () => {
     return fixture;
   };
 
-  afterEach(() => http.verify());
+  // Avatars ask once which students have a photo; none do here.
+  const settlePhotos = () => http.match((r) => r.url.endsWith('/api/students/photos')).forEach((r) => r.flush([]));
+
+  afterEach(() => {
+    settlePhotos();
+    http.verify();
+  });
 
   it('shows each class and the grand totals for "all classes"', () => {
     const fixture = setup('all');

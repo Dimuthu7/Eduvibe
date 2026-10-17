@@ -15,6 +15,7 @@ import { formatDate, formatTime, monthRange, todayColombo } from '../../shared/f
 import { DateRange, PeriodPicker } from '../../shared/period-picker';
 import { shareOrSave } from '../../shared/receipt';
 import { SearchSelect } from '../../shared/search-select';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
 
@@ -23,7 +24,7 @@ const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late:
   selector: 'app-student-attendance-report',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
+  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/attendance/summary" [queryParams]="{ classId: report()?.classId, from: from(), to: to() }" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -34,9 +35,12 @@ const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late:
       @case ('ready') {
         @if (report(); as r) {
           <header class="page-header">
-            <div>
-              <h1 class="page-title">{{ r.fullName }}</h1>
-              <p class="page-subtitle">#{{ r.indexNumber }} · {{ r.classTitle }}</p>
+            <div class="who">
+              <app-student-avatar [name]="r.fullName" [of]="r.studentId" size="lg" />
+              <div>
+                <h1 class="page-title">{{ r.fullName }}</h1>
+                <p class="page-subtitle">#{{ r.indexNumber }} · {{ r.classTitle }}</p>
+              </div>
             </div>
             <button mat-flat-button type="button" (click)="download(r)" [disabled]="making()">
               @if (making()) {
@@ -104,6 +108,8 @@ const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late:
     }
   `,
   styles: `
+    .who { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+    .who > div { min-width: 0; }
     .back { margin-left: -0.75rem; margin-bottom: 0.5rem; }
     .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
     .total { display: grid; gap: 0.125rem; padding: 0.75rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container); }

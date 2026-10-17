@@ -15,13 +15,14 @@ import { ExportService } from '../../shared/export.service';
 import { formatDate, monthRange, todayColombo } from '../../shared/format';
 import { DateRange, PeriodPicker } from '../../shared/period-picker';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 /** How often each student of a class came over a period (this month to start with). Late counts as attended. */
 @Component({
   selector: 'app-attendance-summary',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/attendance" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -69,7 +70,7 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
                     [routerLink]="['/attendance/summary/student', row.enrolmentId]"
                     [queryParams]="{ from: range().from, to: range().to }"
                   >
-                    <span class="avatar" aria-hidden="true">{{ row.indexNumber }}</span>
+                    <app-student-avatar [name]="row.fullName" [of]="row.enrolmentId" [badge]="row.indexNumber" />
                     <div class="row-main">
                       <div class="row-title">{{ row.fullName }}</div>
                       <div class="row-meta">

@@ -23,6 +23,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         {
             var type = Db.Model.FindEntityType(typeof(Student))!;
             data["students"] = [.. students.Select(s => (object)ModuleData.Project(type, s))];
+            await AddPhotosAsync(data, ids, ct);
         }
 
         return data;
@@ -46,6 +47,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
 
         await using var transaction = await Db.Database.BeginTransactionAsync(ct);
         await base.EraseTeacherAsync(teacherId, ct);
+        await Db.StudentPhotos.Where(p => orphans.Contains(p.StudentId)).ExecuteDeleteAsync(ct);
         await Db.Students.IgnoreQueryFilters().Where(s => orphans.Contains(s.Id)).ExecuteDeleteAsync(ct);
         await transaction.CommitAsync(ct);
         await AuditRedaction.RedactRecordsAsync(audit, nameof(Student), orphans, ct);
@@ -61,6 +63,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         }
 
         data["students"] = [ModuleData.Project(Db.Model.FindEntityType(typeof(Student))!, student)];
+        await AddPhotosAsync(data, [studentId], ct);
         var enrolments = await Db.Enrolments.IgnoreQueryFilters().AsNoTracking().Where(e => e.StudentId == studentId).ToListAsync(ct);
         var titles = await classes.FindManyInAnyTenantAsync(enrolments.Select(e => e.ClassId), ct);
         var type = Db.Model.FindEntityType(typeof(Enrolment))!;
@@ -90,6 +93,8 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
             await notifier.ForgetAsync(userId, ct);
         }
 
+        await Db.StudentPhotos.Where(p => p.StudentId == studentId).ExecuteDeleteAsync(ct);
+
         // The phone number must stay unique and fit its column, so it becomes a marker rather than null.
         var marker = "~" + studentId.ToString("N")[^18..];
         await Db.Students.IgnoreQueryFilters().Where(s => s.Id == studentId).ExecuteUpdateAsync(set => set
@@ -106,6 +111,17 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
 
     public async Task<string?> FindStudentNameAsync(Guid studentId, CancellationToken ct) =>
         await Db.Students.IgnoreQueryFilters().Where(s => s.Id == studentId).Select(s => s.FirstName + " " + s.LastName).SingleOrDefaultAsync(ct);
+
+    // The photo itself goes in the export, as base64 text in the JSON, so the person gets back the picture and not only a note that one exists.
+    private async Task AddPhotosAsync(PersonalData data, List<Guid> studentIds, CancellationToken ct)
+    {
+        var photos = await Db.StudentPhotos.AsNoTracking().Where(p => studentIds.Contains(p.StudentId)).ToListAsync(ct);
+        if (photos.Count > 0)
+        {
+            var type = Db.Model.FindEntityType(typeof(StudentPhoto))!;
+            data["student_photos"] = [.. photos.Select(p => (object)ModuleData.Project(type, p))];
+        }
+    }
 
     private Task<List<Guid>> StudentIdsOfAsync(Guid teacherId, CancellationToken ct) =>
         Db.Enrolments.IgnoreQueryFilters().Where(e => e.TenantId == teacherId).Select(e => e.StudentId).Distinct().ToListAsync(ct);

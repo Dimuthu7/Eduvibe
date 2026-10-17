@@ -13,13 +13,14 @@ import { Loadable } from '../../core/state/loadable';
 import { formatLkr, monthOf, todayColombo } from '../../shared/format';
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 /** Students who came to class in the month and still owe for it: the people to remind first. */
 @Component({
   selector: 'app-unpaid-attendees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/fees" [queryParams]="backParams()" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -46,7 +47,7 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
             <div class="panel">
               @for (row of data.rows; track row.enrolmentId) {
                 <a class="panel-row link" [routerLink]="['/fees', row.enrolmentId]" [queryParams]="{ month: isCurrent() ? null : chosenMonth() }">
-                  <span class="avatar" aria-hidden="true">{{ row.indexNumber }}</span>
+                  <app-student-avatar [name]="row.fullName" [of]="row.enrolmentId" [badge]="row.indexNumber" />
                   <div class="row-main">
                     <div class="row-title">{{ row.fullName }}</div>
                     <div class="row-meta">{{ row.classTitle }} · {{ 'fees.came' | t }} {{ row.attended }}</div>

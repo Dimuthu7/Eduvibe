@@ -31,8 +31,12 @@ describe('AttendanceMark', () => {
     vi.spyOn(TestBed.inject(TranslateService), 'translate').mockImplementation((key) => key);
   });
 
+  // Avatars ask once which students have a photo; none do here.
+  const settlePhotos = () => http.match((r) => r.url.endsWith('/api/students/photos')).forEach((r) => r.flush([]));
+
   afterEach(() => {
     vi.useRealTimers();
+    settlePhotos();
     http.verify();
   });
 

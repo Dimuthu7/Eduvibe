@@ -10,6 +10,7 @@ import { formatDate } from '../../../shared/format';
 import { WidgetCard } from './widget-card';
 import { WidgetEmpty } from './widget-empty';
 import { WidgetState } from './widget-state';
+import { StudentAvatar } from '../../../shared/student-avatar';
 
 const SHOWN = 3;
 
@@ -17,14 +18,14 @@ const SHOWN = 3;
 @Component({
   selector: 'app-joins-widget',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
+  imports: [StudentAvatar, RouterLink, MatIconModule, TranslatePipe, WidgetCard, WidgetEmpty, WidgetState],
   template: `
     <app-widget-card icon="person_add" title="dashboard.joins.title" tone="tertiary" [count]="state.data()?.length ?? 0" link="/students" linkLabel="dashboard.joins.review">
       <app-widget-state [status]="state.status()" (retry)="load()">
         @if (state.data(); as rows) {
           @for (row of rows.slice(0, shown); track row.enrolmentId) {
             <a class="panel-row link" routerLink="/students">
-              <span class="avatar">{{ row.firstName.charAt(0) }}</span>
+              <app-student-avatar [name]="row.fullName" [of]="row.studentId" />
               <div class="row-main">
                 <div class="row-title">{{ row.fullName }}</div>
                 <div class="row-meta">{{ row.classTitle }} · {{ date(row.joinedOn) }}</div>
@@ -43,7 +44,6 @@ const SHOWN = 3;
   `,
   styles: `
     mat-icon { font-size: 1.5rem; }
-    .avatar { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); font: var(--mat-sys-title-small); text-transform: uppercase; }
     .chevron { color: var(--mat-sys-on-surface-variant); }
     a.link { color: inherit; text-decoration: none; }
     a.link:hover { background: var(--mat-sys-surface-container); }
