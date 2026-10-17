@@ -11,6 +11,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { formatDate, formatTime } from '../../shared/format';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { SubmitButton } from '../../shared/submit-button';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
 const LONG_PRESS_MS = 500;
@@ -24,7 +25,7 @@ const MOVE_LIMIT_PX = 8;
   selector: 'app-attendance-mark',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, SubmitButton, MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
+  imports: [StudentAvatar, RouterLink, SubmitButton, MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
   template: `
     @switch (detail.status()) {
       @case ('ready') {
@@ -74,7 +75,7 @@ const MOVE_LIMIT_PX = 8;
                     (pointercancel)="release()"
                     (contextmenu)="$event.preventDefault()"
                   >
-                    <span class="avatar" aria-hidden="true">{{ student.indexNumber }}</span>
+                    <app-student-avatar [name]="student.fullName" [of]="student.enrolmentId" [badge]="student.indexNumber" />
                     <span class="row-main">
                       <span class="row-title">{{ student.fullName }}</span>
                     </span>

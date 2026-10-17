@@ -17,6 +17,7 @@ import { ExportService } from '../../shared/export.service';
 import { formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/format';
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 /** The class value that means "every class" in the dropdown and the address. */
 export const ALL_CLASSES = 'all';
@@ -26,7 +27,7 @@ export const ALL_CLASSES = 'all';
   selector: 'app-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -99,7 +100,7 @@ export const ALL_CLASSES = 'all';
             <div class="panel">
               @for (row of data.rows; track row.enrolmentId) {
                 <a class="panel-row link" [routerLink]="['/fees', row.enrolmentId]" [queryParams]="{ month: isCurrent() ? null : chosenMonth() }">
-                  <span class="avatar" aria-hidden="true">{{ row.indexNumber }}</span>
+                  <app-student-avatar [name]="row.fullName" [of]="row.enrolmentId" [badge]="row.indexNumber" />
                   <div class="row-main">
                     <div class="row-title">{{ row.fullName }}</div>
                     <div class="row-meta">

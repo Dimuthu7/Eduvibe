@@ -23,6 +23,21 @@ public sealed class Student : Entity, IAuditable
     public string FullName => $"{FirstName} {LastName}".Trim();
 }
 
+/// <summary>
+/// A student's profile photo, so a teacher can tell students apart by face. The app shrinks it to a small square before sending,
+/// so it is kept in the database next to the student and travels with backups and with erasure. At most one per student.
+/// It sits in its own table so lists of students never load the bytes.
+/// </summary>
+public sealed class StudentPhoto : Entity
+{
+    public Guid StudentId { get; set; }
+
+    /// <summary>"image/jpeg", "image/png" or "image/webp", read from the bytes and never taken from the request.</summary>
+    public required string ContentType { get; set; }
+
+    public required byte[] Data { get; set; }
+}
+
 public enum EnrolmentStatus
 {
     /// <summary>Asked to join through an invite link; waits for the teacher to approve.</summary>

@@ -60,7 +60,13 @@ describe('ExamScreen', () => {
     return { fixture, el, boxes, type, save };
   };
 
-  afterEach(() => http.verify());
+  // Avatars ask once which students have a photo; none do here.
+  const settlePhotos = () => http.match((r) => r.url.endsWith('/api/students/photos')).forEach((r) => r.flush([]));
+
+  afterEach(() => {
+    settlePhotos();
+    http.verify();
+  });
 
   it('lists every student with a box for each part, starting from the saved marks', async () => {
     const { el, boxes, save } = await setup();

@@ -22,6 +22,17 @@ internal sealed class StudentConfiguration : IEntityTypeConfiguration<Student>
     }
 }
 
+internal sealed class StudentPhotoConfiguration : IEntityTypeConfiguration<StudentPhoto>
+{
+    public void Configure(EntityTypeBuilder<StudentPhoto> builder)
+    {
+        builder.ToTable("student_photos");
+        builder.Property(p => p.ContentType).HasMaxLength(20);
+        builder.HasOne<Student>().WithMany().HasForeignKey(p => p.StudentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(p => p.StudentId).IsUnique();
+    }
+}
+
 internal sealed class EnrolmentConfiguration : IEntityTypeConfiguration<Enrolment>
 {
     public void Configure(EntityTypeBuilder<Enrolment> builder)

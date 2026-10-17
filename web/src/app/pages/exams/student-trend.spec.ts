@@ -37,7 +37,13 @@ describe('StudentTrend', () => {
     return { fixture, el: fixture.nativeElement as HTMLElement };
   };
 
-  afterEach(() => http.verify());
+  // Avatars ask once which students have a photo; none do here.
+  const settlePhotos = () => http.match((r) => r.url.endsWith('/api/students/photos')).forEach((r) => r.flush([]));
+
+  afterEach(() => {
+    settlePhotos();
+    http.verify();
+  });
 
   it('shows the average and best percentage, the chart and each exam newest first with rank of how many', async () => {
     const { el } = await setup();

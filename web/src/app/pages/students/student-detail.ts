@@ -13,8 +13,10 @@ import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmData, ConfirmDialog } from '../../shared/confirm-dialog';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { formatLkr } from '../../shared/format';
+import { StudentPhotos } from '../../shared/student-photos';
 import { EnrolmentDialog, EnrolmentDialogData } from './enrolment-dialog';
 import { PasswordDialog } from './password-dialog';
+import { PhotoPicker } from './photo-picker';
 import { StudentDialog } from './student-dialog';
 
 /** One student: their details, the classes they are in, and the teacher's actions on them. */
@@ -22,7 +24,7 @@ import { StudentDialog } from './student-dialog';
   selector: 'app-student-detail',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatButtonModule, MatCardModule, MatIconModule, MatMenuModule, TranslatePipe],
+  imports: [RouterLink, PhotoPicker, MatButtonModule, MatCardModule, MatIconModule, MatMenuModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/students" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -33,9 +35,18 @@ import { StudentDialog } from './student-dialog';
       @case ('ready') {
         @if (student(); as s) {
           <header class="page-header">
-            <div>
-              <h1 class="page-title">{{ s.fullName }}</h1>
-              <p class="page-subtitle">{{ s.phone }}</p>
+            <div class="who">
+              <app-photo-picker #photo [studentId]="s.id" [name]="s.fullName" />
+              <div>
+                <h1 class="page-title">{{ s.fullName }}</h1>
+                <p class="page-subtitle">{{ s.phone }}</p>
+                @if (!hasPhoto()) {
+                  <button mat-button type="button" class="add-photo" (click)="photo.open()">
+                    <mat-icon>add_a_photo</mat-icon>
+                    {{ 'students.photo.add' | t }}
+                  </button>
+                }
+              </div>
             </div>
             <div class="row-wrap">
               <button mat-stroked-button type="button" (click)="edit(s)">
@@ -107,6 +118,10 @@ import { StudentDialog } from './student-dialog';
   `,
   styles: `
     .back { margin-left: -0.75rem; margin-bottom: 0.5rem; }
+    .who { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+    .who > div { min-width: 0; }
+    .add-photo { margin-left: -0.75rem; }
+    .add-photo mat-icon { font-size: 1.125rem; width: 1.125rem; height: 1.125rem; }
     .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
     .facts div { display: flex; flex-direction: column; overflow-wrap: anywhere; }
     .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 1.5rem; }
@@ -128,7 +143,9 @@ export class StudentDetail {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
 
+  private readonly photos = inject(StudentPhotos);
   protected readonly record = new Loadable<Student>();
+  protected readonly hasPhoto = computed(() => this.photos.entryOf(this.id()) !== undefined);
   protected readonly student = computed(() => this.record.data());
 
   constructor() {
@@ -136,6 +153,7 @@ export class StudentDetail {
   }
 
   protected load(): void {
+    this.photos.refresh();
     this.record.load(this.api.student(this.id()));
   }
 

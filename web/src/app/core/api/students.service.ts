@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { AppConfig } from '../config/app-config';
+import { quiet } from './quiet';
 
 export type EnrolmentStatus = 'Pending' | 'Active' | 'Left';
 export type FeePlan = 'Full' | 'Discount' | 'FreeCard';
@@ -129,6 +130,14 @@ export interface MyClass {
   slots: { day: number; start: string; end: string }[];
 }
 
+/** A student who has a profile photo. The version changes whenever the photo does, so a phone keeps what it has until then. */
+export interface StudentPhotoEntry {
+  studentId: string;
+  version: number;
+  /** The teacher's own enrolments of this student, so a row that only knows its enrolment can find the photo. */
+  enrolmentIds: string[];
+}
+
 /** A teacher's students, their enrolments in classes, and the links students use to sign themselves up. */
 @Injectable({ providedIn: 'root' })
 export class StudentsService {
@@ -171,6 +180,28 @@ export class StudentsService {
 
   resetPassword(studentId: string) {
     return this.http.post<{ oneTimePassword: string }>(`${this.base}/${studentId}/reset-password`, {});
+  }
+
+  /** Who has a photo among the teacher's students. Quiet: a failure just leaves initials showing. */
+  photos() {
+    return this.http.get<StudentPhotoEntry[]>(`${this.base}/photos`, { context: quiet() });
+  }
+
+  photo(studentId: string, version: number) {
+    return this.http.get(`${this.base}/${studentId}/photo`, { params: { v: version }, responseType: 'blob', context: quiet() });
+  }
+
+  setPhoto(studentId: string, image: Blob) {
+    return this.http.put<StudentPhotoEntry>(`${this.base}/${studentId}/photo`, image, { headers: { 'Content-Type': image.type || 'image/jpeg' } });
+  }
+
+  removePhoto(studentId: string) {
+    return this.http.delete<void>(`${this.base}/${studentId}/photo`);
+  }
+
+  /** The signed-in student's own photo; null when the teacher has not added one. */
+  myPhoto() {
+    return this.http.get(`${this.base}/me/photo`, { responseType: 'blob', context: quiet() });
   }
 
   /** The signed-in student's own classes. */

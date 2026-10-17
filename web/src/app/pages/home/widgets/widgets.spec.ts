@@ -29,8 +29,14 @@ describe('dashboard widgets', () => {
     return fixture;
   };
 
+  // Avatars ask once which students have a photo; none do here.
+  const settlePhotos = () => http.match((r) => r.url.endsWith('/api/students/photos')).forEach((r) => r.flush([]));
+
   afterEach(() => {
-    if (mounted) http.verify();
+    if (mounted) {
+      settlePhotos();
+      http.verify();
+    }
     mounted = false;
     vi.restoreAllMocks();
     vi.useRealTimers();

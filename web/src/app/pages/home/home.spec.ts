@@ -43,6 +43,9 @@ describe('Home dashboard', () => {
     else req.flush([]);
   };
 
+  // Avatars ask once which students have a photo; none do here.
+  const settlePhotos = () => http.match((r) => r.url.endsWith('/api/students/photos')).forEach((r) => r.flush([]));
+
   afterEach(() => {
     http.verify();
     vi.restoreAllMocks();

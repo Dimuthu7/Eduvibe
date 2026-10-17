@@ -11,6 +11,7 @@ public sealed class StudentsDbContext(DbContextOptions<StudentsDbContext> option
     public override string Schema => StudentsModule.ModuleName;
 
     public DbSet<Student> Students => Set<Student>();
+    public DbSet<StudentPhoto> StudentPhotos => Set<StudentPhoto>();
     public DbSet<Enrolment> Enrolments => Set<Enrolment>();
     public DbSet<InviteLink> InviteLinks => Set<InviteLink>();
 

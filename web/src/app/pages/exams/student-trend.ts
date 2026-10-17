@@ -11,13 +11,14 @@ import { formatDate } from '../../shared/format';
 import { SearchSelect } from '../../shared/search-select';
 import { TrendChart, TrendPoint } from '../../shared/trend-chart';
 import { short } from './exam-analysis';
+import { StudentAvatar } from '../../shared/student-avatar';
 
 /** One student's results across every exam of a class: a chart against the class average, then each exam with grade and rank. */
 @Component({
   selector: 'app-student-trend',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, TrendChart, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, SearchSelect, TrendChart, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     @if (examId()) {
       <a mat-button [routerLink]="['/exams', examId()]" class="back">
@@ -35,9 +36,12 @@ import { short } from './exam-analysis';
       @case ('ready') {
         @if (history(); as h) {
           <header class="page-header">
-            <div>
-              <h1 class="page-title">{{ h.fullName }}</h1>
-              <p class="page-subtitle">#{{ h.indexNumber }} · {{ h.classTitle }}</p>
+            <div class="who">
+              <app-student-avatar [name]="h.fullName" [of]="h.studentId" size="lg" />
+              <div>
+                <h1 class="page-title">{{ h.fullName }}</h1>
+                <p class="page-subtitle">#{{ h.indexNumber }} · {{ h.classTitle }}</p>
+              </div>
             </div>
           </header>
 
@@ -103,6 +107,8 @@ import { short } from './exam-analysis';
     }
   `,
   styles: `
+    .who { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+    .who > div { min-width: 0; }
     .back { margin-left: -0.75rem; margin-bottom: 0.5rem; }
     .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
     .total { display: grid; gap: 0.125rem; padding: 0.75rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container); }
