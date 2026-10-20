@@ -7,7 +7,7 @@ namespace EduVibe.Modules.Materials.Endpoints;
 
 /// <summary>What the web app sees of one material. Student lists add the class and teacher names through <see cref="StudentMaterialDto"/>.</summary>
 public sealed record MaterialDto(
-    Guid Id, Guid ClassId, string Title, string FileName, string ContentType, long SizeBytes, string Kind, string? Topic, int? Year, DateTimeOffset AddedAt, bool CanPreview);
+    Guid Id, Guid ClassId, Guid? FolderId, string Title, string FileName, string ContentType, long SizeBytes, string Kind, string? Topic, int? Year, DateTimeOffset AddedAt, bool CanPreview);
 
 /// <summary>The file types a teacher may add: what a phone can open. The type is set from the extension, never from what the browser claims.</summary>
 internal static class MaterialFiles
@@ -45,7 +45,7 @@ internal static class MaterialFiles
     }
 
     public static MaterialDto ToDto(Material m) =>
-        new(m.Id, m.ClassId, m.Title, m.FileName, m.ContentType, m.SizeBytes, m.Kind.ToString(), m.Topic, m.Year, m.CreatedAt, CanPreview(m.ContentType));
+        new(m.Id, m.ClassId, m.FolderId, m.Title, m.FileName, m.ContentType, m.SizeBytes, m.Kind.ToString(), m.Topic, m.Year, m.CreatedAt, CanPreview(m.ContentType));
 
     /// <summary>
     /// Sends a material's bytes from Drive to the browser without keeping them. A file that was deleted in Drive answers 404 and a revoked

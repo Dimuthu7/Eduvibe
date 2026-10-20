@@ -50,7 +50,7 @@ public interface IDriveClient
     /// <summary>Turns the code Google sent to the callback into a refresh token. Throws <see cref="DriveAuthException"/> when the code is refused or the Drive permission was not given.</summary>
     Task<DriveGrant> ExchangeCodeAsync(string code, CancellationToken ct);
 
-    /// <summary>Makes a folder and returns its id. A null parent means the top of the teacher's Drive.</summary>
+    /// <summary>Makes a folder and returns its id. A null parent means the top of the teacher's Drive. Throws <see cref="FolderMissingException"/> when the parent is gone.</summary>
     Task<string> CreateFolderAsync(string refreshToken, string name, string? parentId, CancellationToken ct);
 
     /// <summary>True when the folder is still there and not in the bin.</summary>
@@ -59,10 +59,16 @@ public interface IDriveClient
     /// <summary>Stores a file in a folder, streaming it without holding it all in memory.</summary>
     Task<DriveFile> UploadAsync(string refreshToken, string folderId, string name, string contentType, Stream content, long length, CancellationToken ct);
 
+    /// <summary>Renames a file or folder. One that is already gone is fine.</summary>
+    Task RenameAsync(string refreshToken, string id, string name, CancellationToken ct);
+
+    /// <summary>Moves a file from one folder to another. A file that is already gone is fine; a target folder that is gone throws <see cref="FolderMissingException"/>.</summary>
+    Task MoveAsync(string refreshToken, string fileId, string fromFolderId, string toFolderId, CancellationToken ct);
+
     /// <summary>Opens a file for reading, or null when it is gone from Drive.</summary>
     Task<DriveDownload?> OpenAsync(string refreshToken, string fileId, CancellationToken ct);
 
-    /// <summary>Removes a file from Drive. A file that is already gone is fine.</summary>
+    /// <summary>Removes a file or an (empty) folder from Drive. One that is already gone is fine.</summary>
     Task DeleteAsync(string refreshToken, string fileId, CancellationToken ct);
 
     /// <summary>Tells Google to drop EduVibe's access. Best effort: it never throws.</summary>

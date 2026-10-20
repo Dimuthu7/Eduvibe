@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EduVibe.Modules.Materials.Endpoints;
 
-/// <summary>A material as its student sees it, with the class and teacher it comes from.</summary>
-public sealed record StudentMaterialDto(MaterialDto Material, string ClassTitle, string? TeacherName);
+/// <summary>A material as its student sees it, with the class and teacher it comes from and the names of the folders it sits in, outermost first.</summary>
+public sealed record StudentMaterialDto(MaterialDto Material, string ClassTitle, string? TeacherName, IReadOnlyList<string> FolderPath);
 
 /// <summary>
 /// What a signed-in student can open: materials of the classes they are active in (and that are not archived), and only while that teacher's plan includes Drive materials.
@@ -52,13 +52,25 @@ internal static class StudentMaterialEndpoints
             names[tenantId] = await teachers.FindNameAsync(tenantId, ct);
         }
 
+        var folders = await db.Folders.IgnoreQueryFilters().AsNoTracking().Where(f => classIds.Contains(f.ClassId)).ToDictionaryAsync(f => f.Id, ct);
         var titles = await classes.FindManyInAnyTenantAsync(classIds, ct);
         var items = materials
             .Where(m => allowed[m.TenantId] && titles.TryGetValue(m.ClassId, out var cls) && !cls.IsArchived)
             .OrderByDescending(m => m.Year).ThenByDescending(m => m.CreatedAt)
-            .Select(m => new StudentMaterialDto(MaterialFiles.ToDto(m), titles.TryGetValue(m.ClassId, out var cls) ? cls.Title : string.Empty, names[m.TenantId]))
+            .Select(m => new StudentMaterialDto(MaterialFiles.ToDto(m), titles.TryGetValue(m.ClassId, out var cls) ? cls.Title : string.Empty, names[m.TenantId], PathOf(m.FolderId, folders)))
             .ToArray();
         return Results.Ok(items);
+    }
+
+    private static List<string> PathOf(Guid? folderId, Dictionary<Guid, MaterialFolder> folders)
+    {
+        var path = new List<string>();
+        for (var id = folderId; id is { } current && folders.TryGetValue(current, out var folder) && !folder.IsKindRoot && path.Count < FolderEndpoints.MaxDepth; id = folder.ParentId)
+        {
+            path.Insert(0, folder.Name);
+        }
+
+        return path;
     }
 
     private static async Task<IResult> Open(

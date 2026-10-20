@@ -12,6 +12,7 @@ public sealed class MaterialsDbContext(DbContextOptions<MaterialsDbContext> opti
 
     public DbSet<DriveConnection> Connections => Set<DriveConnection>();
     public DbSet<ClassFolder> ClassFolders => Set<ClassFolder>();
+    public DbSet<MaterialFolder> Folders => Set<MaterialFolder>();
     public DbSet<Material> Materials => Set<Material>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)

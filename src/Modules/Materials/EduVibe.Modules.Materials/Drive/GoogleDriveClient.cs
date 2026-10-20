@@ -83,8 +83,42 @@ public sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> op
         {
             Content = JsonContent.Create(body),
         }, ct);
+        if (parentId is not null && response.StatusCode == HttpStatusCode.NotFound)
+        {
+            throw new FolderMissingException();
+        }
+
         await EnsureSuccessAsync(response, ct);
         return (await response.Content.ReadFromJsonAsync<IdResponse>(ct))?.Id ?? throw new DriveUnavailableException("Drive sent no folder id.");
+    }
+
+    public async Task RenameAsync(string refreshToken, string id, string name, CancellationToken ct)
+    {
+        using var response = await SendAsync(refreshToken, () => new HttpRequestMessage(HttpMethod.Patch,
+            $"https://www.googleapis.com/drive/v3/files/{Uri.EscapeDataString(id)}?fields=id")
+        {
+            Content = JsonContent.Create(new { name }),
+        }, ct);
+        if (response.StatusCode != HttpStatusCode.NotFound)
+        {
+            await EnsureSuccessAsync(response, ct);
+        }
+    }
+
+    public async Task MoveAsync(string refreshToken, string fileId, string fromFolderId, string toFolderId, CancellationToken ct)
+    {
+        using var response = await SendAsync(refreshToken, () => new HttpRequestMessage(HttpMethod.Patch,
+            $"https://www.googleapis.com/drive/v3/files/{Uri.EscapeDataString(fileId)}?addParents={Uri.EscapeDataString(toFolderId)}&removeParents={Uri.EscapeDataString(fromFolderId)}&fields=id")
+        {
+            Content = JsonContent.Create(new { }),
+        }, ct);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            // Either the file or the target is gone; only the target matters to the caller, which can tell by asking.
+            throw new FolderMissingException();
+        }
+
+        await EnsureSuccessAsync(response, ct);
     }
 
     public async Task<bool> FolderExistsAsync(string refreshToken, string folderId, CancellationToken ct)
@@ -377,5 +411,5 @@ public sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> op
     private sealed record IdResponse(string Id, bool? Trashed, string? Size);
 }
 
-/// <summary>The class's Drive folder was deleted in Drive. The caller makes a new one and tries again.</summary>
+/// <summary>A Drive folder the caller relied on was deleted in Drive. The caller makes it again and tries once more.</summary>
 public sealed class FolderMissingException : Exception;

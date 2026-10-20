@@ -144,11 +144,20 @@ namespace EduVibe.Modules.Materials.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("drive_file_id");
 
+                    b.Property<string>("DriveParentId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("drive_parent_id");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("file_name");
+
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("folder_id");
 
                     b.Property<string>("Kind")
                         .IsRequired()
@@ -189,10 +198,74 @@ namespace EduVibe.Modules.Materials.Migrations
                     b.HasIndex("ClassId")
                         .HasDatabaseName("ix_materials_class_id");
 
+                    b.HasIndex("FolderId")
+                        .HasDatabaseName("ix_materials_folder_id");
+
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_materials_tenant_id");
 
                     b.ToTable("materials", "materials");
+                });
+
+            modelBuilder.Entity("EduVibe.Modules.Materials.Domain.MaterialFolder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("class_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DriveFolderId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("drive_folder_id");
+
+                    b.Property<bool>("IsKindRoot")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_kind_root");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_material_folders");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_material_folders_tenant_id");
+
+                    b.HasIndex("ClassId", "Kind")
+                        .HasDatabaseName("ix_material_folders_class_id_kind");
+
+                    b.ToTable("material_folders", "materials");
                 });
 
             modelBuilder.Entity("EduVibe.Shared.Auditing.AuditLogEntry", b =>

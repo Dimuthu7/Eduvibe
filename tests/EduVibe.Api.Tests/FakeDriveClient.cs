@@ -55,6 +55,11 @@ public sealed class FakeDriveClient : IDriveClient
     public Task<string> CreateFolderAsync(string refreshToken, string name, string? parentId, CancellationToken ct)
     {
         Check(refreshToken);
+        if (parentId is not null && !Folders.ContainsKey(parentId))
+        {
+            throw new FolderMissingException();
+        }
+
         lock (_gate)
         {
             var id = "folder-" + ++_next;
@@ -87,6 +92,42 @@ public sealed class FakeDriveClient : IDriveClient
         }
     }
 
+    public Task RenameAsync(string refreshToken, string id, string name, CancellationToken ct)
+    {
+        Check(refreshToken);
+        if (Folders.TryGetValue(id, out var folder))
+        {
+            Folders[id] = (name, folder.Parent);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task MoveAsync(string refreshToken, string fileId, string fromFolderId, string toFolderId, CancellationToken ct)
+    {
+        Check(refreshToken);
+        if (!Folders.ContainsKey(toFolderId))
+        {
+            throw new FolderMissingException();
+        }
+
+        if (Files.TryGetValue(fileId, out var file))
+        {
+            Assert(file.Folder == fromFolderId, $"{fileId} is in {file.Folder}, not {fromFolderId}");
+            Files[fileId] = (toFolderId, file.Name, file.ContentType, file.Bytes);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static void Assert(bool ok, string message)
+    {
+        if (!ok)
+        {
+            throw new InvalidOperationException(message);
+        }
+    }
+
     public Task<DriveDownload?> OpenAsync(string refreshToken, string fileId, CancellationToken ct)
     {
         Check(refreshToken);
@@ -99,6 +140,7 @@ public sealed class FakeDriveClient : IDriveClient
     {
         Check(refreshToken);
         Files.Remove(fileId);
+        Folders.Remove(fileId);
         return Task.CompletedTask;
     }
 
