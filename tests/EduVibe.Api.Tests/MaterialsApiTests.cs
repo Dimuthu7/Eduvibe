@@ -327,6 +327,105 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync($"/api/materials/{id}/file")).StatusCode);
     }
 
+    private Task<HttpResponseMessage> MoveFolder(HttpClient teacher, JsonElement folder, string? kind = null, Guid? parentId = null) =>
+        teacher.PutAsJsonAsync($"/api/materials/folders/{folder.GetProperty("id").GetGuid()}/move", new { kind, parentId });
+
+    [Fact]
+    public async Task A_folder_moves_into_another_folder_with_what_it_holds_and_Drive_follows()
+    {
+        var teacher = await ProTeacher("Shifter");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 6");
+        var archive = await NewFolder(teacher.Client, classId, "Mv archive");
+        var term = await NewFolder(teacher.Client, classId, "Mv term");
+        var week = await NewFolder(teacher.Client, classId, "Mv week", parentId: term.GetProperty("id").GetGuid());
+        var form = Upload(classId, "mv.pdf", kind: "Notes");
+        form.Add(new StringContent(week.GetProperty("id").GetString()!), "folderId");
+        var file = (await Json(await teacher.Client.PostAsync("/api/materials", form))).GetProperty("id").GetGuid();
+
+        var moved = await MoveFolder(teacher.Client, term, parentId: archive.GetProperty("id").GetGuid());
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        Assert.Equal(archive.GetProperty("id").GetGuid(), (await Json(moved)).GetProperty("parentId").GetGuid());
+        Assert.Equal("EduVibe/Grade 6/Notes/Mv archive/Mv term/Mv week", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "mv.pdf").Folder));
+        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync($"/api/materials/{file}/file")).StatusCode);
+
+        // Back onto the shelf.
+        var back = await MoveFolder(teacher.Client, term, kind: "Notes");
+        Assert.Equal(JsonValueKind.Null, (await Json(back)).GetProperty("parentId").ValueKind);
+        Assert.Equal("EduVibe/Grade 6/Notes/Mv term/Mv week", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "mv.pdf").Folder));
+        var listed = await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"));
+        Assert.Equal(JsonValueKind.Null, listed.EnumerateArray().Single(f => f.GetProperty("name").GetString() == "Mv term").GetProperty("parentId").ValueKind);
+    }
+
+    [Fact]
+    public async Task Moving_a_folder_to_another_shelf_takes_its_files_to_that_kind()
+    {
+        var teacher = await ProTeacher("Crosser");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 5");
+        var papers = await NewFolder(teacher.Client, classId, "Mv papers");
+        var sub = await NewFolder(teacher.Client, classId, "Mv sub", parentId: papers.GetProperty("id").GetGuid());
+        var form = Upload(classId, "cross.pdf", title: "Cross", kind: "Notes");
+        form.Add(new StringContent(sub.GetProperty("id").GetString()!), "folderId");
+        await teacher.Client.PostAsync("/api/materials", form);
+
+        var moved = await MoveFolder(teacher.Client, papers, kind: "PastPaper");
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        Assert.Equal("PastPaper", (await Json(moved)).GetProperty("kind").GetString());
+        Assert.Equal("EduVibe/Grade 5/Past papers/Mv papers/Mv sub", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "cross.pdf").Folder));
+        Assert.Equal("PastPaper", (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}"))).EnumerateArray().Single().GetProperty("kind").GetString());
+        var folders = await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"));
+        Assert.All(folders.EnumerateArray(), f => Assert.Equal("PastPaper", f.GetProperty("kind").GetString()));
+    }
+
+    [Fact]
+    public async Task A_folder_cannot_move_into_itself_or_where_the_name_or_depth_would_clash()
+    {
+        var teacher = await ProTeacher("Careful");
+        var rival = await ProTeacher("Meddler");
+        await Connect(teacher.Client);
+        await Connect(rival.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 4");
+        var top = await NewFolder(teacher.Client, classId, "Mv top");
+        var inner = await NewFolder(teacher.Client, classId, "Mv inner", parentId: top.GetProperty("id").GetGuid());
+        var twin = await NewFolder(teacher.Client, classId, "Mv twin");
+        await NewFolder(teacher.Client, classId, "Mv twin", parentId: top.GetProperty("id").GetGuid());
+
+        Assert.Equal("folder_move_invalid", await Code(await MoveFolder(teacher.Client, top, parentId: top.GetProperty("id").GetGuid())));
+        Assert.Equal("folder_move_invalid", await Code(await MoveFolder(teacher.Client, top, parentId: inner.GetProperty("id").GetGuid())));
+        Assert.Equal("folder_name_taken", await Code(await MoveFolder(teacher.Client, twin, parentId: top.GetProperty("id").GetGuid())));
+        Assert.Equal("folder_invalid", await Code(await MoveFolder(teacher.Client, twin, parentId: Guid.NewGuid())));
+        Assert.Equal("folder_invalid", await Code(await MoveFolder(teacher.Client, twin)));
+        Assert.Equal(HttpStatusCode.NotFound, (await MoveFolder(rival.Client, twin, kind: "Notes")).StatusCode);
+
+        // Top is two levels deep with Mv inner, so it cannot go under a folder that is already three deep.
+        var one = await NewFolder(teacher.Client, classId, "Mv one");
+        var two = await NewFolder(teacher.Client, classId, "Mv two", parentId: one.GetProperty("id").GetGuid());
+        var three = await NewFolder(teacher.Client, classId, "Mv three", parentId: two.GetProperty("id").GetGuid());
+        Assert.Equal("folder_too_deep", await Code(await MoveFolder(teacher.Client, top, parentId: three.GetProperty("id").GetGuid())));
+
+        // Moving to where it already is changes nothing.
+        Assert.Equal(HttpStatusCode.OK, (await MoveFolder(teacher.Client, inner, parentId: top.GetProperty("id").GetGuid())).StatusCode);
+    }
+
+    [Fact]
+    public async Task Moving_still_works_when_the_folder_or_file_is_already_gone_from_Drive()
+    {
+        var teacher = await ProTeacher("Forgiving");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 3");
+        var from = await NewFolder(teacher.Client, classId, "Mv from");
+        var to = await NewFolder(teacher.Client, classId, "Mv to");
+        factory.Drive.Folders.Remove(factory.Drive.Folders.Single(f => f.Value.Name == "Mv from").Key);
+        Assert.Equal(HttpStatusCode.OK, (await MoveFolder(teacher.Client, from, parentId: to.GetProperty("id").GetGuid())).StatusCode);
+
+        var id = (await AddMaterial(teacher.Client, classId, "vanish.pdf", kind: "Notes")).GetProperty("id").GetGuid();
+        factory.Drive.Files.Clear();
+        var moved = await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Paper", kind = "Notes", folderId = to.GetProperty("id").GetGuid() });
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        Assert.Equal(to.GetProperty("id").GetGuid(), (await Json(moved)).GetProperty("folderId").GetGuid());
+    }
+
     [Fact]
     public async Task A_folder_deleted_in_Drive_is_made_again_when_a_file_is_added_to_it_and_Drive_trouble_is_reported()
     {

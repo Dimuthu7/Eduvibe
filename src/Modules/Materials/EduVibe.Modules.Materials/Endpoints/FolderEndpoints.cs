@@ -16,6 +16,9 @@ public sealed record CreateFolderRequest(Guid ClassId, string? Kind, Guid? Paren
 
 public sealed record RenameFolderRequest(string? Name);
 
+/// <summary>Where to move a folder: into another folder (ParentId), or onto a shelf (Kind) when ParentId is null.</summary>
+public sealed record MoveFolderRequest(string? Kind, Guid? ParentId);
+
 /// <summary>
 /// Folders inside a class's Notes, Past papers and Other. They are real folders in the teacher's Drive too, so the teacher finds the same
 /// structure there. Folders hold files and other folders, up to <see cref="MaxDepth"/> levels.
@@ -32,6 +35,7 @@ internal static class FolderEndpoints
         folders.MapGet("", List);
         folders.MapPost("", Create);
         folders.MapPut("/{id:guid}", Rename);
+        folders.MapPut("/{id:guid}/move", Move);
         folders.MapDelete("/{id:guid}", Remove);
     }
 
@@ -151,6 +155,123 @@ internal static class FolderEndpoints
 
         return Results.Ok(ToDto(folder, all));
     }
+
+    private static async Task<IResult> Move(
+        Guid id, MoveFolderRequest request, MaterialsDbContext db, IClassDirectory classes, IDriveClient drive, DriveTokens tokens, ILogger<MaterialsModule> logger, CancellationToken ct)
+    {
+        var folder = await db.Folders.SingleOrDefaultAsync(f => f.Id == id && !f.IsKindRoot, ct);
+        if (folder is null || await classes.FindAsync(folder.ClassId, ct) is not { } cls)
+        {
+            return Results.NotFound();
+        }
+
+        var all = await db.Folders.Where(f => f.ClassId == folder.ClassId).ToListAsync(ct);
+        var parent = request.ParentId is { } parentId ? all.SingleOrDefault(f => f.Id == parentId && !f.IsKindRoot) : null;
+        if (request.ParentId is not null && parent is null)
+        {
+            return Problems.Reject("folder_invalid");
+        }
+
+        MaterialKind kind;
+        if (parent is not null)
+        {
+            kind = parent.Kind;
+        }
+        else if (!Enum.TryParse(request.Kind, ignoreCase: true, out kind))
+        {
+            return Problems.Reject("folder_invalid");
+        }
+
+        var inside = SubtreeOf(folder, all);
+        if (parent is not null && inside.Any(f => f.Id == parent.Id))
+        {
+            return Problems.Reject("folder_move_invalid");
+        }
+
+        var shelf = all.SingleOrDefault(f => f.IsKindRoot && f.Kind == kind);
+        var destination = parent?.Id ?? shelf?.Id;
+        if (destination == folder.ParentId)
+        {
+            return Results.Ok(ToDto(folder, all));
+        }
+
+        if (Depth(parent, all) + Height(folder, all) > MaxDepth)
+        {
+            return Problems.Reject("folder_too_deep");
+        }
+
+        if (destination is not null && NameTaken(all.Where(f => f.Kind == kind), destination, folder.Name, except: folder.Id))
+        {
+            return Problems.Reject("folder_name_taken", StatusCodes.Status409Conflict);
+        }
+
+        var (link, problem) = await DriveFolders.LinkAsync(db, tokens, ct);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        var from = all.Single(f => f.Id == folder.ParentId).DriveFolderId;
+        problem = await DriveFolders.GuardAsync(link!, db, async () =>
+        {
+            await DriveFolders.WithRepairAsync(async verify =>
+            {
+                var place = await DriveFolders.PlaceAsync(db, link!.Connection, drive, link.Token, cls, kind, parent, verify, ct);
+                if (place != from)
+                {
+                    try
+                    {
+                        await drive.MoveAsync(link.Token, folder.DriveFolderId, from, place, ct);
+                    }
+                    catch (FolderMissingException) when (verify)
+                    {
+                        // The folder itself is gone from Drive; EduVibe's list still moves, and the next upload makes it again.
+                        logger.LogWarning("Folder {FolderId} is missing in Drive, so only its place in EduVibe changed", id);
+                    }
+                }
+
+                return place;
+            });
+        }, ct);
+        if (problem is not null)
+        {
+            return problem;
+        }
+
+        // The shelf row is made on the first need, so it is read again now that the Drive folders are in place.
+        shelf = await db.Folders.SingleAsync(f => f.ClassId == folder.ClassId && f.Kind == kind && f.IsKindRoot, ct);
+        folder.ParentId = parent?.Id ?? shelf.Id;
+        var ids = inside.Select(f => f.Id).ToList();
+        foreach (var row in inside)
+        {
+            row.Kind = kind;
+        }
+
+        // Moving to another shelf takes the files with it, and they are listed under that kind from now on.
+        foreach (var material in await db.Materials.Where(m => m.FolderId != null && ids.Contains(m.FolderId.Value)).ToListAsync(ct))
+        {
+            material.Kind = kind;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(ToDto(folder, await db.Folders.Where(f => f.ClassId == folder.ClassId).ToListAsync(ct)));
+    }
+
+    /// <summary>The folder and every folder inside it.</summary>
+    private static List<MaterialFolder> SubtreeOf(MaterialFolder folder, IReadOnlyCollection<MaterialFolder> all)
+    {
+        var found = new List<MaterialFolder> { folder };
+        for (var i = 0; i < found.Count; i++)
+        {
+            found.AddRange(all.Where(f => f.ParentId == found[i].Id && !f.IsKindRoot && !found.Contains(f)));
+        }
+
+        return found;
+    }
+
+    /// <summary>How many levels this folder and what it holds take up (a folder with no folders inside is 1).</summary>
+    private static int Height(MaterialFolder folder, IReadOnlyCollection<MaterialFolder> all) =>
+        1 + all.Where(f => f.ParentId == folder.Id && !f.IsKindRoot).Select(f => Height(f, all)).DefaultIfEmpty(0).Max();
 
     private static async Task<IResult> Remove(Guid id, MaterialsDbContext db, IDriveClient drive, DriveTokens tokens, ILogger<MaterialsModule> logger, CancellationToken ct)
     {

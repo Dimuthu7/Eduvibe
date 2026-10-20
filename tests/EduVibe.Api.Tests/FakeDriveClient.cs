@@ -111,7 +111,12 @@ public sealed class FakeDriveClient : IDriveClient
             throw new FolderMissingException();
         }
 
-        if (Files.TryGetValue(fileId, out var file))
+        if (Folders.TryGetValue(fileId, out var folder))
+        {
+            Assert(folder.Parent == fromFolderId, $"{fileId} is in {folder.Parent}, not {fromFolderId}");
+            Folders[fileId] = (folder.Name, toFolderId);
+        }
+        else if (Files.TryGetValue(fileId, out var file))
         {
             Assert(file.Folder == fromFolderId, $"{fileId} is in {file.Folder}, not {fromFolderId}");
             Files[fileId] = (toFolderId, file.Name, file.ContentType, file.Bytes);

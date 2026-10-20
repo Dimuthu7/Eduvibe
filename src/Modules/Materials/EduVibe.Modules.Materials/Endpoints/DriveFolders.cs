@@ -141,6 +141,11 @@ internal static class DriveFolders
         {
             return Problems.Reject(e.Code, StatusCodes.Status502BadGateway);
         }
+        catch (FolderMissingException)
+        {
+            // A folder was still missing after the repair attempt, for example deleted again while the request ran.
+            return Problems.Reject(DriveUnavailableException.Generic, StatusCodes.Status502BadGateway);
+        }
     }
 }
 
