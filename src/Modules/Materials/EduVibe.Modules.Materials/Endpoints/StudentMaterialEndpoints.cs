@@ -15,7 +15,7 @@ namespace EduVibe.Modules.Materials.Endpoints;
 public sealed record StudentMaterialDto(MaterialDto Material, string ClassTitle, string? TeacherName);
 
 /// <summary>
-/// What a signed-in student can open: materials of the classes they are active in, and only while that teacher's plan includes Drive materials.
+/// What a signed-in student can open: materials of the classes they are active in (and that are not archived), and only while that teacher's plan includes Drive materials.
 /// The bytes come through the API from the teacher's Drive, so nothing in Drive is shared and leaving a class ends access at once.
 /// </summary>
 internal static class StudentMaterialEndpoints
@@ -54,7 +54,7 @@ internal static class StudentMaterialEndpoints
 
         var titles = await classes.FindManyInAnyTenantAsync(classIds, ct);
         var items = materials
-            .Where(m => allowed[m.TenantId])
+            .Where(m => allowed[m.TenantId] && titles.TryGetValue(m.ClassId, out var cls) && !cls.IsArchived)
             .OrderByDescending(m => m.Year).ThenByDescending(m => m.CreatedAt)
             .Select(m => new StudentMaterialDto(MaterialFiles.ToDto(m), titles.TryGetValue(m.ClassId, out var cls) ? cls.Title : string.Empty, names[m.TenantId]))
             .ToArray();
@@ -62,8 +62,8 @@ internal static class StudentMaterialEndpoints
     }
 
     private static async Task<IResult> Open(
-        Guid id, bool? download, MaterialsDbContext db, IClassRoster roster, IPlanGate plans, IDriveClient drive, DriveTokens tokens, ITenantContext user,
-        HttpResponse response, CancellationToken ct)
+        Guid id, bool? download, MaterialsDbContext db, IClassRoster roster, IClassDirectory classes, IPlanGate plans, IDriveClient drive, DriveTokens tokens,
+        ITenantContext user, HttpResponse response, CancellationToken ct)
     {
         if (user.UserId is not { } userId)
         {
@@ -77,7 +77,9 @@ internal static class StudentMaterialEndpoints
             return Results.NotFound();
         }
 
-        if (!(await plans.ForTeacherAsync(material.TenantId, ct)).Has(PlanFeatures.DriveMaterials))
+        // A class the teacher archived is closed to its students, files included, just like the rest of the class.
+        if (!(await plans.ForTeacherAsync(material.TenantId, ct)).Has(PlanFeatures.DriveMaterials)
+            || await classes.FindInAnyTenantAsync(material.ClassId, ct) is not { IsArchived: false })
         {
             return Results.NotFound();
         }

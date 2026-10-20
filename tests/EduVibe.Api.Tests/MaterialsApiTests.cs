@@ -200,6 +200,11 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal("material_class_required", await Code(await teacher.Client.PostAsync("/api/materials", Upload(await ClassOf(other.Client), "a.pdf"))));
         Assert.Equal("material_invalid", await Code(await teacher.Client.PostAsync("/api/materials", Upload(classId, "a.pdf", kind: "Video"))));
         Assert.Equal("material_invalid", await Code(await teacher.Client.PostAsync("/api/materials", Upload(classId, "a.pdf", year: "1800"))));
+        Assert.Equal("material_invalid", await Code(await teacher.Client.PostAsync("/api/materials", Upload(classId, "a.pdf", title: new string('t', 121)))));
+
+        // With no title the file's own name is used, cut to fit.
+        var untitled = await teacher.Client.PostAsync("/api/materials", Upload(classId, new string('n', 140) + ".pdf"));
+        Assert.Equal(120, (await Json(untitled)).GetProperty("title").GetString()!.Length);
         Assert.DoesNotContain(factory.Drive.Files.Values, f => f.Name is "run.exe" or "noext" or "big.pdf");
     }
 
@@ -329,6 +334,24 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await teacher.Client.PutAsJsonAsync($"/api/students/enrolments/{student.EnrolmentId}", new { status = "Left" });
         Assert.Equal(0, (await Json(await client.GetAsync("/api/materials/mine"))).GetArrayLength());
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/materials/mine/{visible}/file")).StatusCode);
+    }
+
+    [Fact]
+    public async Task An_archived_class_closes_its_files_to_students_and_restoring_it_opens_them_again()
+    {
+        var teacher = await ProTeacher("Archiver");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client);
+        var id = (await AddMaterial(teacher.Client, classId)).GetProperty("id").GetGuid();
+        var client = await SignInStudent(await Enrol(teacher.Client, classId, "Retired"));
+
+        Assert.True((await teacher.Client.PostAsync($"/api/classes/classes/{classId}/archive", null)).IsSuccessStatusCode);
+        Assert.Equal(0, (await Json(await client.GetAsync("/api/materials/mine"))).GetArrayLength());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/materials/mine/{id}/file")).StatusCode);
+        Assert.Equal(1, (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}"))).GetArrayLength());
+
+        Assert.True((await teacher.Client.PostAsync($"/api/classes/classes/{classId}/restore", null)).IsSuccessStatusCode);
+        Assert.Equal(1, (await Json(await client.GetAsync("/api/materials/mine"))).GetArrayLength());
     }
 
     [Fact]

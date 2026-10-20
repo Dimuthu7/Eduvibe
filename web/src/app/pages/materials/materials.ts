@@ -17,7 +17,6 @@ import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
-import { formatDate } from '../../shared/format';
 import { formatSize, materialIcon, openMaterial } from '../../shared/material-view';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { MaterialDialog, MaterialDialogData } from './material-dialog';
@@ -219,7 +218,8 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
     .connected mat-icon { width: 1.25rem; height: 1.25rem; font-size: 1.25rem; color: var(--mat-sys-primary); }
     .who { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
     .who strong { color: var(--mat-sys-on-surface); }
-    .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); column-gap: 1rem; }
+    .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1rem; }
+    .filters > :first-child { grid-column: 1 / -1; }
     .kinds { display: block; margin-bottom: 1rem; }
     .open { display: flex; flex: 1; gap: 0.875rem; align-items: center; min-width: 0; margin: -0.875rem 0 -0.875rem -1rem; padding: 0.875rem 0 0.875rem 1rem; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
     .open:hover:not(:disabled) { background: var(--mat-sys-surface-container); }
@@ -347,7 +347,7 @@ export class Materials {
   }
 
   protected details(m: Material): string {
-    return [m.topic, m.year, formatSize(m.sizeBytes), formatDate(m.addedAt)].filter((p) => p !== null && p !== '').join(' · ');
+    return [m.topic, m.year, formatSize(m.sizeBytes)].filter((p) => p !== null && p !== '').join(' · ');
   }
 
   protected connect(): void {

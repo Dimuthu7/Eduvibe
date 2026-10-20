@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace EduVibe.Modules.Materials.Drive;
 
 /// <summary>Google Drive over its plain web API (no Google library), limited to the drive.file scope.</summary>
-internal sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> options, TimeProvider clock, ILogger<GoogleDriveClient> logger) : IDriveClient
+public sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> options, TimeProvider clock, ILogger<GoogleDriveClient> logger) : IDriveClient
 {
     private const string Scope = "https://www.googleapis.com/auth/drive.file";
     private const string FolderType = "application/vnd.google-apps.folder";
@@ -38,14 +38,24 @@ internal sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> 
 
     public async Task<DriveGrant> ExchangeCodeAsync(string code, CancellationToken ct)
     {
-        using var response = await PostFormAsync("https://oauth2.googleapis.com/token", new()
+        HttpResponseMessage response;
+        try
         {
-            ["code"] = code,
-            ["client_id"] = Options.ClientId,
-            ["client_secret"] = Options.ClientSecret,
-            ["redirect_uri"] = Options.RedirectUri,
-            ["grant_type"] = "authorization_code",
-        }, ct);
+            response = await PostFormAsync("https://oauth2.googleapis.com/token", new()
+            {
+                ["code"] = code,
+                ["client_id"] = Options.ClientId,
+                ["client_secret"] = Options.ClientSecret,
+                ["redirect_uri"] = Options.RedirectUri,
+                ["grant_type"] = "authorization_code",
+            }, ct);
+        }
+        catch (HttpRequestException e)
+        {
+            throw new DriveUnavailableException("Google could not be reached.", e);
+        }
+
+        using var _ = response;
         if (!response.IsSuccessStatusCode)
         {
             throw new DriveAuthException($"Google refused the sign-in code ({(int)response.StatusCode}).");
@@ -117,7 +127,17 @@ internal sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> 
         put.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         put.Content.Headers.ContentLength = length;
         put.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using var done = await http.SendAsync(put, ct);
+        HttpResponseMessage done;
+        try
+        {
+            done = await http.SendAsync(put, ct);
+        }
+        catch (HttpRequestException e)
+        {
+            throw new DriveUnavailableException("Drive could not be reached.", e);
+        }
+
+        using var _ = done;
         await EnsureSuccessAsync(done, ct);
         var saved = await done.Content.ReadFromJsonAsync<IdResponse>(ct) ?? throw new DriveUnavailableException("Drive sent no file id.");
         return new DriveFile(saved.Id, long.TryParse(saved.Size, out var size) ? size : length);

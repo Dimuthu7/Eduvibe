@@ -26,7 +26,8 @@ public sealed class MaterialsModule : IModule
         services.AddModuleDbContext<MaterialsDbContext>(configuration, ModuleName);
         services.Configure<DriveOptions>(configuration.GetSection(DriveOptions.Section));
         services.AddSingleton<DriveTokens>();
-        services.AddHttpClient<IDriveClient, GoogleDriveClient>();
+        // A file can be 25 MB over a phone connection, so the default 100 seconds is too short.
+        services.AddHttpClient<IDriveClient, GoogleDriveClient>(client => client.Timeout = TimeSpan.FromMinutes(5));
         services.AddScoped<IPersonalDataSource, MaterialsPersonalData>();
     }
 

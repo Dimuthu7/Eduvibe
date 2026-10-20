@@ -17,6 +17,7 @@ public sealed record UpdateMaterialRequest(string? Title, string? Kind, string? 
 internal static class MaterialEndpoints
 {
     private const string RootFolderName = "EduVibe";
+    private const int MaxTitle = 120;
 
     public static void Map(RouteGroupBuilder group)
     {
@@ -87,10 +88,10 @@ internal static class MaterialEndpoints
             return Problems.Reject("material_class_required");
         }
 
-        var title = Problems.Clean(form["title"]) ?? Path.GetFileNameWithoutExtension(fileName);
+        var title = Problems.Clean(form["title"]) ?? Truncate(Path.GetFileNameWithoutExtension(fileName), MaxTitle);
         var topic = Problems.Clean(form["topic"]);
         int? year = int.TryParse(form["year"], out var y) ? y : null;
-        if (title.Length > 150 || topic?.Length > 80 || year is < 1990 or > 2100 || !Enum.TryParse<MaterialKind>(form["kind"], ignoreCase: true, out var kind))
+        if (title.Length > MaxTitle || topic?.Length > 80 || year is < 1990 or > 2100 || !Enum.TryParse<MaterialKind>(form["kind"], ignoreCase: true, out var kind))
         {
             return Problems.Reject("material_invalid");
         }
@@ -175,6 +176,8 @@ internal static class MaterialEndpoints
         return folderId;
     }
 
+    private static string Truncate(string text, int length) => text.Length > length ? text[..length] : text;
+
     private static async Task<IResult> Update(Guid id, UpdateMaterialRequest request, MaterialsDbContext db, CancellationToken ct)
     {
         var material = await db.Materials.SingleOrDefaultAsync(m => m.Id == id, ct);
@@ -185,7 +188,7 @@ internal static class MaterialEndpoints
 
         var title = Problems.Clean(request.Title);
         var topic = Problems.Clean(request.Topic);
-        if (title is null || title.Length > 150 || topic?.Length > 80 || request.Year is < 1990 or > 2100
+        if (title is null || title.Length > MaxTitle || topic?.Length > 80 || request.Year is < 1990 or > 2100
             || !Enum.TryParse<MaterialKind>(request.Kind, ignoreCase: true, out var kind))
         {
             return Problems.Reject("material_invalid");

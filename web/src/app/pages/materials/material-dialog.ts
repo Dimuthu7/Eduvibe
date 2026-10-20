@@ -74,7 +74,7 @@ export interface MaterialDialogData {
           }
           <mat-form-field class="wide">
             <mat-label>{{ 'materials.name' | t }}</mat-label>
-            <input matInput formControlName="title" maxlength="150" autocomplete="off" required />
+            <input matInput formControlName="title" maxlength="120" autocomplete="off" required />
             <mat-error>{{ key('title') | t }}</mat-error>
           </mat-form-field>
           <mat-form-field class="wide">
@@ -137,7 +137,7 @@ export class MaterialDialog {
 
   protected readonly form = inject(FormBuilder).nonNullable.group({
     classId: [this.data.classId ?? '', this.editing ? [] : [Validators.required]],
-    title: [this.data.material?.title ?? '', [filled, Validators.maxLength(150)]],
+    title: [this.data.material?.title ?? '', [filled, Validators.maxLength(120)]],
     kind: [this.data.material?.kind ?? ('PastPaper' as MaterialKind)],
     topic: [this.data.material?.topic ?? '', Validators.maxLength(80)],
     year: [this.data.material?.year ?? (null as number | null), [Validators.min(1990), Validators.max(2100)]],
@@ -177,7 +177,7 @@ export class MaterialDialog {
     this.file.set(picked);
     // The file's own name is a fair first title.
     if (this.form.controls.title.value.trim() === '') {
-      this.form.controls.title.setValue(picked.name.replace(/\.[^.]+$/, '').slice(0, 150));
+      this.form.controls.title.setValue(picked.name.replace(/\.[^.]+$/, '').slice(0, 120));
     }
   }
 
