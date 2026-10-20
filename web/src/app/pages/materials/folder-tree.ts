@@ -16,3 +16,18 @@ export function folderChain(id: string | null, folders: readonly MaterialFolder[
 export function folderLabel(id: string | null, folders: readonly MaterialFolder[]): string {
   return folderChain(id, folders).map((f) => f.name).join(' / ');
 }
+
+/** The folder and everything inside it, so a folder never offers to move into itself. */
+export function withDescendants(id: string, folders: readonly MaterialFolder[]): Set<string> {
+  const ids = new Set([id]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const f of folders) {
+      if (f.parentId !== null && ids.has(f.parentId) && !ids.has(f.id)) {
+        ids.add(f.id);
+        grew = true;
+      }
+    }
+  }
+  return ids;
+}

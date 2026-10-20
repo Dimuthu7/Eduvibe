@@ -114,6 +114,11 @@ export class MaterialsService {
     return this.http.put<MaterialFolder>(`${this.base}/folders/${id}`, { name });
   }
 
+  /** Moves a folder, with what is in it, into another folder (parentId) or onto a shelf (kind, with parentId null). */
+  moveFolder(id: string, to: { kind: MaterialKind; parentId: string | null }) {
+    return this.http.put<MaterialFolder>(`${this.base}/folders/${id}/move`, to);
+  }
+
   removeFolder(id: string) {
     return this.http.delete<void>(`${this.base}/folders/${id}`);
   }
