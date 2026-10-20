@@ -31,6 +31,8 @@ export const routes: Routes = [
       { path: 'exams/grading', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/exams/grading').then((m) => m.Grading) },
       { path: 'exams/student/:enrolmentId', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/exams/student-trend').then((m) => m.StudentTrend) },
       { path: 'exams/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/exams/exam').then((m) => m.ExamScreen) },
+      { path: 'materials', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/materials/materials').then((m) => m.Materials) },
+      { path: 'my-materials', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/materials/my-materials').then((m) => m.MyMaterials) },
       { path: 'results', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/results/my-results').then((m) => m.MyResults) },
       { path: 'welcome', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/welcome/welcome').then((m) => m.Welcome) },
       { path: 'timetable', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/timetable/timetable').then((m) => m.Timetable) },

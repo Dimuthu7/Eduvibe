@@ -33,3 +33,10 @@ services:
         sync: false
       - key: SuperAdmin__Password
         sync: false
+      # Google Drive for class materials (see docs/drive-setup.md). Optional: without them the Materials screen says Drive is not set up.
+      - key: Google__ClientId
+        sync: false
+      - key: Google__ClientSecret
+        sync: false
+      - key: Google__RedirectUri
+        sync: false

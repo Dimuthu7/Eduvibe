@@ -11,6 +11,8 @@ using EduVibe.Modules.Attendance;
 using EduVibe.Modules.Dashboard;
 using EduVibe.Modules.Exams;
 using EduVibe.Modules.Fees;
+using EduVibe.Modules.Materials;
+using EduVibe.Modules.Materials.Drive;
 using EduVibe.Modules.Notifications;
 using EduVibe.Modules.Plans;
 using EduVibe.Modules.Plans.Services;
@@ -104,6 +106,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public Guid MathsId { get; private set; }
     public Guid ScienceId { get; private set; }
 
+    /// <summary>Stands in for Google Drive so no test reaches the network.</summary>
+    public FakeDriveClient Drive { get; } = new();
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -130,6 +135,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<NotificationsDbContext>(services);
             UseSqlite<DashboardDbContext>(services);
             UseSqlite<PlansDbContext>(services);
+            UseSqlite<MaterialsDbContext>(services);
+            services.RemoveAll<IDriveClient>();
+            services.AddSingleton(Drive);
+            services.AddSingleton<IDriveClient>(Drive);
             UseSqlite<AuditDbContext>(services);
         });
     }
@@ -152,6 +161,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<DashboardDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<PlansDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<MaterialsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
