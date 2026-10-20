@@ -20,9 +20,24 @@ export interface DriveStatus {
   needsReconnect: boolean;
 }
 
+/** A teacher's folder on one shelf (Notes, Past paper or Other) of a class. parentId is null for a folder directly on the shelf. */
+export interface MaterialFolder {
+  id: string;
+  classId: string;
+  kind: MaterialKind;
+  parentId: string | null;
+  name: string;
+}
+
+/** Folders can be nested this deep; the server checks again. */
+export const FOLDER_MAX_DEPTH = 4;
+export const FOLDER_MAX_NAME = 60;
+
 export interface Material {
   id: string;
   classId: string;
+  /** The folder the file is in, or null when it is directly on its shelf. */
+  folderId: string | null;
   title: string;
   fileName: string;
   contentType: string;
@@ -39,6 +54,8 @@ export interface StudentMaterial {
   material: Material;
   classTitle: string;
   teacherName: string | null;
+  /** Names of the folders the file is in, outermost first; empty when it is directly on its shelf. */
+  folderPath: string[];
 }
 
 export interface MaterialDetails {
@@ -46,6 +63,7 @@ export interface MaterialDetails {
   kind: MaterialKind;
   topic: string | null;
   year: number | null;
+  folderId: string | null;
 }
 
 /** A teacher's Google Drive link and class files, and the student's read-only view. Files are streamed through the API; Drive is never shared. */
@@ -82,6 +100,22 @@ export class MaterialsService {
 
   remove(id: string) {
     return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  folders() {
+    return this.http.get<MaterialFolder[]>(`${this.base}/folders`);
+  }
+
+  createFolder(folder: { classId: string; kind: MaterialKind; parentId: string | null; name: string }) {
+    return this.http.post<MaterialFolder>(`${this.base}/folders`, folder);
+  }
+
+  renameFolder(id: string, name: string) {
+    return this.http.put<MaterialFolder>(`${this.base}/folders/${id}`, { name });
+  }
+
+  removeFolder(id: string) {
+    return this.http.delete<void>(`${this.base}/folders/${id}`);
   }
 
   file(id: string, download: boolean) {

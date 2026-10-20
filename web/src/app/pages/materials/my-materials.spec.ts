@@ -10,11 +10,12 @@ import { MyMaterials } from './my-materials';
 
 const API = 'http://api.test';
 
-const item = (id: string, classId: string, classTitle: string, over: Partial<Material> = {}): StudentMaterial => ({
+const item = (id: string, classId: string, classTitle: string, over: Partial<Material> = {}, folderPath: string[] = []): StudentMaterial => ({
   classTitle,
+  folderPath,
   teacherName: classId === 'c1' ? 'Nimal Perera' : null,
   material: {
-    id, classId, title: `File ${id}`, fileName: `file-${id}.pdf`, contentType: 'application/pdf', sizeBytes: 340 * 1024, kind: 'PastPaper', topic: 'Algebra', year: 2024,
+    id, classId, title: `File ${id}`, fileName: `file-${id}.pdf`, contentType: 'application/pdf', sizeBytes: 340 * 1024, kind: 'PastPaper', topic: 'Algebra', year: 2024, folderId: null,
     addedAt: '2026-10-10T04:00:00Z', canPreview: true, ...over,
   },
 });
@@ -42,8 +43,23 @@ describe('MyMaterials', () => {
     const { el } = await setup([item('1', 'c1', 'Maths'), item('2', 'c2', 'Chemistry', { topic: null, year: null }), item('3', 'c1', 'Maths', { kind: 'Notes' })]);
     expect(Array.from(el.querySelectorAll('h2')).map((h) => h.textContent!.trim())).toEqual(['Chemistry', 'Maths']);
     expect(el.textContent).toContain('Nimal Perera');
-    expect(el.textContent).toContain('materials.kind.PastPaper · Algebra · 2024 · 340 KB');
+    // A class with one shelf and no folders needs no headings, so each line names the shelf; Maths has two shelves, so its headings do.
+    expect(el.textContent).toContain('materials.kind.PastPaper · 340 KB');
+    expect(el.textContent).toContain('Algebra · 2024 · 340 KB');
     expect(el.querySelectorAll('.panel-row').length).toBe(3);
+  });
+
+  it('lays a class out by shelf and folder, shelves in their usual order and loose files first', async () => {
+    const { el } = await setup([
+      item('1', 'c1', 'Maths', { kind: 'PastPaper', title: 'Paper' }),
+      item('2', 'c1', 'Maths', { kind: 'Notes', title: 'Week 2' }, ['Term 1', 'Week 2']),
+      item('3', 'c1', 'Maths', { kind: 'Notes', title: 'Loose' }),
+      item('4', 'c1', 'Maths', { kind: 'Notes', title: 'Week 1' }, ['Term 1', 'Week 1']),
+    ]);
+    expect(Array.from(el.querySelectorAll('h3')).map((h) => h.textContent!.trim())).toEqual([
+      'materials.kind.Notes', 'materials.kind.Notes / Term 1 / Week 1', 'materials.kind.Notes / Term 1 / Week 2', 'materials.kind.PastPaper',
+    ]);
+    expect(Array.from(el.querySelectorAll('.row-title')).map((t) => t.textContent!.trim())).toEqual(['Loose', 'Week 1', 'Week 2', 'Paper']);
   });
 
   it('offers a kind filter only when there is more than one kind', async () => {

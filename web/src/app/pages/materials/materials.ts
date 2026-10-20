@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ClassesService } from '../../core/api/classes.service';
-import { DriveStatus, MATERIAL_KINDS, Material, MaterialsService } from '../../core/api/materials.service';
+import { DriveStatus, FOLDER_MAX_DEPTH, MATERIAL_KINDS, Material, MaterialFolder, MaterialKind, MaterialsService } from '../../core/api/materials.service';
 import { PlansService } from '../../core/api/plans.service';
 import { errorCode, errorKey } from '../../core/api/problem';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -19,6 +19,8 @@ import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { formatSize, materialIcon, openMaterial } from '../../shared/material-view';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
+import { FolderDialog, FolderDialogData } from './folder-dialog';
+import { folderChain, folderLabel } from './folder-tree';
 import { MaterialDialog, MaterialDialogData } from './material-dialog';
 
 const ALL = 'all';
@@ -137,18 +139,63 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
           }
         </mat-chip-listbox>
 
+        @if (browsing()) {
+          <div class="where">
+            <nav class="crumbs" [attr.aria-label]="'materials.folder' | t">
+              <button type="button" class="crumb" [class.current]="!folderId()" (click)="folderId.set(null)">{{ 'materials.kind.' + kind() | t }}</button>
+              @for (c of crumbs(); track c.id) {
+                <mat-icon class="sep" aria-hidden="true">chevron_right</mat-icon>
+                <button type="button" class="crumb" [class.current]="$last" (click)="folderId.set(c.id)">{{ c.name }}</button>
+              }
+            </nav>
+            @if (canAddFolder()) {
+              <button mat-stroked-button type="button" (click)="newFolder()">
+                <mat-icon>create_new_folder</mat-icon>
+                {{ 'materials.folder_new' | t }}
+              </button>
+            }
+          </div>
+        } @else if (all().length > 0) {
+          <p class="muted hint">{{ 'materials.folders_hint' | t }}</p>
+        }
+
         @switch (materials.status()) {
           @case ('ready') {
-            @if (shown().length === 0) {
+            @if (subfolders().length === 0 && shown().length === 0) {
               <div class="empty">
                 <mat-icon>folder_open</mat-icon>
-                <p>{{ (all().length === 0 ? 'materials.none' : 'materials.none_matching') | t }}</p>
+                <p>{{ emptyKey() | t }}</p>
                 @if (all().length === 0 && status()?.connected && !status()?.needsReconnect) {
                   <button mat-stroked-button type="button" (click)="add()">{{ 'materials.add' | t }}</button>
                 }
               </div>
             } @else {
               <div class="panel">
+                @for (f of subfolders(); track f.id) {
+                  <div class="panel-row">
+                    <button type="button" class="open" (click)="folderId.set(f.id)">
+                      <span class="avatar" aria-hidden="true"><mat-icon>folder</mat-icon></span>
+                      <span class="row-main">
+                        <span class="row-title">{{ f.name }}</span>
+                        <span class="row-meta">{{ folderMeta(f) }}</span>
+                      </span>
+                      <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" [matMenuTriggerFor]="folderMenu" [attr.aria-label]="'common.actions' | t">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #folderMenu="matMenu">
+                      <button mat-menu-item type="button" (click)="renameFolder(f)">
+                        <mat-icon>edit</mat-icon>
+                        <span>{{ 'materials.folder_rename' | t }}</span>
+                      </button>
+                      <button mat-menu-item type="button" (click)="removeFolder(f)">
+                        <mat-icon>delete</mat-icon>
+                        <span>{{ 'materials.folder_remove' | t }}</span>
+                      </button>
+                    </mat-menu>
+                  </div>
+                }
                 @for (m of shown(); track m.id) {
                   <div class="panel-row">
                     <button type="button" class="open" (click)="open(m)" [disabled]="busyId() === m.id">
@@ -161,7 +208,9 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
                       </span>
                       <span class="row-main">
                         <span class="row-title">{{ m.title }}</span>
-                        <span class="row-meta">{{ classTitle(m.classId) }} · {{ 'materials.kind.' + m.kind | t }}</span>
+                        @if (!browsing()) {
+                          <span class="row-meta">{{ where(m) }}</span>
+                        }
                         <span class="row-meta">{{ details(m) }}</span>
                       </span>
                     </button>
@@ -221,6 +270,14 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
     .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1rem; }
     .filters > :first-child { grid-column: 1 / -1; }
     .kinds { display: block; margin-bottom: 1rem; }
+    .hint { margin: -0.5rem 0 1rem; font: var(--mat-sys-body-small); }
+    .where { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .crumbs { display: flex; flex-wrap: wrap; gap: 0.125rem; align-items: center; min-width: 0; }
+    .crumb { max-width: 12rem; overflow: hidden; padding: 0.375rem 0.5rem; border: 0; border-radius: var(--mat-sys-corner-small); background: none; color: var(--mat-sys-primary); font: var(--mat-sys-label-large); text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .crumb:hover { background: var(--mat-sys-surface-container); }
+    .crumb.current { color: var(--mat-sys-on-surface); cursor: default; }
+    .sep { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; color: var(--mat-sys-on-surface-variant); }
+    .chevron { flex: none; margin-left: auto; color: var(--mat-sys-on-surface-variant); }
     .open { display: flex; flex: 1; gap: 0.875rem; align-items: center; min-width: 0; margin: -0.875rem 0 -0.875rem -1rem; padding: 0.875rem 0 0.875rem 1rem; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
     .open:hover:not(:disabled) { background: var(--mat-sys-surface-container); }
     .open .row-main { display: grid; }
@@ -257,6 +314,9 @@ export class Materials {
   protected readonly topicControl = new FormControl(ALL, { nonNullable: true });
   protected readonly yearControl = new FormControl(ALL, { nonNullable: true });
   protected readonly kind = signal<string>('all');
+  /** The folder being looked into, or null for the shelf itself. Only used while one class and one kind are chosen. */
+  protected readonly folderId = signal<string | null>(null);
+  protected readonly folders = signal<MaterialFolder[]>([]);
   private readonly chosenClass = toSignal(this.classControl.valueChanges, { initialValue: ALL });
   private readonly chosenTopic = toSignal(this.topicControl.valueChanges, { initialValue: ALL });
   private readonly chosenYear = toSignal(this.yearControl.valueChanges, { initialValue: ALL });
@@ -276,11 +336,28 @@ export class Materials {
     ...[...new Set(this.inScope().map((m) => m.year).filter((y): y is number => y !== null))].sort((a, b) => b - a).map((y) => ({ value: String(y), label: String(y) })),
   ]);
 
+  /** With one class and one kind chosen the list is that shelf's folders; otherwise every matching file is listed flat. */
+  protected readonly browsing = computed(() => this.chosenClass() !== ALL && this.kind() !== 'all');
+  private readonly shelfFolders = computed(() => this.folders().filter((f) => f.classId === this.chosenClass() && f.kind === this.kind()));
+  protected readonly crumbs = computed(() => folderChain(this.folderId(), this.shelfFolders()));
+  protected readonly subfolders = computed(() => (this.browsing() ? this.shelfFolders().filter((f) => f.parentId === this.folderId()) : []));
+  protected readonly canAddFolder = computed(
+    () => !!this.status()?.connected && !this.status()?.needsReconnect && this.crumbs().length < FOLDER_MAX_DEPTH,
+  );
+
   protected readonly shown = computed(() =>
     this.inScope().filter(
-      (m) => (this.chosenTopic() === ALL || m.topic === this.chosenTopic()) && (this.chosenYear() === ALL || String(m.year) === this.chosenYear()),
+      (m) =>
+        (this.chosenTopic() === ALL || m.topic === this.chosenTopic()) &&
+        (this.chosenYear() === ALL || String(m.year) === this.chosenYear()) &&
+        (!this.browsing() || m.folderId === this.folderId()),
     ),
   );
+
+  protected readonly emptyKey = computed(() => {
+    if (this.browsing()) return this.inScope().some((m) => m.folderId === this.folderId()) ? 'materials.none_matching' : 'materials.folder_empty';
+    return this.all().length === 0 ? 'materials.none' : 'materials.none_matching';
+  });
 
   constructor() {
     this.classesApi.classes('all').subscribe((list) => {
@@ -296,6 +373,20 @@ export class Materials {
         if (outcome.ok) this.toast.success(outcome.key);
         else this.toast.error(outcome.key);
         void this.router.navigate([], { queryParams: { drive: null }, queryParamsHandling: 'merge', replaceUrl: true });
+      });
+    });
+
+    // Another class or kind starts at the top of its shelf, and so does a folder that was removed.
+    effect(() => {
+      this.chosenClass();
+      this.kind();
+      untracked(() => this.folderId.set(null));
+    });
+    effect(() => {
+      const id = this.folderId();
+      const known = this.folders();
+      untracked(() => {
+        if (id !== null && known.length > 0 && !known.some((f) => f.id === id)) this.folderId.set(null);
       });
     });
 
@@ -340,10 +431,58 @@ export class Materials {
 
   protected loadMaterials(): void {
     this.materials.load(this.api.list());
+    // A failure is already shown by the error handler; the files stay usable without their folders.
+    this.api.folders().subscribe({ next: (folders) => this.folders.set(folders), error: () => undefined });
   }
 
   protected classTitle(id: string): string {
     return this.classOptions().find((c) => c.value === id)?.label ?? '';
+  }
+
+  /** Which class, shelf and folder a file is in, for the flat list. */
+  protected where(m: Material): string {
+    const folder = folderLabel(m.folderId, this.folders());
+    return [this.classTitle(m.classId), this.i18n.translate(`materials.kind.${m.kind}`), folder].filter((p) => p !== '').join(' · ');
+  }
+
+  protected folderMeta(folder: MaterialFolder): string {
+    const count = this.folders().filter((f) => f.parentId === folder.id).length + this.all().filter((m) => m.folderId === folder.id).length;
+    return this.i18n.format(count === 1 ? 'materials.folder_item' : 'materials.folder_items', { count });
+  }
+
+  protected newFolder(): void {
+    this.openFolderDialog({ classId: this.chosenClass(), kind: this.kind() as MaterialKind, parentId: this.folderId() }, (saved) => {
+      this.folders.update((all) => [...all, saved]);
+      this.toast.success('materials.folder_created');
+    });
+  }
+
+  protected renameFolder(folder: MaterialFolder): void {
+    this.openFolderDialog({ folder, classId: folder.classId, kind: folder.kind, parentId: folder.parentId }, (saved) => {
+      this.folders.update((all) => all.map((f) => (f.id === saved.id ? saved : f)));
+      this.toast.success('materials.folder_renamed');
+    });
+  }
+
+  protected removeFolder(folder: MaterialFolder): void {
+    // Only an empty folder can go, so say so at once instead of asking first.
+    if (this.folders().some((f) => f.parentId === folder.id) || this.all().some((m) => m.folderId === folder.id)) {
+      this.toast.error('error.folder_not_empty');
+      return;
+    }
+    this.dialog
+      .open<ConfirmDialog, { title: string; message: string; confirm: string }, boolean>(ConfirmDialog, {
+        data: { title: 'materials.folder_remove_title', message: 'materials.folder_remove_message', confirm: 'materials.folder_remove' },
+        maxWidth: 'calc(100vw - 1rem)',
+      })
+      .afterClosed()
+      .subscribe((yes) => {
+        if (!yes) return;
+        this.api.removeFolder(folder.id).subscribe(() => {
+          this.folders.update((all) => all.filter((f) => f.id !== folder.id));
+          this.toast.success('materials.folder_removed');
+        });
+      });
   }
 
   protected details(m: Material): string {
@@ -379,14 +518,19 @@ export class Materials {
 
   protected add(): void {
     const chosen = this.classControl.value;
-    this.openDialog({ classes: this.classOptions(), classId: chosen === ALL ? undefined : chosen, topics: this.knownTopics() }, (saved) => {
+    const data: MaterialDialogData = {
+      classes: this.classOptions(), classId: chosen === ALL ? undefined : chosen, topics: this.knownTopics(), folders: this.folders(),
+      ...(this.kind() === 'all' ? {} : { kind: this.kind() as MaterialKind }),
+      ...(this.browsing() ? { folderId: this.folderId() } : {}),
+    };
+    this.openDialog(data, (saved) => {
       this.materials.update((all) => [saved, ...all]);
       this.toast.success('materials.added');
     });
   }
 
   protected edit(material: Material): void {
-    this.openDialog({ classes: this.classOptions(), material, topics: this.knownTopics() }, (saved) => {
+    this.openDialog({ classes: this.classOptions(), material, topics: this.knownTopics(), folders: this.folders() }, (saved) => {
       this.materials.update((all) => all.map((m) => (m.id === saved.id ? saved : m)));
       this.toast.success('materials.saved');
     });
@@ -424,6 +568,15 @@ export class Materials {
   private openDialog(data: MaterialDialogData, saved: (material: Material) => void): void {
     this.dialog
       .open<MaterialDialog, MaterialDialogData, Material>(MaterialDialog, { data, width: '40rem', maxWidth: 'calc(100vw - 1rem)' })
+      .afterClosed()
+      .subscribe((result) => {
+        if (result) saved(result);
+      });
+  }
+
+  private openFolderDialog(data: FolderDialogData, saved: (folder: MaterialFolder) => void): void {
+    this.dialog
+      .open<FolderDialog, FolderDialogData, MaterialFolder>(FolderDialog, { data, width: '28rem', maxWidth: 'calc(100vw - 1rem)' })
       .afterClosed()
       .subscribe((result) => {
         if (result) saved(result);

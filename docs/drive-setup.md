@@ -7,7 +7,7 @@ Teachers on a plan with **Drive materials** (Pro) keep notes and past papers in 
 - The `drive.file` scope only. EduVibe can see and change only the folders and files it created itself, never the rest of the teacher's Drive. This is Google's narrowest Drive scope and does not need Google's restricted-scope security review.
 - `openid` and `email`, to show which Google account is connected.
 
-EduVibe makes a folder called **EduVibe** in the teacher's Drive, with one subfolder per class. Files a teacher adds go in the class folder. If the teacher deletes a folder in Drive, the next upload makes it again.
+EduVibe makes a folder called **EduVibe** in the teacher's Drive, with one subfolder per class and, inside it, **Notes**, **Past papers** and **Other**. Inside those the teacher makes their own folders in the app (for example Term 1 / Week 2), up to four levels deep, and they are real folders in Drive too. Adding a file puts it in the folder the teacher picked; changing a file's kind or folder moves it in Drive; renaming or removing an (empty) folder does the same there. Files added before folders existed stay in the class folder and show on their Notes, Past papers or Other shelf. If the teacher deletes a folder in Drive, the next upload or new folder makes it again.
 
 ## One-time setup in Google Cloud
 
@@ -34,7 +34,7 @@ On Render, `render.yaml` lists these with `sync: false`: set them on the dashboa
 ## How it works
 
 - **Connect.** The teacher presses *Connect Google Drive*, agrees on Google's page, and returns to the Materials screen. EduVibe stores one refresh token per teacher, encrypted with a key derived from `Jwt__SigningKey`. If that signing key is ever replaced, stored tokens cannot be read and every teacher is asked to connect again; nothing is lost.
-- **Add a file.** PDF, Word, PowerPoint, Excel, text and pictures up to 25 MB. The file goes straight to the class folder in the teacher's Drive. EduVibe keeps only its Drive file id, name, type, size, class, kind (notes, past paper, other), topic and year.
+- **Add a file.** PDF, Word, PowerPoint, Excel, text and pictures up to 25 MB. The file goes straight to the chosen folder in the teacher's Drive. EduVibe keeps only its Drive file id, name, type, size, class, kind (notes, past paper, other), folder, topic and year, and the list of the teacher's folders (name, parent, Drive folder id).
 - **Students.** A student opens a file through EduVibe (`GET /api/materials/mine/{id}/file`). The API fetches it from the teacher's Drive and streams it, so nothing in Drive is shared with the student and Drive links are never given out. A student sees a file only while they are active in its class, the class is not archived, and the teacher's plan still includes Drive materials.
 - **Removing a file** deletes it from the teacher's Drive (if Google cannot be reached it is still removed from the class so students stop seeing it).
 - **Disconnecting** tells Google to drop EduVibe's access and removes the stored token. The list of materials is kept, so connecting the same Google account again brings it back. Files stay in the teacher's Drive.

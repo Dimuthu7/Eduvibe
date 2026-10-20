@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -15,19 +15,27 @@ import {
   MATERIAL_KINDS,
   MATERIAL_MAX_BYTES,
   Material,
+  MaterialFolder,
   MaterialKind,
   MaterialsService,
 } from '../../core/api/materials.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { applyServerError, fieldErrorKey, filled } from '../../shared/forms';
 import { formatSize, materialIcon } from '../../shared/material-view';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { SubmitButton } from '../../shared/submit-button';
+import { folderLabel } from './folder-tree';
 
 export interface MaterialDialogData {
   classes: SelectOption[];
   /** The class the page is showing, to start on. */
   classId?: string;
+  /** The shelf and folder the page is showing, to start in. */
+  kind?: MaterialKind;
+  folderId?: string | null;
+  /** Every folder the teacher has, to choose where the file goes. */
+  folders: MaterialFolder[];
   /** The material being changed; missing when adding a file. */
   material?: Material;
   /** Topics already used, offered as suggestions so spelling stays the same. */
@@ -85,6 +93,7 @@ export interface MaterialDialogData {
               }
             </mat-select>
           </mat-form-field>
+          <app-search-select class="wide" formControlName="folderId" [label]="'materials.folder' | t" [options]="folderOptions()" />
           <mat-form-field>
             <mat-label>{{ 'materials.topic' | t }}</mat-label>
             <input matInput formControlName="topic" maxlength="80" autocomplete="off" [matAutocomplete]="topics" />
@@ -123,6 +132,7 @@ export interface MaterialDialogData {
 export class MaterialDialog {
   private readonly api = inject(MaterialsService);
   private readonly ref = inject<MatDialogRef<MaterialDialog, Material>>(MatDialogRef);
+  private readonly i18n = inject(TranslateService);
   protected readonly data = inject<MaterialDialogData>(MAT_DIALOG_DATA);
 
   protected readonly editing = !!this.data.material;
@@ -138,9 +148,23 @@ export class MaterialDialog {
   protected readonly form = inject(FormBuilder).nonNullable.group({
     classId: [this.data.classId ?? '', this.editing ? [] : [Validators.required]],
     title: [this.data.material?.title ?? '', [filled, Validators.maxLength(120)]],
-    kind: [this.data.material?.kind ?? ('PastPaper' as MaterialKind)],
+    kind: [this.data.material?.kind ?? this.data.kind ?? ('PastPaper' as MaterialKind)],
+    folderId: [this.data.material?.folderId ?? this.data.folderId ?? ''],
     topic: [this.data.material?.topic ?? '', Validators.maxLength(80)],
     year: [this.data.material?.year ?? (null as number | null), [Validators.min(1990), Validators.max(2100)]],
+  });
+
+  private readonly chosenClass = toSignal(this.form.controls.classId.valueChanges, { initialValue: this.form.controls.classId.value });
+  private readonly chosenKind = toSignal(this.form.controls.kind.valueChanges, { initialValue: this.form.controls.kind.value });
+
+  /** The folders of the chosen class and shelf, named by where they sit; "no folder" puts the file on the shelf itself. */
+  protected readonly folderOptions = computed<SelectOption[]>(() => {
+    const classId = this.data.material?.classId ?? this.chosenClass();
+    const mine = this.data.folders.filter((f) => f.classId === classId && f.kind === this.chosenKind());
+    return [
+      { value: '', label: this.i18n.translate('materials.no_folder') },
+      ...mine.map((f) => ({ value: f.id, label: folderLabel(f.id, mine) })).sort((a, b) => a.label.localeCompare(b.label)),
+    ];
   });
 
   private readonly typedTopic = toSignal(this.form.controls.topic.valueChanges, { initialValue: this.form.controls.topic.value });
@@ -150,6 +174,16 @@ export class MaterialDialog {
     const typed = this.typedTopic().trim().toLowerCase();
     return this.data.topics.filter((t) => t.toLowerCase().includes(typed) && t.toLowerCase() !== typed);
   });
+
+  constructor() {
+    // A folder belongs to one class and shelf, so changing either clears a folder that no longer fits.
+    effect(() => {
+      const options = this.folderOptions();
+      untracked(() => {
+        if (!options.some((o) => o.value === this.form.controls.folderId.value)) this.form.controls.folderId.setValue('');
+      });
+    });
+  }
 
   protected key(name: string): string {
     const control = this.form.get(name);
@@ -195,7 +229,7 @@ export class MaterialDialog {
     const value = this.form.getRawValue();
     const topic = value.topic.trim();
     const request = this.data.material
-      ? this.api.update(this.data.material.id, { title: value.title.trim(), kind: value.kind, topic: topic || null, year: value.year })
+      ? this.api.update(this.data.material.id, { title: value.title.trim(), kind: value.kind, topic: topic || null, year: value.year, folderId: value.folderId || null })
       : this.api.add(this.upload(file!, value, topic));
     request.subscribe({
       next: (saved) => this.ref.close(saved),
@@ -206,11 +240,12 @@ export class MaterialDialog {
     });
   }
 
-  private upload(file: File, value: { classId: string; title: string; kind: MaterialKind; year: number | null }, topic: string): FormData {
+  private upload(file: File, value: { classId: string; title: string; kind: MaterialKind; year: number | null; folderId: string }, topic: string): FormData {
     const form = new FormData();
     form.append('classId', value.classId);
     form.append('title', value.title.trim());
     form.append('kind', value.kind);
+    if (value.folderId) form.append('folderId', value.folderId);
     if (topic) form.append('topic', topic);
     if (value.year !== null) form.append('year', String(value.year));
     form.append('file', file, file.name);
