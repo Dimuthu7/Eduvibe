@@ -23,8 +23,16 @@ public sealed class DriveDownload(Stream content, string contentType, long? leng
 /// <summary>Google refused the teacher's token: they removed EduVibe's access or the grant expired. They must connect again.</summary>
 public sealed class DriveAuthException(string message) : Exception(message);
 
-/// <summary>Drive could not be reached or refused a request for some other reason.</summary>
-public sealed class DriveUnavailableException(string message, Exception? inner = null) : Exception(message, inner);
+/// <summary>
+/// Drive could not be reached or refused a request for some other reason. Code is the error code the web app shows:
+/// "drive_unavailable" unless Google said something the teacher or the host can act on (the Drive API is switched off, the Drive is full).
+/// </summary>
+public sealed class DriveUnavailableException(string message, Exception? inner = null, string code = DriveUnavailableException.Generic) : Exception(message, inner)
+{
+    public const string Generic = "drive_unavailable";
+
+    public string Code { get; } = code;
+}
 
 /// <summary>
 /// Everything EduVibe does with Google Drive, kept behind one interface so the rest of the module (and its tests) never touch Google.

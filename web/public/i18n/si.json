@@ -778,5 +778,7 @@
   "error.material_too_large": "මෙම ගොනුව 25 MB ට වඩා විශාලයි.",
   "error.material_type_not_allowed": "මෙම ගොනු වර්ගය සහාය නොදක්වයි.",
   "error.material_class_required": "පන්තියක් තෝරන්න.",
-  "error.material_invalid": "මාතෘකාව, වර්ගය, පාඩම සහ වර්ෂය පරීක්ෂා කරන්න."
+  "error.material_invalid": "මාතෘකාව, වර්ගය, පාඩම සහ වර්ෂය පරීක්ෂා කරන්න.",
+  "error.drive_api_disabled": "EduVibe හි Google ව්‍යාපෘතියේ Google Drive අක්‍රියයි. EduVibe කණ්ඩායම Google Drive API සක්‍රිය කළ යුතුයි.",
+  "error.drive_storage_full": "ඔබේ Google Drive පිරී ඇත. Drive හි ඉඩ නිදහස් කර නැවත උත්සාහ කරන්න."
 }

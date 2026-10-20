@@ -18,6 +18,9 @@ public sealed class FakeDriveClient : IDriveClient
 
     public bool Unreachable { get; set; }
 
+    /// <summary>When set, calls fail with this error code, as when Google answers that the Drive API is off or the Drive is full.</summary>
+    public string? FailWithCode { get; set; }
+
     public Dictionary<string, (string Name, string? Parent)> Folders { get; } = [];
     public Dictionary<string, (string Folder, string Name, string ContentType, byte[] Bytes)> Files { get; } = [];
     public List<string> RevokedTokens { get; } = [];
@@ -36,6 +39,11 @@ public sealed class FakeDriveClient : IDriveClient
         if (Unreachable)
         {
             throw new DriveUnavailableException("down");
+        }
+
+        if (FailWithCode is { } code)
+        {
+            throw new DriveUnavailableException("refused", code: code);
         }
 
         if (RevokedByTeacher)

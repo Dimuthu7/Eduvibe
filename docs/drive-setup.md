@@ -49,3 +49,15 @@ The feature key is `drive_materials`: off on **Free**, on for **Pro**. The Super
 - The cloud sandbox this project was built in cannot reach Google, so the live Google calls (`GoogleDriveClient`) are tested only against a fake. The first connection on the test site is the real check: connect, add a small PDF, open it as a student.
 - Google refresh tokens for apps in **Testing** expire after 7 days. Publish the app before a pilot, or teachers will be asked to connect again weekly.
 - Large files use a resumable upload, streamed from the request to Google, so the API does not hold a file in memory. Render's free tier can still time out a slow upload on a poor connection.
+
+## If something fails
+
+The Materials screen shows Google's reason where it can:
+
+| Message | Cause and fix |
+| --- | --- |
+| Google Drive is switched off for EduVibe's Google project | The **Google Drive API** is not enabled. In Google Cloud open **APIs & Services > Library**, search "Google Drive API" and press **Enable**, wait a minute, try again. |
+| Your Google Drive is full | The teacher's own Drive has no space left. |
+| Google Drive could not be reached | Anything else Google refused. The API log has a line starting "Google Drive answered" with the status and Google's reason. |
+| Google Drive needs to be connected again | The teacher removed EduVibe in their Google account, or the grant expired (7 days in Testing mode). They press *Connect again*. |
+| Connecting says permission is needed | The teacher unticked the Drive permission on Google's page, or their Gmail is not on the **Test users** list while the app is in Testing. |

@@ -289,7 +289,45 @@ public sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> op
 
         var detail = await response.Content.ReadAsStringAsync(ct);
         logger.LogWarning("Google Drive answered {Status}: {Detail}", (int)response.StatusCode, detail.Length > 300 ? detail[..300] : detail);
-        throw new DriveUnavailableException($"Drive answered {(int)response.StatusCode}.");
+        throw new DriveUnavailableException($"Drive answered {(int)response.StatusCode}.", code: CodeFor(detail));
+    }
+
+    /// <summary>
+    /// What Google's error body says, as an error code the person can act on. A project that never enabled the Drive API answers
+    /// 403 accessNotConfigured (or SERVICE_DISABLED), which looked like "Drive is down" until it was named.
+    /// </summary>
+    public static string CodeFor(string body)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(body);
+            if (!json.RootElement.TryGetProperty("error", out var error))
+            {
+                return DriveUnavailableException.Generic;
+            }
+
+            var reasons = new List<string>();
+            foreach (var list in new[] { "errors", "details" })
+            {
+                if (error.ValueKind == JsonValueKind.Object && error.TryGetProperty(list, out var items) && items.ValueKind == JsonValueKind.Array)
+                {
+                    reasons.AddRange(items.EnumerateArray()
+                        .Select(i => i.ValueKind == JsonValueKind.Object && i.TryGetProperty("reason", out var r) ? r.GetString() : null)
+                        .OfType<string>());
+                }
+            }
+
+            return reasons switch
+            {
+                _ when reasons.Contains("accessNotConfigured") || reasons.Contains("SERVICE_DISABLED") => "drive_api_disabled",
+                _ when reasons.Contains("storageQuotaExceeded") => "drive_storage_full",
+                _ => DriveUnavailableException.Generic,
+            };
+        }
+        catch (JsonException)
+        {
+            return DriveUnavailableException.Generic;
+        }
     }
 
     private static string Key(string refreshToken) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));

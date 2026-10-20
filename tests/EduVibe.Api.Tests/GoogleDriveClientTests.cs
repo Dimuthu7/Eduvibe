@@ -148,6 +148,24 @@ public class GoogleDriveClientTests
         Assert.Equal(2, tokensIssued);
     }
 
+    [Theory]
+    [InlineData("{\"error\":{\"code\":403,\"message\":\"Google Drive API has not been used in project 1 before or it is disabled.\",\"errors\":[{\"reason\":\"accessNotConfigured\"}]}}", "drive_api_disabled")]
+    [InlineData("{\"error\":{\"code\":403,\"status\":\"PERMISSION_DENIED\",\"details\":[{\"@type\":\"x\",\"reason\":\"SERVICE_DISABLED\"}]}}", "drive_api_disabled")]
+    [InlineData("{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"storageQuotaExceeded\"}]}}", "drive_storage_full")]
+    [InlineData("{\"error\":{\"code\":500,\"errors\":[{\"reason\":\"backendError\"}]}}", "drive_unavailable")]
+    [InlineData("<html>bad gateway</html>", "drive_unavailable")]
+    [InlineData("{\"error\":\"invalid\"}", "drive_unavailable")]
+    public async Task A_refusal_from_Drive_is_named_so_the_teacher_knows_what_to_fix(string body, string code)
+    {
+        var google = new ScriptedGoogle(seen => seen.Url.Contains("oauth2")
+            ? Token(seen)
+            : new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent(body) });
+
+        var failure = await Assert.ThrowsAsync<DriveUnavailableException>(() => Client(google).CreateFolderAsync(Id(), "f", null, default));
+        Assert.Equal(code, failure.Code);
+        Assert.Equal(code, GoogleDriveClient.CodeFor(body));
+    }
+
     [Fact]
     public async Task A_connection_the_teacher_removed_in_Google_is_reported_as_needing_a_new_connection()
     {

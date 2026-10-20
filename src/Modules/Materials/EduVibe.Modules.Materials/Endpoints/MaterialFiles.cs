@@ -69,9 +69,9 @@ internal static class MaterialFiles
             await MarkNeedsReconnectAsync(connection.TenantId, db, ct);
             return Problems.Reject("drive_reconnect", StatusCodes.Status409Conflict);
         }
-        catch (DriveUnavailableException)
+        catch (DriveUnavailableException e)
         {
-            return Problems.Reject("drive_unavailable", StatusCodes.Status502BadGateway);
+            return Problems.Reject(e.Code, StatusCodes.Status502BadGateway);
         }
 
         if (file is null)

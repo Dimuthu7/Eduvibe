@@ -234,6 +234,32 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task When_Google_says_what_is_wrong_the_teacher_is_told_that_and_not_just_that_Drive_is_unavailable()
+    {
+        var teacher = await ProTeacher("Told");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client);
+
+        foreach (var code in new[] { "drive_api_disabled", "drive_storage_full", "drive_unavailable" })
+        {
+            factory.Drive.FailWithCode = code;
+            try
+            {
+                var response = await teacher.Client.PostAsync("/api/materials", Upload(classId, "a.pdf"));
+                Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
+                Assert.Equal(code, await Code(response));
+            }
+            finally
+            {
+                factory.Drive.FailWithCode = null;
+            }
+        }
+
+        // Nothing was saved by the failed attempts.
+        Assert.Equal(0, (await Json(await teacher.Client.GetAsync("/api/materials"))).GetArrayLength());
+    }
+
+    [Fact]
     public async Task A_folder_the_teacher_deleted_in_Drive_is_made_again()
     {
         var teacher = await ProTeacher("Tidy");
