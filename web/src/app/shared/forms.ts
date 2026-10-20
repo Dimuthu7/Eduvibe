@@ -78,6 +78,7 @@ const FIELD_FOR_CODE: Record<string, string> = {
   index_taken: 'indexNumber',
   discount_invalid: 'discountAmount',
   class_required: 'classId',
+  material_class_required: 'classId',
   invite_days_invalid: 'days',
   invite_uses_invalid: 'maxUses',
   date_required: 'date',

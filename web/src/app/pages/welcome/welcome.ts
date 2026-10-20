@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AttendanceService, MyAttendance } from '../../core/api/attendance.service';
 import { ExamsService, MyExam } from '../../core/api/exams.service';
 import { FeesService, MyFees } from '../../core/api/fees.service';
+import { MaterialsService, StudentMaterial } from '../../core/api/materials.service';
 import { MyClass, StudentsService } from '../../core/api/students.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -21,6 +22,8 @@ interface MyClassView {
   fees: MyFees | undefined;
   /** The newest published result in this class. */
   latest: MyExam | undefined;
+  /** How many notes and past papers the teacher has shared for this class. */
+  materials: number;
 }
 
 /** Where a student lands after signing in: their classes, when each meets, how often they have come, fees and the latest result. */
@@ -89,6 +92,17 @@ interface MyClassView {
                   @if (r.grade) {
                     <span class="grade-chip">{{ r.grade }}</span>
                   }
+                  <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+                </a>
+              }
+
+              @if (item.materials > 0) {
+                <a class="result" routerLink="/my-materials" [queryParams]="{ classId: item.klass.classId }">
+                  <mat-icon aria-hidden="true">folder_open</mat-icon>
+                  <div class="row-main">
+                    <div><strong>{{ 'welcome.materials' | t }}</strong> · {{ item.materials }}</div>
+                    <div class="row-meta">{{ 'welcome.materials_hint' | t }}</div>
+                  </div>
                   <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
                 </a>
               }
@@ -180,8 +194,9 @@ export class Welcome {
   private readonly attendance = inject(AttendanceService);
   private readonly fees = inject(FeesService);
   private readonly exams = inject(ExamsService);
+  private readonly materials = inject(MaterialsService);
 
-  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[]; results: MyExam[] }>();
+  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[]; results: MyExam[]; materials: StudentMaterial[] }>();
   protected readonly num = short;
   protected readonly time = formatTime;
   protected readonly date = formatDate;
@@ -195,6 +210,7 @@ export class Welcome {
       fees: value?.fees.find((f) => f.classId === klass.classId),
       // Results come newest first, so the first one of the class is the latest.
       latest: value?.results.find((r) => r.classId === klass.classId),
+      materials: (value?.materials ?? []).filter((m) => m.material.classId === klass.classId).length,
     }));
   });
 
@@ -203,6 +219,15 @@ export class Welcome {
   }
 
   protected load(): void {
-    this.data.load(forkJoin({ classes: this.students.myClasses(), attendance: this.attendance.mine(), fees: this.fees.mine(), results: this.exams.mine() }));
+    this.data.load(
+      forkJoin({
+        classes: this.students.myClasses(),
+        attendance: this.attendance.mine(),
+        fees: this.fees.mine(),
+        results: this.exams.mine(),
+        // Only decides whether to show a link, so a failure leaves it out instead of breaking the page.
+        materials: this.materials.mineQuietly().pipe(catchError(() => of<StudentMaterial[]>([]))),
+      }),
+    );
   }
 }
