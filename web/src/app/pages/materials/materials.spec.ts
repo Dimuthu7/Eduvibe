@@ -2,16 +2,21 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { DriveStatus, Material } from '../../core/api/materials.service';
+import { DriveStatus, Material, MaterialFolder } from '../../core/api/materials.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { ToastService } from '../../core/ui/toast.service';
 import { Materials } from './materials';
 
 const API = 'http://api.test';
 
 const material = (id: string, over: Partial<Material> = {}): Material => ({
-  id, classId: 'c1', title: `File ${id}`, fileName: `file-${id}.pdf`, contentType: 'application/pdf', sizeBytes: 2048, kind: 'PastPaper', topic: null, year: null,
+  id, classId: 'c1', title: `File ${id}`, fileName: `file-${id}.pdf`, contentType: 'application/pdf', sizeBytes: 2048, kind: 'PastPaper', topic: null, year: null, folderId: null,
   addedAt: '2026-10-10T04:00:00Z', canPreview: true, ...over,
+});
+
+const folder = (id: string, name: string, parentId: string | null = null, over: Partial<MaterialFolder> = {}): MaterialFolder => ({
+  id, name, parentId, classId: 'c1', kind: 'Notes', ...over,
 });
 
 const connected: DriveStatus = { configured: true, connected: true, email: 'sunil@example.com', needsReconnect: false };
@@ -19,12 +24,13 @@ const connected: DriveStatus = { configured: true, connected: true, email: 'suni
 describe('Materials', () => {
   let http: HttpTestingController;
 
-  const setup = async (status: DriveStatus | 'locked', list: Material[] = []) => {
+  const setup = async (status: DriveStatus | 'locked', list: Material[] = [], folders: MaterialFolder[] = [], classId = '') => {
     TestBed.configureTestingModule({ imports: [Materials], providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
     http = TestBed.inject(HttpTestingController);
     vi.spyOn(TestBed.inject(AppConfig), 'apiBaseUrl', 'get').mockReturnValue(API);
     vi.spyOn(TestBed.inject(TranslateService), 'translate').mockImplementation((key) => key);
     const fixture = TestBed.createComponent(Materials);
+    fixture.componentRef.setInput('classId', classId);
     fixture.detectChanges();
     http.expectOne((r) => r.url === `${API}/api/classes/classes`).flush([{ id: 'c1', title: 'Maths 2027' }, { id: 'c2', title: 'Science 2027' }]);
     const request = http.expectOne(`${API}/api/materials/drive`);
@@ -36,6 +42,7 @@ describe('Materials', () => {
     } else {
       request.flush(status);
       http.expectOne(`${API}/api/materials`).flush(list);
+      http.expectOne(`${API}/api/materials/folders`).flush(folders);
     }
     fixture.detectChanges();
     await fixture.whenStable();
@@ -90,5 +97,80 @@ describe('Materials', () => {
   it('invites the first file when there are none', async () => {
     const { el } = await setup(connected, []);
     expect(el.textContent).toContain('materials.none');
+  });
+
+  it('shows where a file is, folders included, while several classes or kinds are listed together', async () => {
+    const { el } = await setup(connected, [material('1', { kind: 'Notes', folderId: 'w1' })], [folder('t1', 'Term 1'), folder('w1', 'Week 1', 't1')]);
+    expect(el.textContent).toContain('Maths 2027 · materials.kind.Notes · Term 1 / Week 1');
+    expect(el.querySelector('.crumbs')).toBeNull();
+    expect(el.textContent).toContain('materials.folders_hint');
+  });
+
+  describe('inside one class and one kind', () => {
+    const files = [
+      material('1', { title: 'Loose notes', kind: 'Notes' }),
+      material('2', { title: 'Week 1 notes', kind: 'Notes', folderId: 'w1' }),
+      material('3', { title: 'Other class notes', kind: 'Notes', classId: 'c2' }),
+      material('4', { title: 'A past paper' }),
+    ];
+    const folders = [folder('t1', 'Term 1'), folder('w1', 'Week 1', 't1'), folder('x1', 'Hidden', null, { kind: 'Other' })];
+
+    const open = async () => {
+      const page = await setup(connected, files, folders, 'c1');
+      const chip = (Array.from(page.el.querySelectorAll('mat-chip-option')) as HTMLElement[]).find((c) => c.textContent!.includes('materials.kind.Notes'))!;
+      (chip.querySelector('button') as HTMLButtonElement).click();
+      page.fixture.detectChanges();
+      return page;
+    };
+    const titles = (el: HTMLElement) => Array.from(el.querySelectorAll('.row-title')).map((t) => t.textContent!.trim());
+    const crumbs = (el: HTMLElement) => Array.from(el.querySelectorAll('.crumb')).map((t) => t.textContent!.trim());
+
+    it('lists the shelf as folders first and then the files that are not in a folder', async () => {
+      const { el } = await open();
+      expect(crumbs(el)).toEqual(['materials.kind.Notes']);
+      expect(titles(el)).toEqual(['Term 1', 'Loose notes']);
+      expect(el.textContent).toContain('materials.folder_item');
+      expect(el.textContent).toContain('materials.folder_new');
+    });
+
+    it('opens a folder, shows its path, and goes back by tapping a name in the path', async () => {
+      const { fixture, el } = await open();
+      (el.querySelector('.panel .open') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(crumbs(el)).toEqual(['materials.kind.Notes', 'Term 1']);
+      expect(titles(el)).toEqual(['Week 1']);
+
+      (el.querySelector('.panel .open') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(crumbs(el)).toEqual(['materials.kind.Notes', 'Term 1', 'Week 1']);
+      expect(titles(el)).toEqual(['Week 1 notes']);
+
+      (el.querySelectorAll('.crumb')[0] as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(titles(el)).toEqual(['Term 1', 'Loose notes']);
+    });
+
+    it('says a folder is empty, and will not remove one that holds something', async () => {
+      const { fixture, el } = await open();
+      const page = fixture.componentInstance as unknown as { removeFolder(f: MaterialFolder): void; folderId: { set(id: string | null): void } };
+      const toast = vi.spyOn(TestBed.inject(ToastService), 'error').mockImplementation(() => undefined);
+      page.removeFolder(folders[0]);
+      expect(toast).toHaveBeenCalledWith('error.folder_not_empty');
+
+      page.folderId.set('w1');
+      fixture.detectChanges();
+      page.folderId.set(null);
+      fixture.detectChanges();
+      expect(el.textContent).not.toContain('materials.folder_empty');
+    });
+  });
+
+  it('says a shelf is empty and offers a new folder', async () => {
+    const { fixture, el } = await setup(connected, [material('1')], [], 'c1');
+    const chip = (Array.from(el.querySelectorAll('mat-chip-option')) as HTMLElement[]).find((c) => c.textContent!.includes('materials.kind.Other'))!;
+    (chip.querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(el.textContent).toContain('materials.folder_empty');
+    expect(el.textContent).toContain('materials.folder_new');
   });
 });

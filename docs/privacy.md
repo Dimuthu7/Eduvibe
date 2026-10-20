@@ -28,7 +28,7 @@ A student's photo is one small JPEG (about 320 px square, 15 to 40 kB) in `stude
 
 ## Class materials
 
-The files live in the teacher's own Google Drive, not in EduVibe. EduVibe holds only a list (`materials.materials`: title, file name, type, size, class, topic, year, and the Drive file id), the connected Google account's email and the encrypted Drive token (`materials.drive_connections`). The list and email are part of the teacher's export; the token is never exported. Erasing a teacher first tells Google to drop EduVibe's access (best effort), then deletes the list, the folder ids and the connection. Files in the teacher's Drive are theirs and are not touched. Students' data is not stored in this module.
+The files live in the teacher's own Google Drive, not in EduVibe. EduVibe holds only a list (`materials.materials`: title, file name, type, size, class, folder, topic, year, and the Drive file id) and the teacher's folders (`materials.material_folders`: name, parent and Drive folder id), the connected Google account's email and the encrypted Drive token (`materials.drive_connections`). The list and email are part of the teacher's export; the token is never exported. Erasing a teacher first tells Google to drop EduVibe's access (best effort), then deletes the list, the folder ids and the connection. Files in the teacher's Drive are theirs and are not touched. Students' data is not stored in this module.
 
 ## Notifications
 

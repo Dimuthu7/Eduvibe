@@ -28,17 +28,31 @@ internal sealed class ClassFolderConfiguration : IEntityTypeConfiguration<ClassF
     }
 }
 
+internal sealed class MaterialFolderConfiguration : IEntityTypeConfiguration<MaterialFolder>
+{
+    public void Configure(EntityTypeBuilder<MaterialFolder> builder)
+    {
+        builder.ToTable("material_folders");
+        builder.Property(f => f.Name).HasMaxLength(60);
+        builder.Property(f => f.DriveFolderId).HasMaxLength(100);
+        builder.Property(f => f.Kind).HasConversion<string>().HasMaxLength(20);
+        builder.HasIndex(f => new { f.ClassId, f.Kind });
+    }
+}
+
 internal sealed class MaterialConfiguration : IEntityTypeConfiguration<Material>
 {
     public void Configure(EntityTypeBuilder<Material> builder)
     {
         builder.ToTable("materials");
         builder.Property(m => m.DriveFileId).HasMaxLength(100);
+        builder.Property(m => m.DriveParentId).HasMaxLength(100);
         builder.Property(m => m.Title).HasMaxLength(120);
         builder.Property(m => m.FileName).HasMaxLength(200);
         builder.Property(m => m.ContentType).HasMaxLength(100);
         builder.Property(m => m.Kind).HasConversion<string>().HasMaxLength(20);
         builder.Property(m => m.Topic).HasMaxLength(80);
         builder.HasIndex(m => m.ClassId);
+        builder.HasIndex(m => m.FolderId);
     }
 }

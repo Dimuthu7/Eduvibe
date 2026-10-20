@@ -155,7 +155,7 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Adding_a_file_puts_it_in_a_class_folder_inside_the_EduVibe_folder_and_lists_it()
+    public async Task Adding_a_file_puts_it_on_its_shelf_in_the_class_folder_inside_the_EduVibe_folder_and_lists_it()
     {
         var teacher = await ProTeacher("Uploader");
         await Connect(teacher.Client);
@@ -168,21 +168,231 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var stored = factory.Drive.Files.Values.Single(f => f.Name == "2024 paper.pdf");
         Assert.Equal("application/pdf", stored.ContentType);
-        var classFolder = factory.Drive.Folders[stored.Folder];
+        var shelf = factory.Drive.Folders[stored.Folder];
+        Assert.Equal("Past papers", shelf.Name);
+        var classFolder = factory.Drive.Folders[shelf.Parent!];
         Assert.Equal("Grade 11 Maths", classFolder.Name);
         Assert.Equal("EduVibe", factory.Drive.Folders[classFolder.Parent!].Name);
 
-        // A second file in the same class reuses the folders.
+        // A second file of the same kind reuses the folders; the first file of another kind only adds its own shelf.
         var folders = factory.Drive.Folders.Count;
-        await AddMaterial(teacher.Client, classId, "notes.docx", "Notes", "Notes", "Algebra", null);
+        await AddMaterial(teacher.Client, classId, "paper 2.pdf", "Paper 2", "PastPaper", "Algebra", "2023");
         Assert.Equal(folders, factory.Drive.Folders.Count);
+        await AddMaterial(teacher.Client, classId, "notes.docx", "Notes", "Notes", "Algebra", null);
+        Assert.Equal(folders + 1, factory.Drive.Folders.Count);
+        Assert.Equal(classFolder.Name, factory.Drive.Folders[factory.Drive.Folders[factory.Drive.Files.Values.Single(f => f.Name == "notes.docx").Folder].Parent!].Name);
 
         var all = await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}"));
-        Assert.Equal(2, all.GetArrayLength());
+        Assert.Equal(3, all.GetArrayLength());
         Assert.Equal(1, (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}&kind=Notes"))).GetArrayLength());
         Assert.Equal(1, (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}&year=2024"))).GetArrayLength());
-        Assert.Equal(2, (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}&topic=Algebra"))).GetArrayLength());
+        Assert.Equal(3, (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}&topic=Algebra"))).GetArrayLength());
         Assert.Equal(0, (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}&topic=Geometry"))).GetArrayLength());
+    }
+
+    private async Task<JsonElement> NewFolder(HttpClient teacher, Guid classId, string name, string kind = "Notes", Guid? parentId = null)
+    {
+        var response = await teacher.PostAsJsonAsync("/api/materials/folders", new { classId, kind, parentId, name });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return await Json(response);
+    }
+
+    private static string DrivePath(FakeDriveClient drive, string folderId)
+    {
+        var names = new List<string>();
+        for (string? id = folderId; id is not null && drive.Folders.TryGetValue(id, out var folder); id = folder.Parent)
+        {
+            names.Insert(0, folder.Name);
+        }
+
+        return string.Join('/', names);
+    }
+
+    [Fact]
+    public async Task Folders_nest_inside_a_shelf_and_are_real_folders_in_Drive_that_files_can_be_added_to()
+    {
+        var teacher = await ProTeacher("Folders");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 10");
+
+        var term = await NewFolder(teacher.Client, classId, "Term 1");
+        Assert.Equal(JsonValueKind.Null, term.GetProperty("parentId").ValueKind);
+        var week = await NewFolder(teacher.Client, classId, "Week 1", parentId: term.GetProperty("id").GetGuid());
+        Assert.Equal(term.GetProperty("id").GetGuid(), week.GetProperty("parentId").GetGuid());
+        await NewFolder(teacher.Client, classId, "2023", "PastPaper");
+
+        var listed = await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"));
+        Assert.Equal(["2023", "Term 1", "Week 1"], listed.EnumerateArray().Select(f => f.GetProperty("name").GetString()!).ToArray());
+        Assert.DoesNotContain(listed.EnumerateArray(), f => f.GetProperty("name").GetString() == "Notes");
+
+        var drivePaths = factory.Drive.Folders.Keys.Select(id => DrivePath(factory.Drive, id)).ToList();
+        Assert.Contains("EduVibe/Grade 10/Notes/Term 1/Week 1", drivePaths);
+        Assert.Contains("EduVibe/Grade 10/Past papers/2023", drivePaths);
+
+        var form = Upload(classId, "week1.pdf", title: "Week 1 notes", kind: "Notes");
+        form.Add(new StringContent(week.GetProperty("id").GetString()!), "folderId");
+        var added = await Json(await teacher.Client.PostAsync("/api/materials", form));
+        Assert.Equal(week.GetProperty("id").GetGuid(), added.GetProperty("folderId").GetGuid());
+        Assert.Equal("EduVibe/Grade 10/Notes/Term 1/Week 1", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "week1.pdf").Folder));
+    }
+
+    [Fact]
+    public async Task Folder_names_are_unique_beside_each_other_and_depth_and_kind_are_checked()
+    {
+        var teacher = await ProTeacher("Strict");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client);
+        var top = await NewFolder(teacher.Client, classId, "Term 1");
+        var topId = top.GetProperty("id").GetGuid();
+
+        var again = await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", name = " term 1 " });
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+        Assert.Equal("folder_name_taken", await Code(again));
+        await NewFolder(teacher.Client, classId, "Term 1", "Other");
+        await NewFolder(teacher.Client, classId, "Term 1", parentId: topId);
+
+        Assert.Equal("folder_invalid", await Code(await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", name = "  " })));
+        Assert.Equal("folder_invalid", await Code(await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", name = new string('a', 61) })));
+        Assert.Equal("folder_invalid", await Code(await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Other", parentId = topId, name = "Wrong shelf" })));
+        Assert.Equal("material_class_required", await Code(await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId = Guid.NewGuid(), kind = "Notes", name = "x" })));
+
+        var parent = topId;
+        for (var level = 2; level <= 4; level++)
+        {
+            parent = (await NewFolder(teacher.Client, classId, "Level " + level, parentId: parent)).GetProperty("id").GetGuid();
+        }
+
+        Assert.Equal("folder_too_deep", await Code(await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", parentId = parent, name = "Level 5" })));
+
+        // A file may only go in a folder of its own class and shelf.
+        var form = Upload(classId, "x.pdf", kind: "PastPaper");
+        form.Add(new StringContent(topId.ToString()), "folderId");
+        Assert.Equal("material_folder_invalid", await Code(await teacher.Client.PostAsync("/api/materials", form)));
+    }
+
+    [Fact]
+    public async Task Renaming_a_folder_renames_it_in_Drive_and_only_an_empty_folder_can_be_removed()
+    {
+        var teacher = await ProTeacher("Renamer");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 9");
+        var term = await NewFolder(teacher.Client, classId, "Term 1");
+        var termId = term.GetProperty("id").GetGuid();
+        var week = await NewFolder(teacher.Client, classId, "Renamer week", parentId: termId);
+        var form = Upload(classId, "w.pdf", kind: "Notes");
+        form.Add(new StringContent(week.GetProperty("id").GetString()!), "folderId");
+        var file = (await Json(await teacher.Client.PostAsync("/api/materials", form))).GetProperty("id").GetGuid();
+
+        var renamed = await teacher.Client.PutAsJsonAsync($"/api/materials/folders/{termId}", new { name = "First term" });
+        Assert.Equal("First term", (await Json(renamed)).GetProperty("name").GetString());
+        Assert.Contains("EduVibe/Grade 9/Notes/First term/Renamer week", factory.Drive.Folders.Keys.Select(id => DrivePath(factory.Drive, id)));
+        await NewFolder(teacher.Client, classId, "Term 2");
+        Assert.Equal("folder_name_taken", await Code(await teacher.Client.PutAsJsonAsync($"/api/materials/folders/{termId}", new { name = "term 2" })));
+        Assert.Equal("folder_invalid", await Code(await teacher.Client.PutAsJsonAsync($"/api/materials/folders/{termId}", new { name = "" })));
+
+        Assert.Equal("folder_not_empty", await Code(await teacher.Client.DeleteAsync($"/api/materials/folders/{termId}")));
+        Assert.Equal("folder_not_empty", await Code(await teacher.Client.DeleteAsync($"/api/materials/folders/{week.GetProperty("id").GetGuid()}")));
+        await teacher.Client.DeleteAsync($"/api/materials/{file}");
+        var weekDrive = factory.Drive.Folders.Single(f => f.Value.Name == "Renamer week").Key;
+        Assert.Equal(HttpStatusCode.NoContent, (await teacher.Client.DeleteAsync($"/api/materials/folders/{week.GetProperty("id").GetGuid()}")).StatusCode);
+        Assert.False(factory.Drive.Folders.ContainsKey(weekDrive));
+        Assert.Equal(HttpStatusCode.NoContent, (await teacher.Client.DeleteAsync($"/api/materials/folders/{termId}")).StatusCode);
+        Assert.Equal(1, (await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"))).GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Moving_a_material_to_another_folder_or_shelf_moves_the_file_in_Drive()
+    {
+        var teacher = await ProTeacher("Mover");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 8");
+        var term = (await NewFolder(teacher.Client, classId, "Term 1")).GetProperty("id").GetGuid();
+        var id = (await AddMaterial(teacher.Client, classId, "m.pdf", "Moving", "Notes")).GetProperty("id").GetGuid();
+        string Where() => DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "m.pdf").Folder);
+        Assert.Equal("EduVibe/Grade 8/Notes", Where());
+
+        var moved = await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "Notes", folderId = term });
+        Assert.Equal(term, (await Json(moved)).GetProperty("folderId").GetGuid());
+        Assert.Equal("EduVibe/Grade 8/Notes/Term 1", Where());
+
+        // Changing the shelf takes the file out of a folder that belongs to the old one.
+        var other = await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "PastPaper" });
+        Assert.Equal(JsonValueKind.Null, (await Json(other)).GetProperty("folderId").ValueKind);
+        Assert.Equal("EduVibe/Grade 8/Past papers", Where());
+        Assert.Equal("material_folder_invalid", await Code(await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "PastPaper", folderId = term })));
+
+        // Back to the folder, and the file still opens.
+        await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "Notes", folderId = term });
+        Assert.Equal("EduVibe/Grade 8/Notes/Term 1", Where());
+        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync($"/api/materials/{id}/file")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_folder_deleted_in_Drive_is_made_again_when_a_file_is_added_to_it_and_Drive_trouble_is_reported()
+    {
+        var teacher = await ProTeacher("Gone");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Grade 7");
+        var term = (await NewFolder(teacher.Client, classId, "Gone term")).GetProperty("id").GetGuid();
+        factory.Drive.Folders.Remove(factory.Drive.Folders.Single(f => f.Value.Name == "Gone term").Key);
+
+        var form = Upload(classId, "back.pdf", kind: "Notes");
+        form.Add(new StringContent(term.ToString()), "folderId");
+        Assert.Equal(HttpStatusCode.Created, (await teacher.Client.PostAsync("/api/materials", form)).StatusCode);
+        Assert.Equal("EduVibe/Grade 7/Notes/Gone term", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "back.pdf").Folder));
+
+        factory.Drive.FailWithCode = "drive_api_disabled";
+        var refused = await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", name = "Term 2" });
+        Assert.Equal(HttpStatusCode.BadGateway, refused.StatusCode);
+        Assert.Equal("drive_api_disabled", await Code(refused));
+        factory.Drive.FailWithCode = null;
+        Assert.Equal(1, (await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"))).GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Folders_need_Drive_to_be_connected_and_belong_to_their_teacher_alone()
+    {
+        var teacher = await ProTeacher("Private");
+        var rival = await ProTeacher("Nosy");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client);
+        var folder = (await NewFolder(teacher.Client, classId, "Mine")).GetProperty("id").GetGuid();
+
+        Assert.Equal(0, (await Json(await rival.Client.GetAsync("/api/materials/folders"))).GetArrayLength());
+        Assert.Equal(HttpStatusCode.NotFound, (await rival.Client.PutAsJsonAsync($"/api/materials/folders/{folder}", new { name = "Taken" })).StatusCode);
+        await rival.Client.DeleteAsync($"/api/materials/folders/{folder}");
+        Assert.Equal(1, (await Json(await teacher.Client.GetAsync("/api/materials/folders"))).GetArrayLength());
+        Assert.Equal("material_class_required", await Code(await rival.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", name = "x" })));
+
+        var unconnected = await ProTeacher("Offline");
+        var theirClass = await ClassOf(unconnected.Client);
+        var notConnected = await unconnected.Client.PostAsJsonAsync("/api/materials/folders", new { classId = theirClass, kind = "Notes", name = "x" });
+        Assert.Equal(HttpStatusCode.Conflict, notConnected.StatusCode);
+        Assert.Equal("drive_not_connected", await Code(notConnected));
+
+        var free = await factory.NewTeacherAsync("Freebie");
+        Assert.Equal(HttpStatusCode.Forbidden, (await free.Client.GetAsync("/api/materials/folders")).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_student_sees_the_folders_a_material_is_in()
+    {
+        var teacher = await ProTeacher("Foldered");
+        await Connect(teacher.Client);
+        var classId = await ClassOf(teacher.Client, "Folder class");
+        var term = (await NewFolder(teacher.Client, classId, "Term 1")).GetProperty("id").GetGuid();
+        var week = (await NewFolder(teacher.Client, classId, "Week 1", parentId: term)).GetProperty("id").GetGuid();
+        var form = Upload(classId, "deep.pdf", title: "Deep", kind: "Notes");
+        form.Add(new StringContent(week.ToString()), "folderId");
+        await teacher.Client.PostAsync("/api/materials", form);
+        await AddMaterial(teacher.Client, classId, "loose.pdf", "Loose", "Notes");
+        var client = await SignInStudent(await Enrol(teacher.Client, classId, "Walker"));
+
+        var list = (await Json(await client.GetAsync("/api/materials/mine"))).EnumerateArray().ToList();
+        var deep = list.Single(i => i.GetProperty("material").GetProperty("title").GetString() == "Deep");
+        Assert.Equal(["Term 1", "Week 1"], deep.GetProperty("folderPath").EnumerateArray().Select(n => n.GetString()!).ToArray());
+        Assert.Equal(0, list.Single(i => i.GetProperty("material").GetProperty("title").GetString() == "Loose").GetProperty("folderPath").GetArrayLength());
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/materials/folders")).StatusCode);
     }
 
     [Fact]

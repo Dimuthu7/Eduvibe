@@ -11,12 +11,11 @@ using Microsoft.Extensions.Logging;
 
 namespace EduVibe.Modules.Materials.Endpoints;
 
-public sealed record UpdateMaterialRequest(string? Title, string? Kind, string? Topic, int? Year);
+public sealed record UpdateMaterialRequest(string? Title, string? Kind, string? Topic, int? Year, Guid? FolderId);
 
 /// <summary>A teacher's notes and past papers: add a file to a class (it goes to the teacher's Drive), list, edit, remove and open them.</summary>
 internal static class MaterialEndpoints
 {
-    private const string RootFolderName = "EduVibe";
     private const int MaxTitle = 120;
 
     public static void Map(RouteGroupBuilder group)
@@ -27,6 +26,7 @@ internal static class MaterialEndpoints
         materials.MapPut("/{id:guid}", Update);
         materials.MapDelete("/{id:guid}", Remove);
         materials.MapGet("/{id:guid}/file", Open);
+        FolderEndpoints.Map(materials);
     }
 
     private static async Task<IResult> List(Guid? classId, string? kind, string? topic, int? year, MaterialsDbContext db, CancellationToken ct)
@@ -96,36 +96,37 @@ internal static class MaterialEndpoints
             return Problems.Reject("material_invalid");
         }
 
-        var connection = await db.Connections.SingleOrDefaultAsync(ct);
-        if (connection is null)
+        var folder = await FolderFor(db, form["folderId"], classId, kind, ct);
+        if (folder.Invalid)
         {
-            return Problems.Reject("drive_not_connected", StatusCodes.Status409Conflict);
+            return Problems.Reject("material_folder_invalid");
         }
 
-        if (connection.NeedsReconnect || tokens.TryUnprotect(connection.RefreshToken) is not { } token)
+        var (link, problem) = await DriveFolders.LinkAsync(db, tokens, ct);
+        if (problem is not null)
         {
-            return Problems.Reject("drive_reconnect", StatusCodes.Status409Conflict);
+            return problem;
         }
 
-        DriveFile stored;
-        try
+        DriveFile? stored = null;
+        string? parentId = null;
+        problem = await DriveFolders.GuardAsync(link!, db, async () =>
         {
-            stored = await Upload(db, connection, drive, token, cls, fileName, contentType, file, ct);
-        }
-        catch (DriveAuthException)
+            (stored, parentId) = await DriveFolders.WithRepairAsync(async verify =>
+            {
+                var place = await DriveFolders.PlaceAsync(db, link!.Connection, drive, link.Token, cls, kind, folder.Row, verify, ct);
+                await using var content = file.OpenReadStream();
+                return (await drive.UploadAsync(link.Token, place, fileName, contentType, content, file.Length, ct), place);
+            });
+        }, ct);
+        if (problem is not null)
         {
-            connection.NeedsReconnect = true;
-            await db.SaveChangesAsync(ct);
-            return Problems.Reject("drive_reconnect", StatusCodes.Status409Conflict);
-        }
-        catch (DriveUnavailableException e)
-        {
-            return Problems.Reject(e.Code, StatusCodes.Status502BadGateway);
+            return problem;
         }
 
         var material = new Material
         {
-            ClassId = classId, DriveFileId = stored.Id, Title = title, FileName = fileName, ContentType = contentType,
+            ClassId = classId, FolderId = folder.Row?.Id, DriveFileId = stored!.Id, DriveParentId = parentId, Title = title, FileName = fileName, ContentType = contentType,
             SizeBytes = stored.SizeBytes, Kind = kind, Topic = topic, Year = year,
         };
         db.Materials.Add(material);
@@ -133,52 +134,27 @@ internal static class MaterialEndpoints
         return Results.Created($"/api/materials/{material.Id}", MaterialFiles.ToDto(material));
     }
 
-    /// <summary>Puts the file in the class's Drive folder, making the EduVibe folder and the class folder first if needed. A folder the teacher deleted is made again once.</summary>
-    private static async Task<DriveFile> Upload(
-        MaterialsDbContext db, DriveConnection connection, IDriveClient drive, string token, ClassSummary cls, string fileName, string contentType,
-        IFormFile file, CancellationToken ct)
+    /// <summary>The folder a request names, which must be one of the teacher's own folders of that class and shelf. No folder means the shelf itself.</summary>
+    private static async Task<(MaterialFolder? Row, bool Invalid)> FolderFor(MaterialsDbContext db, string? text, Guid classId, MaterialKind kind, CancellationToken ct)
     {
-        for (var attempt = 0; ; attempt++)
+        if (string.IsNullOrWhiteSpace(text))
         {
-            var folderId = await ClassFolderAsync(db, connection, drive, token, cls, ct);
-            try
-            {
-                await using var content = file.OpenReadStream();
-                return await drive.UploadAsync(token, folderId, fileName, contentType, content, file.Length, ct);
-            }
-            catch (FolderMissingException) when (attempt == 0)
-            {
-                // The teacher removed the folder in Drive: forget it and make it again.
-                connection.RootFolderId = null;
-                db.ClassFolders.RemoveRange(await db.ClassFolders.ToListAsync(ct));
-                await db.SaveChangesAsync(ct);
-            }
-        }
-    }
-
-    private static async Task<string> ClassFolderAsync(
-        MaterialsDbContext db, DriveConnection connection, IDriveClient drive, string token, ClassSummary cls, CancellationToken ct)
-    {
-        var existing = await db.ClassFolders.SingleOrDefaultAsync(f => f.ClassId == cls.Id, ct);
-        if (existing is not null)
-        {
-            return existing.DriveFolderId;
+            return (null, false);
         }
 
-        if (connection.RootFolderId is null)
+        if (!Guid.TryParse(text, out var id))
         {
-            connection.RootFolderId = await drive.CreateFolderAsync(token, RootFolderName, null, ct);
+            return (null, true);
         }
 
-        var folderId = await drive.CreateFolderAsync(token, MaterialFiles.CleanName(cls.Title) is { Length: > 0 } name ? name : "Class", connection.RootFolderId, ct);
-        db.ClassFolders.Add(new ClassFolder { ClassId = cls.Id, DriveFolderId = folderId });
-        await db.SaveChangesAsync(ct);
-        return folderId;
+        var row = await db.Folders.SingleOrDefaultAsync(f => f.Id == id && f.ClassId == classId && f.Kind == kind && !f.IsKindRoot, ct);
+        return (row, row is null);
     }
 
     private static string Truncate(string text, int length) => text.Length > length ? text[..length] : text;
 
-    private static async Task<IResult> Update(Guid id, UpdateMaterialRequest request, MaterialsDbContext db, CancellationToken ct)
+    private static async Task<IResult> Update(
+        Guid id, UpdateMaterialRequest request, MaterialsDbContext db, IClassDirectory classes, IDriveClient drive, DriveTokens tokens, ILogger<MaterialsModule> logger, CancellationToken ct)
     {
         var material = await db.Materials.SingleOrDefaultAsync(m => m.Id == id, ct);
         if (material is null)
@@ -194,12 +170,69 @@ internal static class MaterialEndpoints
             return Problems.Reject("material_invalid");
         }
 
+        var folder = await FolderFor(db, request.FolderId?.ToString(), material.ClassId, kind, ct);
+        if (folder.Invalid)
+        {
+            return Problems.Reject("material_folder_invalid");
+        }
+
+        var moved = material.Kind != kind || material.FolderId != folder.Row?.Id;
         material.Title = title;
         material.Kind = kind;
+        material.FolderId = folder.Row?.Id;
         material.Topic = topic;
         material.Year = request.Year;
         await db.SaveChangesAsync(ct);
+        if (moved)
+        {
+            await MoveInDriveAsync(material, folder.Row, db, classes, drive, tokens, logger, ct);
+        }
+
         return Results.Ok(MaterialFiles.ToDto(material));
+    }
+
+    /// <summary>
+    /// Puts the file in the matching Drive folder. The list in EduVibe is what students see, so a Drive that cannot be reached only leaves
+    /// the file where it was in Drive: it is not an error for the teacher, and the next move starts from where the file really is.
+    /// </summary>
+    private static async Task MoveInDriveAsync(
+        Material material, MaterialFolder? folder, MaterialsDbContext db, IClassDirectory classes, IDriveClient drive, DriveTokens tokens, ILogger<MaterialsModule> logger, CancellationToken ct)
+    {
+        var (link, problem) = await DriveFolders.LinkAsync(db, tokens, ct);
+        if (problem is not null || await classes.FindAsync(material.ClassId, ct) is not { } cls)
+        {
+            return;
+        }
+
+        var from = await DriveFolders.CurrentParentAsync(db, material, ct);
+        if (from is null)
+        {
+            return;
+        }
+
+        string? target = null;
+        var failure = await DriveFolders.GuardAsync(link!, db, async () =>
+        {
+            target = await DriveFolders.WithRepairAsync(async verify =>
+            {
+                var place = await DriveFolders.PlaceAsync(db, link!.Connection, drive, link.Token, cls, material.Kind, folder, verify, ct);
+                if (place != from)
+                {
+                    await drive.MoveAsync(link.Token, material.DriveFileId, from, place, ct);
+                }
+
+                return place;
+            });
+        }, ct);
+        if (failure is null)
+        {
+            material.DriveParentId = target;
+            await db.SaveChangesAsync(ct);
+        }
+        else
+        {
+            logger.LogWarning("Could not move material {MaterialId} in Drive", material.Id);
+        }
     }
 
     private static async Task<IResult> Remove(Guid id, MaterialsDbContext db, IDriveClient drive, DriveTokens tokens, ILogger<MaterialsModule> logger, CancellationToken ct)

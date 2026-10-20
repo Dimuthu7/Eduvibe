@@ -270,6 +270,36 @@ public class GoogleDriveClientTests
     }
 
     [Fact]
+    public async Task A_file_is_renamed_and_moved_by_changing_its_folders_and_a_missing_folder_is_reported()
+    {
+        var refresh = Id();
+        var google = new ScriptedGoogle(seen =>
+            seen.Url.Contains("oauth2") ? Token(seen)
+            : seen.Url.Contains("/files/gone") || seen.Url.Contains("addParents=nowhere") ? new HttpResponseMessage(HttpStatusCode.NotFound)
+            : Json(new { id = "x" }));
+        var client = Client(google);
+
+        await client.RenameAsync(refresh, "folder-1", "Term 1", default);
+        await client.RenameAsync(refresh, "gone", "Whatever", default);
+        var rename = google.Requests.First(r => r.Method == HttpMethod.Patch);
+        Assert.Contains("/files/folder-1", rename.Url);
+        Assert.Equal("Bearer access-1", rename.Authorization);
+        using (var body = JsonDocument.Parse(rename.Body))
+        {
+            Assert.Equal("Term 1", body.RootElement.GetProperty("name").GetString());
+        }
+
+        await client.MoveAsync(refresh, "file-1", "from-1", "to-1", default);
+        var move = google.Requests.Last(r => r.Method == HttpMethod.Patch && r.Url.Contains("/files/file-1"));
+        Assert.Contains("addParents=to-1", move.Url);
+        Assert.Contains("removeParents=from-1", move.Url);
+        await Assert.ThrowsAsync<FolderMissingException>(() => client.MoveAsync(refresh, "file-1", "from-1", "nowhere", default));
+
+        var inGone = new ScriptedGoogle(seen => seen.Url.Contains("oauth2") ? Token(seen) : new HttpResponseMessage(HttpStatusCode.NotFound));
+        await Assert.ThrowsAsync<FolderMissingException>(() => Client(inGone).CreateFolderAsync(Id(), "child", "deleted-parent", default));
+    }
+
+    [Fact]
     public async Task Revoking_never_throws_even_when_Google_cannot_be_reached()
     {
         await Client(new ScriptedGoogle(_ => throw new HttpRequestException("no network"))).RevokeAsync("refresh-x", default);
