@@ -959,5 +959,7 @@
   "error.material_too_large": "This file is bigger than 25 MB.",
   "error.material_type_not_allowed": "This file type is not supported.",
   "error.material_class_required": "Choose a class.",
-  "error.material_invalid": "Check the title, kind, topic and year."
+  "error.material_invalid": "Check the title, kind, topic and year.",
+  "error.drive_api_disabled": "Google Drive is switched off for EduVibe's Google project. The EduVibe team must enable the Google Drive API.",
+  "error.drive_storage_full": "Your Google Drive is full. Free some space in Drive and try again."
 }
