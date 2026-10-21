@@ -14,6 +14,7 @@ import { filter, map } from 'rxjs';
 import { AuthService, needsSetup } from './core/auth/auth.service';
 import { TranslatePipe } from './core/i18n/translate.pipe';
 import { TranslateService } from './core/i18n/translate.service';
+import { BrandMark } from './shared/brand-mark';
 import { LanguageMenu } from './shared/language-menu';
 import { UnreadNotifications } from './core/state/unread-notifications';
 import { LoadingService } from './core/ui/loading.service';
@@ -38,6 +39,8 @@ const TEACHER_NAV: NavItem[] = [
   { route: '/venues', label: 'nav.venues', icon: 'place' },
   { route: '/help', label: 'nav.help', icon: 'help' },
 ];
+/** The four screens a teacher opens most on a phone; the rest are under More. */
+const TEACHER_TABS: NavItem[] = TEACHER_NAV.filter((item) => ['/home', '/classes', '/attendance', '/fees'].includes(item.route));
 const ADMIN_NAV: NavItem[] = [
   { route: '/admin/dashboard', label: 'nav.dashboard', icon: 'dashboard' },
   { route: '/admin/teachers', label: 'nav.teachers', icon: 'school' },
@@ -70,6 +73,7 @@ const THEMES: { value: ThemePreference; label: string; icon: string }[] = [
     MatToolbarModule,
     TranslatePipe,
     LanguageMenu,
+    BrandMark,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -111,6 +115,11 @@ export class App {
     const count = this.unread.count();
     return this.showsNotifications() && count > 0 ? `${label}, ${count} ${this.i18n.translate('notifications.unread')}` : label;
   });
+
+  protected readonly tabs = TEACHER_TABS;
+
+  /** A teacher on a phone gets the tab bar at the bottom, within thumb reach; everyone else keeps the menu button. */
+  protected readonly showsTabs = computed(() => this.hasNav() && !this.wide() && this.auth.hasRole('Teacher') && !this.auth.hasRole('SuperAdmin'));
 
   protected readonly nav = computed(() => (this.auth.hasRole('SuperAdmin') ? ADMIN_NAV : this.auth.hasRole('Teacher') ? TEACHER_NAV : []));
 

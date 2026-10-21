@@ -13,7 +13,9 @@ import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
-import { formatDate, formatLkr, formatMonthShort, formatTime } from '../../shared/format';
+import { formatDate, formatLkr, formatMonthShort } from '../../shared/format';
+import { slotSummary } from '../../shared/schedule';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { short } from '../exams/exam-analysis';
 
 interface ChildData {
@@ -60,7 +62,7 @@ interface ClassView {
           </mat-card>
         } @else {
           @if (children.data()!.length > 1) {
-            <mat-button-toggle-group class="picker" [value]="selected()?.studentId" (change)="select($event.value)" [attr.aria-label]="'family.pick' | t" hideSingleSelectionIndicator>
+            <mat-button-toggle-group class="picker" [value]="selected().studentId" (change)="select($event.value)" [attr.aria-label]="'family.pick' | t" hideSingleSelectionIndicator>
               @for (c of children.data(); track c.studentId) {
                 <mat-button-toggle [value]="c.studentId">{{ c.firstName }}</mat-button-toggle>
               }
@@ -88,8 +90,8 @@ interface ClassView {
                         }
                       </div>
 
-                      @for (slot of item.klass.slots; track $index) {
-                        <div class="slot"><mat-icon aria-hidden="true">schedule</mat-icon> {{ 'day.' + slot.day | t }} · {{ time(slot.start) }} – {{ time(slot.end) }}</div>
+                      @if (item.klass.slots.length > 0) {
+                        <div class="slot"><mat-icon aria-hidden="true">schedule</mat-icon> {{ schedule(item.klass.slots) }}</div>
                       }
 
                       @if (item.klass.locked) {
@@ -236,7 +238,6 @@ interface ClassView {
     .month { display: inline-flex; flex-direction: column; gap: 0.125rem; font: var(--mat-sys-label-small); }
     .receipt { margin-top: 0.5rem; }
     .result { display: flex; gap: 0.75rem; align-items: center; padding: 0.375rem 0; }
-    .grade-chip { min-width: 2rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-label-large); text-align: center; }
     .none { margin: 0; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .welcome { display: grid; justify-items: center; gap: 0.5rem; text-align: center; padding: 1.5rem 0.5rem; }
@@ -255,7 +256,8 @@ export class Family {
   protected readonly details = new Loadable<ChildData>();
   protected readonly selectedId = signal<string | null>(null);
   protected readonly num = short;
-  protected readonly time = formatTime;
+  private readonly i18n = inject(TranslateService);
+  protected readonly schedule = (slots: { day: number; start: string; end: string }[]) => slotSummary(slots, (key) => this.i18n.translate(key));
   protected readonly date = formatDate;
   protected readonly money = formatLkr;
   protected readonly monthShort = formatMonthShort;

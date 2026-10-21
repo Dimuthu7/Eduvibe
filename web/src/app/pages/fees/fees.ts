@@ -35,19 +35,17 @@ export const ALL_CLASSES = 'all';
         <h1 class="page-title">{{ 'fees.title' | t }}</h1>
         <p class="page-subtitle">{{ 'fees.subtitle' | t }}</p>
       </div>
-      <div class="row-wrap">
+      <div class="header-actions">
         <a mat-stroked-button routerLink="/fees/unpaid" [queryParams]="unpaidParams()">
           <mat-icon>notifications_active</mat-icon>
           {{ 'fees.unpaid_attendees' | t }}
         </a>
         @if (isClass()) {
-          <button mat-stroked-button type="button" (click)="exportFees()">
+          <button mat-icon-button type="button" (click)="exportFees()" [attr.aria-label]="'export.button' | t">
             <mat-icon>ios_share</mat-icon>
-            {{ 'export.button' | t }}
           </button>
-          <button mat-stroked-button type="button" (click)="remind()">
+          <button mat-icon-button type="button" (click)="remind()" [attr.aria-label]="'whatsapp.remind' | t">
             <mat-icon>chat</mat-icon>
-            {{ 'whatsapp.remind' | t }}
           </button>
         }
       </div>

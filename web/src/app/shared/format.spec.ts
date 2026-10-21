@@ -27,6 +27,14 @@ describe('format helpers', () => {
     expect(text).toBe('D1 4:00 PM – 6:00 PM · D4 9:00 AM – 10:00 AM');
   });
 
+  it('names days that meet at the same time together', () => {
+    const t = (key: string) => key.replace('day.short.', 'D');
+    const at = (day: number, start = '16:00', end = '18:00') => ({ day, start, end });
+    expect(slotSummary([at(1), at(2), at(3), at(4), at(5), at(6), at(7)], t)).toBe('D1–D7 4:00 PM – 6:00 PM');
+    expect(slotSummary([at(1), at(4)], t)).toBe('D1, D4 4:00 PM – 6:00 PM');
+    expect(slotSummary([at(6, '09:00', '11:00'), at(3), at(1), at(2)], t)).toBe('D1–D3 4:00 PM – 6:00 PM · D6 9:00 AM – 11:00 AM');
+  });
+
   it('works out the date in Sri Lanka, not in the phone time zone', () => {
     // 20:00 UTC is already the next morning (01:30) in Colombo.
     expect(todayColombo(new Date('2026-10-11T20:00:00Z'))).toBe('2026-10-12');

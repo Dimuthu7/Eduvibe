@@ -1080,5 +1080,8 @@
   "help.parents.1": "Add the guardian's name and phone number to the student, then open the student and press Invite parent.",
   "help.parents.2": "If the parent has no account yet you see a one-time password to share. They sign in with their phone number, then choose a username and password. A parent who already has an account just gets this child added.",
   "help.parents.3": "Parents see the fees, attendance and published results of their own children, from every teacher who invited them. They cannot change anything.",
-  "help.parents.4": "Reset the password or remove access from the same card. Changing the guardian's phone number ends the old parent's access, so invite the new number again."
+  "help.parents.4": "Reset the password or remove access from the same card. Changing the guardian's phone number ends the old parent's access, so invite the new number again.",
+  "nav.more": "More",
+  "nav.main": "Main navigation",
+  "login.welcome": "Welcome back"
 }

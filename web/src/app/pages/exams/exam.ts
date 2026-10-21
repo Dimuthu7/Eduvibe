@@ -277,7 +277,6 @@ interface Entry {
     a.link { color: inherit; text-decoration: none; }
     a.link:hover { background: var(--mat-sys-surface-container); }
     .chevron { flex: none; color: var(--mat-sys-on-surface-variant); }
-    .grade-chip { min-width: 2rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-label-large); text-align: center; }
   `,
 })
 export class ExamScreen {
