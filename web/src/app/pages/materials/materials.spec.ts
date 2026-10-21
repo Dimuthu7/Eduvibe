@@ -5,6 +5,8 @@ import { provideRouter } from '@angular/router';
 import { DriveStatus, Material, MaterialFolder } from '../../core/api/materials.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import { ToastService } from '../../core/ui/toast.service';
 import { Materials } from './materials';
 
@@ -172,5 +174,102 @@ describe('Materials', () => {
     fixture.detectChanges();
     expect(el.textContent).toContain('materials.folder_empty');
     expect(el.textContent).toContain('materials.folder_new');
+  });
+
+  describe('moving', () => {
+    const files = [
+      material('1', { title: 'Loose notes', kind: 'Notes', topic: 'Algebra', year: 2024 }),
+      material('2', { title: 'Week 1 notes', kind: 'Notes', folderId: 'w1' }),
+    ];
+    const folders = [folder('t1', 'Term 1'), folder('w1', 'Week 1', 't1'), folder('a1', 'Archive'), folder('p1', '2023', null, { kind: 'PastPaper' })];
+
+    type Page = {
+      dragEnded(event: unknown, item: { file?: Material; folder?: MaterialFolder }): void;
+      moveFile(m: Material): void;
+      moveFolder(f: MaterialFolder): void;
+    };
+
+    const open = async () => {
+      const page = await setup(connected, files, folders, 'c1');
+      const chip = (Array.from(page.el.querySelectorAll('mat-chip-option')) as HTMLElement[]).find((c) => c.textContent!.includes('materials.kind.Notes'))!;
+      (chip.querySelector('button') as HTMLButtonElement).click();
+      page.fixture.detectChanges();
+      return { ...page, page: page.fixture.componentInstance as unknown as Page };
+    };
+
+    /** Pretends the pointer is over the element with this data-drop value (jsdom cannot hit-test). */
+    const pointerOver = (key: string | null) => {
+      const el = document.createElement('div');
+      if (key !== null) el.setAttribute('data-drop', key);
+      Object.defineProperty(document, 'elementsFromPoint', { value: () => [el], configurable: true });
+    };
+    const dropped = { dropPoint: { x: 10, y: 10 }, source: { reset: vi.fn() } };
+
+    afterEach(() => {
+      Reflect.deleteProperty(document, 'elementsFromPoint');
+    });
+
+    it('moves a file into the folder it is dropped on, keeping its details', async () => {
+      const { page } = await open();
+      pointerOver('f:t1');
+      page.dragEnded(dropped, { file: files[0] });
+      const request = http.expectOne(`${API}/api/materials/1`);
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ title: 'Loose notes', kind: 'Notes', topic: 'Algebra', year: 2024, folderId: 't1' });
+      request.flush({ ...files[0], folderId: 't1' });
+    });
+
+    it('moves a folder onto the shelf when it is dropped on the shelf name in the path', async () => {
+      const { page } = await open();
+      pointerOver('c:');
+      page.dragEnded(dropped, { folder: folders[1] });
+      const request = http.expectOne(`${API}/api/materials/folders/w1/move`);
+      expect(request.request.body).toEqual({ kind: 'Notes', parentId: null });
+      request.flush(folder('w1', 'Week 1'));
+      // The lists are read again, since a folder can take its files to another shelf.
+      http.expectOne(`${API}/api/materials`).flush(files);
+      http.expectOne(`${API}/api/materials/folders`).flush(folders);
+    });
+
+    it.each([
+      ['a folder dropped on itself', 'f:t1', { folder: folders[0] }],
+      ['a folder dropped on the folder it is already in', 'f:t1', { folder: folders[1] }],
+      ['a file dropped where it already is', 'f:w1', { file: files[1] }],
+      ['anything dropped on nothing', null, { file: files[0] }],
+    ])('does nothing for %s', async (_name, key, item) => {
+      const { page } = await open();
+      pointerOver(key);
+      page.dragEnded(dropped, item);
+      http.expectNone((r) => r.method === 'PUT');
+    });
+
+    it('offers every shelf and folder of the class except where the file is now', async () => {
+      const { page } = await open();
+      const dialog = TestBed.inject(MatDialog);
+      const spy = vi.spyOn(dialog, 'open').mockReturnValue({ afterClosed: () => of('Notes|t1') } as never);
+      page.moveFile(files[1]);
+      const data = spy.mock.calls[0][1]!.data as { options: { value: string; label: string }[] };
+      expect(data.options.map((o) => o.label)).toEqual([
+        'materials.kind.Notes', 'materials.kind.Notes / Archive', 'materials.kind.Notes / Term 1',
+        'materials.kind.PastPaper', 'materials.kind.PastPaper / 2023', 'materials.kind.Other',
+      ]);
+      expect(data.options.map((o) => o.value)).not.toContain('Notes|w1');
+      const request = http.expectOne(`${API}/api/materials/2`);
+      expect(request.request.body).toMatchObject({ kind: 'Notes', folderId: 't1' });
+      request.flush({ ...files[1], folderId: 't1' });
+    });
+
+    it('does not offer a folder, or anything inside it, as its own destination', async () => {
+      const { page } = await open();
+      const spy = vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => of('PastPaper|') } as never);
+      page.moveFolder(folders[0]);
+      const data = spy.mock.calls[0][1]!.data as { options: { value: string }[] };
+      expect(data.options.map((o) => o.value)).toEqual(['Notes|a1', 'PastPaper|', 'PastPaper|p1', 'Other|']);
+      const request = http.expectOne(`${API}/api/materials/folders/t1/move`);
+      expect(request.request.body).toEqual({ kind: 'PastPaper', parentId: null });
+      request.flush(folder('t1', 'Term 1', null, { kind: 'PastPaper' }));
+      http.expectOne(`${API}/api/materials`).flush(files);
+      http.expectOne(`${API}/api/materials/folders`).flush(folders);
+    });
   });
 });

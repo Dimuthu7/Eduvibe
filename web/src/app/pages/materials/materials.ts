@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { CdkDrag, CdkDragEnd, CdkDragMove, CdkDragPreview, CdkDropList } from '@angular/cdk/drag-drop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -20,10 +21,17 @@ import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { formatSize, materialIcon, openMaterial } from '../../shared/material-view';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { FolderDialog, FolderDialogData } from './folder-dialog';
-import { folderChain, folderLabel } from './folder-tree';
+import { folderChain, folderLabel, withDescendants } from './folder-tree';
+import { MoveDialog, MoveDialogData } from './move-dialog';
 import { MaterialDialog, MaterialDialogData } from './material-dialog';
 
 const ALL = 'all';
+
+/** The row being dragged: a file or a folder. */
+interface Dragged {
+  file?: Material;
+  folder?: MaterialFolder;
+}
 
 /** What Google's return trip to the app can report, as the message to show. */
 const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
@@ -43,7 +51,7 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    ReactiveFormsModule, SearchSelect, MatButtonModule, MatChipsModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
+    ReactiveFormsModule, SearchSelect, CdkDrag, CdkDragPreview, CdkDropList, MatButtonModule, MatChipsModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
   ],
   template: `
     <header class="page-header">
@@ -142,10 +150,10 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
         @if (browsing()) {
           <div class="where">
             <nav class="crumbs" [attr.aria-label]="'materials.folder' | t">
-              <button type="button" class="crumb" [class.current]="!folderId()" (click)="folderId.set(null)">{{ 'materials.kind.' + kind() | t }}</button>
+              <button type="button" class="crumb" data-drop="c:" [class.current]="!folderId()" [class.drop-target]="dropTarget() === 'c:'" (click)="folderId.set(null)">{{ 'materials.kind.' + kind() | t }}</button>
               @for (c of crumbs(); track c.id) {
                 <mat-icon class="sep" aria-hidden="true">chevron_right</mat-icon>
-                <button type="button" class="crumb" [class.current]="$last" (click)="folderId.set(c.id)">{{ c.name }}</button>
+                <button type="button" class="crumb" [attr.data-drop]="'c:' + c.id" [class.current]="$last" [class.drop-target]="dropTarget() === 'c:' + c.id" (click)="folderId.set(c.id)">{{ c.name }}</button>
               }
             </nav>
             @if (canAddFolder()) {
@@ -170,9 +178,24 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
                 }
               </div>
             } @else {
-              <div class="panel">
+              <div class="panel" cdkDropList cdkDropListSortingDisabled [cdkDropListDisabled]="!browsing()">
                 @for (f of subfolders(); track f.id) {
-                  <div class="panel-row">
+                  <div
+                    class="panel-row"
+                    cdkDrag
+                    cdkDragPreviewContainer="global"
+                    [cdkDragDisabled]="!browsing() || !!busyId()"
+                    [cdkDragStartDelay]="dragDelay"
+                    [attr.data-drop]="'f:' + f.id"
+                    [class.drop-target]="dropTarget() === 'f:' + f.id"
+                    (cdkDragStarted)="dragging.set({ folder: f })"
+                    (cdkDragMoved)="dragMoved($event)"
+                    (cdkDragEnded)="dragEnded($event, { folder: f })"
+                  >
+                    <div *cdkDragPreview matchSize class="drag-preview">
+                      <mat-icon>folder</mat-icon>
+                      <span>{{ f.name }}</span>
+                    </div>
                     <button type="button" class="open" (click)="folderId.set(f.id)">
                       <span class="avatar" aria-hidden="true"><mat-icon>folder</mat-icon></span>
                       <span class="row-main">
@@ -185,6 +208,10 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
                       <mat-icon>more_vert</mat-icon>
                     </button>
                     <mat-menu #folderMenu="matMenu">
+                      <button mat-menu-item type="button" (click)="moveFolder(f)">
+                        <mat-icon>drive_file_move</mat-icon>
+                        <span>{{ 'materials.move' | t }}</span>
+                      </button>
                       <button mat-menu-item type="button" (click)="renameFolder(f)">
                         <mat-icon>edit</mat-icon>
                         <span>{{ 'materials.folder_rename' | t }}</span>
@@ -197,7 +224,20 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
                   </div>
                 }
                 @for (m of shown(); track m.id) {
-                  <div class="panel-row">
+                  <div
+                    class="panel-row"
+                    cdkDrag
+                    cdkDragPreviewContainer="global"
+                    [cdkDragDisabled]="!browsing() || !!busyId()"
+                    [cdkDragStartDelay]="dragDelay"
+                    (cdkDragStarted)="dragging.set({ file: m })"
+                    (cdkDragMoved)="dragMoved($event)"
+                    (cdkDragEnded)="dragEnded($event, { file: m })"
+                  >
+                    <div *cdkDragPreview matchSize class="drag-preview">
+                      <mat-icon>{{ icon(m.contentType) }}</mat-icon>
+                      <span>{{ m.title }}</span>
+                    </div>
                     <button type="button" class="open" (click)="open(m)" [disabled]="busyId() === m.id">
                       <span class="avatar" aria-hidden="true">
                         @if (busyId() === m.id) {
@@ -228,6 +268,10 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
                           <span>{{ 'materials.download' | t }}</span>
                         </button>
                       }
+                      <button mat-menu-item type="button" (click)="moveFile(m)">
+                        <mat-icon>drive_file_move</mat-icon>
+                        <span>{{ 'materials.move' | t }}</span>
+                      </button>
                       <button mat-menu-item type="button" (click)="edit(m)">
                         <mat-icon>edit</mat-icon>
                         <span>{{ 'materials.edit_action' | t }}</span>
@@ -277,6 +321,12 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
     .crumb:hover { background: var(--mat-sys-surface-container); }
     .crumb.current { color: var(--mat-sys-on-surface); cursor: default; }
     .sep { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; color: var(--mat-sys-on-surface-variant); }
+    .panel-row.drop-target, .crumb.drop-target { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); outline: 2px solid var(--mat-sys-primary); outline-offset: -2px; }
+    .panel-row[cdkdrag], .panel-row.cdk-drag { -webkit-touch-callout: none; user-select: none; }
+    .cdk-drag-placeholder { opacity: 0.4; }
+    .drag-preview { display: flex; gap: 0.75rem; align-items: center; box-sizing: border-box; padding: 0.75rem 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container-high); color: var(--mat-sys-on-surface); box-shadow: var(--mat-sys-level3); font: var(--mat-sys-title-small); }
+    .drag-preview mat-icon { flex: none; color: var(--mat-sys-primary); }
+    .drag-preview span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .chevron { flex: none; margin-left: auto; color: var(--mat-sys-on-surface-variant); }
     .open { display: flex; flex: 1; gap: 0.875rem; align-items: center; min-width: 0; margin: -0.875rem 0 -0.875rem -1rem; padding: 0.875rem 0 0.875rem 1rem; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
     .open:hover:not(:disabled) { background: var(--mat-sys-surface-container); }
@@ -317,6 +367,11 @@ export class Materials {
   /** The folder being looked into, or null for the shelf itself. Only used while one class and one kind are chosen. */
   protected readonly folderId = signal<string | null>(null);
   protected readonly folders = signal<MaterialFolder[]>([]);
+  /** What is being dragged, and the folder or path name under the pointer (a "f:" folder or "c:" path name; "c:" alone is the shelf). */
+  protected readonly dragging = signal<Dragged | null>(null);
+  protected readonly dropTarget = signal<string | null>(null);
+  /** A finger must rest on a row for a moment before it starts to drag, so scrolling the list still works. */
+  protected readonly dragDelay = { touch: 300, mouse: 0 };
   private readonly chosenClass = toSignal(this.classControl.valueChanges, { initialValue: ALL });
   private readonly chosenTopic = toSignal(this.topicControl.valueChanges, { initialValue: ALL });
   private readonly chosenYear = toSignal(this.yearControl.valueChanges, { initialValue: ALL });
@@ -461,6 +516,85 @@ export class Materials {
     this.openFolderDialog({ folder, classId: folder.classId, kind: folder.kind, parentId: folder.parentId }, (saved) => {
       this.folders.update((all) => all.map((f) => (f.id === saved.id ? saved : f)));
       this.toast.success('materials.folder_renamed');
+    });
+  }
+
+  /** Choose a new place for a file, on any shelf of its class. */
+  protected moveFile(m: Material): void {
+    const here = `${m.kind}|${m.folderId ?? ''}`;
+    this.chooseDestination(m.title, m.classId, new Set(), here, (kind, folderId) => this.relocate(m, kind, folderId));
+  }
+
+  /** Choose a new place for a folder and what it holds; not into itself or anything inside it. */
+  protected moveFolder(folder: MaterialFolder): void {
+    const here = `${folder.kind}|${folder.parentId ?? ''}`;
+    this.chooseDestination(folder.name, folder.classId, withDescendants(folder.id, this.folders()), here, (kind, parentId) => this.relocateFolder(folder, kind, parentId));
+  }
+
+  protected dragMoved(event: CdkDragMove): void {
+    this.dropTarget.set(this.dropAt(event.pointerPosition.x, event.pointerPosition.y)?.key ?? null);
+  }
+
+  protected dragEnded(event: CdkDragEnd, item: Dragged): void {
+    const target = this.dropAt(event.dropPoint.x, event.dropPoint.y);
+    this.dragging.set(null);
+    this.dropTarget.set(null);
+    event.source.reset();
+    if (!target || !this.browsing()) return;
+    const kind = this.kind() as MaterialKind;
+    if (item.file) {
+      if (item.file.folderId !== target.folderId) this.relocate(item.file, kind, target.folderId);
+    } else if (item.folder && item.folder.id !== target.folderId && item.folder.parentId !== target.folderId) {
+      this.relocateFolder(item.folder, kind, target.folderId);
+    }
+  }
+
+  /** The folder (or shelf) under a point on the screen: a folder row, or a name in the path above the list. */
+  private dropAt(pageX: number, pageY: number): { key: string; folderId: string | null } | null {
+    // The drag reports positions on the page; looking up what is on screen needs positions in the window.
+    for (const el of document.elementsFromPoint(pageX - window.scrollX, pageY - window.scrollY)) {
+      const key = el.closest('[data-drop]')?.getAttribute('data-drop');
+      if (key) return { key, folderId: key.slice(2) || null };
+    }
+    return null;
+  }
+
+  private chooseDestination(name: string, classId: string, hidden: Set<string>, here: string, move: (kind: MaterialKind, folderId: string | null) => void): void {
+    const mine = this.folders().filter((f) => f.classId === classId);
+    const options: SelectOption[] = [];
+    for (const kind of MATERIAL_KINDS) {
+      const shelf = this.i18n.translate(`materials.kind.${kind}`);
+      options.push({ value: `${kind}|`, label: shelf });
+      const folders = mine.filter((f) => f.kind === kind && !hidden.has(f.id));
+      options.push(...folders.map((f) => ({ value: `${kind}|${f.id}`, label: `${shelf} / ${folderLabel(f.id, mine)}` })).sort((a, b) => a.label.localeCompare(b.label)));
+    }
+    this.dialog
+      .open<MoveDialog, MoveDialogData, string>(MoveDialog, {
+        data: { name, options: options.filter((o) => o.value !== here) },
+        width: '28rem',
+        maxWidth: 'calc(100vw - 1rem)',
+      })
+      .afterClosed()
+      .subscribe((value) => {
+        if (!value) return;
+        const [kind, folderId] = value.split('|');
+        move(kind as MaterialKind, folderId || null);
+      });
+  }
+
+  private relocate(m: Material, kind: MaterialKind, folderId: string | null): void {
+    const details = { title: m.title, kind, topic: m.topic, year: m.year, folderId };
+    this.api.update(m.id, details).subscribe((saved) => {
+      this.materials.update((all) => all.map((x) => (x.id === saved.id ? saved : x)));
+      this.toast.success('materials.moved');
+    });
+  }
+
+  private relocateFolder(folder: MaterialFolder, kind: MaterialKind, parentId: string | null): void {
+    this.api.moveFolder(folder.id, { kind, parentId }).subscribe(() => {
+      // A folder can take files to another shelf, so the lists are read again rather than patched.
+      this.loadMaterials();
+      this.toast.success('materials.moved');
     });
   }
 
