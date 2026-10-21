@@ -194,6 +194,11 @@ export class ExamsService {
     return this.http.get<MyExam[]>(`${this.base}/mine`);
   }
 
+  /** One child's published results, newest first, for a parent. */
+  child(studentId: string) {
+    return this.http.get<MyExam[]>(`${this.base}/children/${studentId}`);
+  }
+
   gradeScheme() {
     return this.http.get<GradeScheme>(`${this.base}/grade-scheme`);
   }

@@ -49,6 +49,8 @@ export interface Student {
   guardianName: string | null;
   guardianPhone: string | null;
   hasAccount: boolean;
+  /** This teacher has linked the guardian as a parent who can see the student's records. */
+  hasParent: boolean;
   enrolments: StudentEnrolment[];
 }
 
@@ -130,6 +132,32 @@ export interface MyClass {
   slots: { day: number; start: string; end: string }[];
 }
 
+/** What the teacher gets back from inviting a parent. The password is set only when the parent had no account yet. */
+export interface ParentInvited {
+  name: string;
+  phone: string;
+  accountCreated: boolean;
+  oneTimePassword: string | null;
+}
+
+export interface ChildClass {
+  enrolmentId: string;
+  classId: string;
+  classTitle: string;
+  teacherName: string | null;
+  /** The teacher's plan does not include the parent portal, so nothing of this class is shown. */
+  locked: boolean;
+  slots: { day: number; start: string; end: string }[];
+}
+
+/** One child of the signed-in parent, with the classes a teacher has shared. */
+export interface Child {
+  studentId: string;
+  firstName: string;
+  fullName: string;
+  classes: ChildClass[];
+}
+
 /** A student who has a profile photo. The version changes whenever the photo does, so a phone keeps what it has until then. */
 export interface StudentPhotoEntry {
   studentId: string;
@@ -180,6 +208,24 @@ export class StudentsService {
 
   resetPassword(studentId: string) {
     return this.http.post<{ oneTimePassword: string }>(`${this.base}/${studentId}/reset-password`, {});
+  }
+
+  /** Links the student's guardian phone to a parent account, made now if there is none. */
+  inviteParent(studentId: string) {
+    return this.http.post<ParentInvited>(`${this.base}/${studentId}/parent`, {});
+  }
+
+  resetParentPassword(studentId: string) {
+    return this.http.post<{ oneTimePassword: string }>(`${this.base}/${studentId}/parent/reset-password`, {});
+  }
+
+  removeParent(studentId: string) {
+    return this.http.delete<void>(`${this.base}/${studentId}/parent`);
+  }
+
+  /** The signed-in parent's children. */
+  family() {
+    return this.http.get<Child[]>(`${this.base}/family`);
   }
 
   /** Who has a photo among the teacher's students. Quiet: a failure just leaves initials showing. */

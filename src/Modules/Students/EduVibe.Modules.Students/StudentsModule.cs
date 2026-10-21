@@ -32,6 +32,7 @@ public sealed class StudentsModule : IModule
         MeEndpoints.Map(group);
         PhotoEndpoints.Map(group);
         StudentEndpoints.Map(group);
+        ParentEndpoints.Map(group);
         InviteEndpoints.Map(group);
         RegistrationEndpoints.Map(group);
     }

@@ -152,4 +152,9 @@ export class FeesService {
   mine() {
     return this.http.get<MyFees[]>(`${this.base}/mine`);
   }
+
+  /** One child's fees in each class, for a parent. */
+  child(studentId: string) {
+    return this.http.get<MyFees[]>(`${this.base}/children/${studentId}`);
+  }
 }

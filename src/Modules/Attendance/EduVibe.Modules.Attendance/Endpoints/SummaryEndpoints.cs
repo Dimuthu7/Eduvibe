@@ -35,6 +35,7 @@ internal static class SummaryEndpoints
         group.MapGet("/summary", Summary).RequireAuthorization(Policies.Teacher);
         group.MapGet("/enrolments/{enrolmentId:guid}/report", StudentReport).RequireAuthorization(Policies.Teacher);
         group.MapGet("/mine", Mine).RequireAuthorization(Policies.Student);
+        group.MapGet("/children/{studentId:guid}", Child).RequireAuthorization(Policies.Parent);
     }
 
     /// <summary>Late counts as attended. The percentage is of the sessions that were actually marked.</summary>
@@ -132,10 +133,25 @@ internal static class SummaryEndpoints
             return Results.Unauthorized();
         }
 
-        var enrolments = await roster.ActiveEnrolmentsOfUserAsync(userId, ct);
+        return Results.Ok(await Load(db, await roster.ActiveEnrolmentsOfUserAsync(userId, ct), ct));
+    }
+
+    // One child's attendance for a parent, in each class whose teacher linked them and has the parent portal.
+    private static async Task<IResult> Child(Guid studentId, AttendanceDbContext db, IClassRoster roster, ITenantContext user, CancellationToken ct)
+    {
+        if (user.UserId is not { } userId)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(await Load(db, await roster.ActiveEnrolmentsOfChildAsync(userId, studentId, ct), ct));
+    }
+
+    private static async Task<List<MyAttendanceDto>> Load(AttendanceDbContext db, IReadOnlyList<MyEnrolment> enrolments, CancellationToken ct)
+    {
         var ids = enrolments.Select(e => e.EnrolmentId).ToList();
 
-        // The student is not a teacher, so the teacher filter is lifted and the student's own enrolments are the only way in.
+        // The reader is not a teacher, so the teacher filter is lifted and the enrolments handed in are the only way in.
         var rows = await db.Marks.IgnoreQueryFilters()
             .Where(m => ids.Contains(m.EnrolmentId))
             .Join(db.Sessions.IgnoreQueryFilters().Where(s => s.TakenAt != null), m => m.SessionId, s => s.Id,
@@ -151,6 +167,6 @@ internal static class SummaryEndpoints
                 e.ClassId, own.Count, present, late, own.Count - present - late, Percent(present + late, own.Count),
                 [.. own.Take(RecentCount).Select(r => new MyRecentDto(r.Date, r.Status.ToString()))]);
         }).ToList();
-        return Results.Ok(result);
+        return result;
     }
 }

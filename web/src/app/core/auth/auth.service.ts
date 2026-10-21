@@ -49,7 +49,9 @@ export class AuthService {
     if (!user) return '/login';
     if (needsSetup(user)) return '/change-password';
     if (this.hasRole('SuperAdmin')) return '/admin/dashboard';
-    return this.hasRole('Teacher') ? '/home' : '/welcome';
+    if (this.hasRole('Teacher')) return '/home';
+    // A parent who is also a student lands on their own classes, and can switch from there.
+    return this.hasRole('Student') || !this.hasRole('Parent') ? '/welcome' : '/family';
   }
 
   /** The username, or the phone number for an account that has not chosen a username yet. */

@@ -12,6 +12,8 @@ export interface OneTimePasswordShare {
   oneTimePassword: string;
   /** Message key for the heading: a new student, or a password reset. */
   title: string;
+  /** For a parent instead of a student: message keys for the sentence above the details, the name label and the message to send. */
+  keys?: { intro: string; person: string; share: string };
 }
 
 /** Shows a one-time password once, with ways to pass it to the student: copy it or send it on WhatsApp. */
@@ -22,10 +24,10 @@ export interface OneTimePasswordShare {
   template: `
     <h2 mat-dialog-title>{{ data.title | t }}</h2>
     <mat-dialog-content>
-      <p class="intro">{{ 'students.otp_intro' | t }}</p>
+      <p class="intro">{{ (data.keys?.intro ?? 'students.otp_intro') | t }}</p>
       <dl class="facts">
         <div>
-          <dt>{{ 'students.student' | t }}</dt>
+          <dt>{{ (data.keys?.person ?? 'students.student') | t }}</dt>
           <dd>{{ data.name }}</dd>
         </div>
         <div>
@@ -70,7 +72,7 @@ export class PasswordDialog {
   /** What the teacher sends the student: the sign-in details and where to open the app. */
   private get message(): string {
     return this.i18n
-      .translate('students.share_message')
+      .translate(this.data.keys?.share ?? 'students.share_message')
       .replace('{name}', this.data.name)
       .replace('{phone}', this.data.phone)
       .replace('{otp}', this.data.oneTimePassword)

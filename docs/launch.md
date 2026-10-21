@@ -26,6 +26,6 @@ Tick items off as they are done. Items marked *deferred* wait for the end of the
 
 - *Deferred:* Azure production environment (S0-6) and the paid hosting plan, until real teachers depend on the app.
 - *Deferred:* onboarding teachers beyond the pilot, until the pilot feedback is in.
-- *Deferred:* the parent portal (Phase 2). It is a paid-plan feature and is already gated by plan.
+- *Built:* the parent portal (Sprint 12). Pro teachers invite a parent from the student's page; parents sign in with the guardian phone and see fees, attendance and published results of their children across teachers. Nothing to set up.
 - *Built, needs setup:* WhatsApp messages (Sprint 11) are gated to Pro and run in test mode (nothing is sent) until Meta business verification, the three templates and the settings are done: see [WhatsApp setup](whatsapp-setup.md).
 - *Built, needs setup:* Drive materials (Sprint 10) is gated to Pro and stays off until the Google client is set up and checked once on the test site: see [Google Drive setup](drive-setup.md).

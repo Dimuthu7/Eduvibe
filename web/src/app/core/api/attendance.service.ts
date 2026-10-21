@@ -141,4 +141,9 @@ export class AttendanceService {
   mine() {
     return this.http.get<MyAttendance[]>(`${this.base}/mine`);
   }
+
+  /** One child's attendance in each class, for a parent. */
+  child(studentId: string) {
+    return this.http.get<MyAttendance[]>(`${this.base}/children/${studentId}`);
+  }
 }

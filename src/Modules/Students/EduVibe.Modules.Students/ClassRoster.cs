@@ -1,10 +1,11 @@
 using EduVibe.Modules.Students.Domain;
 using EduVibe.Shared.Modules;
+using EduVibe.Shared.Plans;
 using Microsoft.EntityFrameworkCore;
 
 namespace EduVibe.Modules.Students;
 
-internal sealed class ClassRoster(StudentsDbContext db) : IClassRoster
+internal sealed class ClassRoster(StudentsDbContext db, IPlanGate plans) : IClassRoster
 {
     public async Task<IReadOnlyList<RosterEntry>> ActiveRosterAsync(Guid classId, CancellationToken cancellationToken = default)
     {
@@ -36,6 +37,29 @@ internal sealed class ClassRoster(StudentsDbContext db) : IClassRoster
             .Select(e => new MyEnrolment(e.Id, e.StudentId, e.ClassId, e.TenantId))
             .ToListAsync(cancellationToken);
         return rows;
+    }
+
+    // A parent sees a child only through a link a teacher made, so the links decide, and only while that teacher's plan has the parent portal.
+    public async Task<IReadOnlyList<MyEnrolment>> ActiveEnrolmentsOfChildAsync(Guid parentUserId, Guid studentId, CancellationToken cancellationToken = default)
+    {
+        var linkedTenants = await db.ParentLinks.IgnoreQueryFilters()
+            .Where(l => l.ParentUserId == parentUserId && l.StudentId == studentId)
+            .Select(l => l.TenantId).ToListAsync(cancellationToken);
+        var rows = await db.Enrolments.IgnoreQueryFilters()
+            .Where(e => e.StudentId == studentId && e.Status == EnrolmentStatus.Active && linkedTenants.Contains(e.TenantId))
+            .Select(e => new MyEnrolment(e.Id, e.StudentId, e.ClassId, e.TenantId))
+            .ToListAsync(cancellationToken);
+
+        var allowed = new List<MyEnrolment>();
+        foreach (var row in rows)
+        {
+            if ((await plans.ForTeacherAsync(row.TenantId, cancellationToken)).Has(PlanFeatures.ParentPortal))
+            {
+                allowed.Add(row);
+            }
+        }
+
+        return allowed;
     }
 
     public async Task<IReadOnlyList<FeeBasis>> FeeBasisAsync(Guid? classId, CancellationToken cancellationToken = default)

@@ -34,6 +34,9 @@ interface MyClassView {
   imports: [RouterLink, FeeStatus, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
+    @if (auth.hasRole('Parent')) {
+      <a mat-button routerLink="/family" class="switch"><mat-icon>family_restroom</mat-icon> {{ 'welcome.parent_view' | t }}</a>
+    }
     <h2 class="section-title first">{{ 'welcome.my_classes' | t }}</h2>
 
     @switch (data.status()) {
@@ -157,6 +160,7 @@ interface MyClassView {
     }
   `,
   styles: `
+    .switch { margin-left: -0.75rem; margin-bottom: 0.5rem; }
     .section-title.first { margin-top: 0; }
     .class-card { margin-bottom: 0.75rem; }
     .head { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 0.5rem; }
