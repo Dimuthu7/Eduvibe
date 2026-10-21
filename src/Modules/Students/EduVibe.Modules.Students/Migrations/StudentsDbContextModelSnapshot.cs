@@ -277,6 +277,55 @@ namespace EduVibe.Modules.Students.Migrations
                     b.ToTable("students", "students");
                 });
 
+            modelBuilder.Entity("EduVibe.Modules.Students.Domain.StudentCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("student_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_student_cards");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_student_cards_code");
+
+                    b.HasIndex("StudentId")
+                        .HasDatabaseName("ix_student_cards_student_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_student_cards_tenant_id");
+
+                    b.HasIndex("TenantId", "StudentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_student_cards_tenant_id_student_id");
+
+                    b.ToTable("student_cards", "students");
+                });
+
             modelBuilder.Entity("EduVibe.Modules.Students.Domain.StudentPhoto", b =>
                 {
                     b.Property<Guid>("Id")
@@ -395,6 +444,16 @@ namespace EduVibe.Modules.Students.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_parent_links_students_student_id");
+                });
+
+            modelBuilder.Entity("EduVibe.Modules.Students.Domain.StudentCard", b =>
+                {
+                    b.HasOne("EduVibe.Modules.Students.Domain.Student", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_student_cards_students_student_id");
                 });
 
             modelBuilder.Entity("EduVibe.Modules.Students.Domain.StudentPhoto", b =>

@@ -137,7 +137,7 @@ internal static class IdentityEndpoints
     /// <summary>Just the language, so switching it from any screen never needs the rest of the profile (a teacher's profile has rules of its own).</summary>
     private static async Task<IResult> SetLanguage(SetLanguageRequest request, ITenantContext tenant, IdentityDbContext db, CancellationToken ct)
     {
-        if (request.Language is not ("en" or "si"))
+        if (request.Language is not ("en" or "si" or "ta"))
         {
             return Problem(StatusCodes.Status400BadRequest, "language_unsupported");
         }

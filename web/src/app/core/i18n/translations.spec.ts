@@ -1,9 +1,11 @@
 import en from '../../../../public/i18n/en.json';
 import si from '../../../../public/i18n/si.json';
+import ta from '../../../../public/i18n/ta.json';
 import { LANGUAGES } from './language';
 
 const english = en as Record<string, string>;
 const sinhala = si as Record<string, string>;
+const tamil = ta as Record<string, string>;
 const placeholders = (text: string): string[] => (text.match(/\{\w+\}/g) ?? []).sort();
 
 /**
@@ -34,5 +36,32 @@ describe('Sinhala text', () => {
 
   it('lists Sinhala in the language menu under its own name', () => {
     expect(LANGUAGES.find((l) => l.code === 'si')?.name).toBe('සිංහල');
+  });
+});
+
+describe('Tamil text', () => {
+  it('has every teacher and student screen translated', () => {
+    const missing = Object.keys(english).filter((key) => !(key in tamil) && !ADMIN_ONLY.test(key));
+    expect(missing).toEqual([]);
+  });
+
+  it('has no text the English file does not have', () => {
+    expect(Object.keys(tamil).filter((key) => !(key in english))).toEqual([]);
+  });
+
+  it('keeps every {value} the app fills in, and nothing else', () => {
+    const wrong = Object.keys(tamil).filter((key) => JSON.stringify(placeholders(tamil[key])) !== JSON.stringify(placeholders(english[key] ?? '')));
+    expect(wrong).toEqual([]);
+  });
+
+  it('has no empty text and is written in Tamil', () => {
+    expect(Object.keys(tamil).filter((key) => tamil[key].trim() === '')).toEqual([]);
+    // A line that is only Latin letters is almost certainly left in English; the few brand names and file types are listed.
+    const untranslated = Object.keys(tamil).filter((key) => /\p{L}/u.test(tamil[key].replace(/\{\w+\}/g, '')) && !/[\u0B80-\u0BFF]/.test(tamil[key]) && !/^(app\.name|attendance\.pdf|nav\.whatsapp|students\.share_whatsapp|attendance\.of|exams\.of)$/.test(key));
+    expect(untranslated).toEqual([]);
+  });
+
+  it('lists Tamil in the language menu under its own name', () => {
+    expect(LANGUAGES.find((l) => l.code === 'ta')?.name).toBe('தமிழ்');
   });
 });

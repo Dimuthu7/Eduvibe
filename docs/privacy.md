@@ -51,3 +51,8 @@ The audit log is a trail of who changed what. When data is erased, its rows stay
 - Each module that holds personal data registers an `IPersonalDataSource` (`src/Shared/EduVibe.Shared/Privacy`). The Privacy module calls them in order and has no tables of its own. **A new module that stores personal data must register one**, usually a one-line subclass of `TenantTablesSource`.
 - Erasing runs module by module without one database transaction. If it stops part way (for example the database goes away), run the same request again: every step is safe to repeat. A teacher who is half erased still shows up in the export until the last step finishes.
 - Erasing cannot be undone. Download the data first, and note that backups (see [backups](backups.md)) keep older copies until they expire.
+
+## Student cards
+
+Each teacher has their own QR card for each student: one row in `students.student_cards` (the teacher's tenant id, the student id and a random 22-letter code). The code says nothing about the student, so a printed card shows the student's name and number but its QR text cannot be worked out from them. A teacher can only look up their own codes, so another teacher's card (or a lost one) opens nothing of theirs. A card is only ever used for one thing: finding the student when the teacher scans it to mark attendance. Cards are tenant-owned, so they are part of the teacher's export and are erased with the teacher; they are deleted with the student on a student erasure. Replacing a lost card (Replace card on the student's page) gives it a new code at once and the old one stops working.
+

@@ -7,6 +7,7 @@
 - [Free test deployment](deploy-free.md) — web on Azure, API on Render, database on Neon.
 - [Google Drive setup](drive-setup.md) — the Google Cloud client and settings behind class materials.
 - [WhatsApp setup](whatsapp-setup.md) — the Meta account, message templates and settings behind WhatsApp messages to parents.
+- [QR student cards](qr-cards.md) — printing cards and scanning them to mark attendance.
 - [Privacy requests](privacy.md) — downloading and deleting a teacher's or a student's data.
 - [Performance check](performance.md) — phone timings and how to repeat them.
 - [Launch checklist](launch.md) — what to confirm before real teachers use the app.

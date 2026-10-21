@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { AppConfig } from '../config/app-config';
+import { quiet } from './quiet';
 
 export type AttendanceStatus = 'Present' | 'Late' | 'Absent';
 
@@ -102,6 +103,13 @@ export interface MyAttendance {
   recent: { date: string; status: AttendanceStatus }[];
 }
 
+/** The student a scanned card belongs to, as they appear on the session's list. */
+export interface ScannedStudent {
+  enrolmentId: string;
+  indexNumber: number;
+  fullName: string;
+}
+
 /** Class sessions, who attended them, and attendance summaries. */
 @Injectable({ providedIn: 'root' })
 export class AttendanceService {
@@ -124,6 +132,14 @@ export class AttendanceService {
   /** Saves the class's attendance. Only the students who are not present need listing. */
   save(id: string, marks: { enrolmentId: string; status: AttendanceStatus }[]) {
     return this.http.put<ClassSession>(`${this.base}/sessions/${id}/marks`, { marks });
+  }
+
+  /**
+   * Looks up a scanned student card. Nothing is saved. Quiet, because the scanner shows its own message for each card and a failed
+   * scan (someone else's card) is part of normal use.
+   */
+  scan(id: string, code: string) {
+    return this.http.post<ScannedStudent>(`${this.base}/sessions/${id}/scan`, { code }, { context: quiet() });
   }
 
   remove(id: string) {

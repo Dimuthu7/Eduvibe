@@ -22,6 +22,11 @@ public sealed record SessionStudentDto(Guid EnrolmentId, int IndexNumber, string
 
 public sealed record SessionDetailDto(SessionDto Session, SessionStudentDto[] Students);
 
+public sealed record ScanRequest(string? Code);
+
+/// <summary>The student a scanned card belongs to, as they appear on this session's list.</summary>
+public sealed record ScanDto(Guid EnrolmentId, int IndexNumber, string FullName);
+
 /// <summary>
 /// Sessions of a class and the marks for each. Everyone starts as present: the teacher only taps the students who are
 /// late or absent, then saves. A day's sessions can be marked or corrected for a week afterwards.
@@ -30,6 +35,9 @@ internal static class SessionEndpoints
 {
     public const int EditWindowDays = 7;
 
+    /// <summary>What a printed card's QR text starts with; the Students module writes it when it makes the sheet.</summary>
+    public const string CardPrefix = "EV1:";
+
     public static void Map(RouteGroupBuilder group)
     {
         var sessions = group.MapGroup("/sessions").RequireAuthorization(Policies.Teacher);
@@ -37,6 +45,7 @@ internal static class SessionEndpoints
         sessions.MapPost("", AddExtra);
         sessions.MapGet("/{id:guid}", Get);
         sessions.MapPut("/{id:guid}/marks", SaveMarks);
+        sessions.MapPost("/{id:guid}/scan", Scan);
         sessions.MapDelete("/{id:guid}", Delete);
     }
 
@@ -236,6 +245,34 @@ internal static class SessionEndpoints
         await db.SaveChangesAsync(ct);
         var dto = (await ToDtosAsync([session], db, classes, today, ct))[0];
         return Results.Ok(dto);
+    }
+
+    // Looks up a scanned student card. Nothing is saved: the screen collects who has arrived, and the teacher saves the marks as usual.
+    private static async Task<IResult> Scan(
+        Guid id, ScanRequest request, AttendanceDbContext db, IClassRoster roster, IStudentCards cards, TimeProvider clock, CancellationToken ct)
+    {
+        var session = await db.Sessions.FindAsync([id], ct);
+        if (session is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (!CanEdit(session.Date, Problems.Today(clock)))
+        {
+            return Problems.Reject(session.Date > Problems.Today(clock) ? "date_in_future" : "outside_edit_window");
+        }
+
+        var code = request.Code?.Trim() ?? "";
+        if (!code.StartsWith(CardPrefix, StringComparison.Ordinal) || code.Length > 64
+            || await cards.StudentOfAsync(code[CardPrefix.Length..], ct) is not { } studentId)
+        {
+            return Problems.Reject("card_unknown", StatusCodes.Status404NotFound);
+        }
+
+        var entry = (await roster.ActiveRosterAsync(session.ClassId, ct)).FirstOrDefault(r => r.StudentId == studentId);
+        return entry is null
+            ? Problems.Reject("card_not_in_class", StatusCodes.Status409Conflict)
+            : Results.Ok(new ScanDto(entry.EnrolmentId, entry.IndexNumber, entry.FullName));
     }
 
     // Only an extra class nobody has marked yet can be removed; anything else is history.

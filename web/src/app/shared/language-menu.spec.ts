@@ -41,7 +41,7 @@ describe('LanguageMenu', () => {
     const { fixture } = setup(teacher);
     const items = open(fixture);
 
-    expect(items.map((i) => i.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['checkEnglish', 'සිංහල']);
+    expect(items.map((i) => i.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['checkEnglish', 'සිංහල', 'தமிழ்']);
   });
 
   it('saves a signed-in person\'s choice on their account and shows it at once', () => {

@@ -68,3 +68,15 @@ internal sealed class ParentLinkConfiguration : IEntityTypeConfiguration<ParentL
         builder.HasIndex(l => l.ParentUserId);
     }
 }
+
+internal sealed class StudentCardConfiguration : IEntityTypeConfiguration<StudentCard>
+{
+    public void Configure(EntityTypeBuilder<StudentCard> builder)
+    {
+        builder.ToTable("student_cards");
+        builder.Property(c => c.Code).HasMaxLength(32);
+        builder.HasOne<Student>().WithMany().HasForeignKey(c => c.StudentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(c => new { c.TenantId, c.StudentId }).IsUnique();
+        builder.HasIndex(c => c.Code).IsUnique();
+    }
+}

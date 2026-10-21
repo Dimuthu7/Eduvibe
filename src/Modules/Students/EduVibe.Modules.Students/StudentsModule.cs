@@ -21,6 +21,7 @@ public sealed class StudentsModule : IModule
         services.AddModuleDbContext<StudentsDbContext>(configuration, ModuleName);
         services.AddScoped<IPersonalDataSource, StudentsPersonalData>();
         services.AddScoped<IClassRoster, ClassRoster>();
+        services.AddScoped<IStudentCards, StudentCards>();
         services.AddScoped<IStudentContacts, StudentContacts>();
         services.AddScoped<IReportSource, ClassListReport>();
         services.AddScoped<IStatsSource, StudentsStats>();
@@ -33,6 +34,7 @@ public sealed class StudentsModule : IModule
         PhotoEndpoints.Map(group);
         StudentEndpoints.Map(group);
         ParentEndpoints.Map(group);
+        CardEndpoints.Map(group);
         InviteEndpoints.Map(group);
         RegistrationEndpoints.Map(group);
     }

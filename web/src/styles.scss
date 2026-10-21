@@ -58,6 +58,17 @@ html[data-theme='dark'] {
   }
 }
 
+// Tamil the same way: its own letters under the name Inter, downloaded only when Tamil text is on screen.
+@each $weight in 400, 500, 600 {
+  @font-face {
+    font-family: Inter;
+    font-display: swap;
+    font-weight: $weight;
+    src: url('../node_modules/@fontsource-variable/noto-sans-tamil/files/noto-sans-tamil-tamil-wght-normal.woff2') format('woff2-variations');
+    unicode-range: U+0B82-0BFA, U+25CC;
+  }
+}
+
 // Fontsource ships only the font; this is the class mat-icon uses to turn names like "menu" into icons.
 .material-icons {
   font-family: 'Material Icons';
@@ -185,6 +196,11 @@ body {
   font: var(--mat-sys-label-large);
   font-weight: 600;
   text-transform: uppercase;
+}
+
+// The full-screen camera for scanning student cards has no rounded corners or padding of its own.
+.scan-panel .mat-mdc-dialog-surface {
+  border-radius: 0;
 }
 
 // A grade drawn the way a teacher circles a mark with a pen.
