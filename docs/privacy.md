@@ -6,7 +6,7 @@ A teacher or a student can ask for the data EduVibe holds about them, or for it 
 
 In the app: **Teachers**, the menu on the teacher's row.
 
-- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, dashboard layout and plan history, the students' profile photos (as base64 text under `student_photos`), and the class materials list and the connected Google account's email. Passwords, sign-in tokens, invite tokens and the Google Drive token are never included.
+- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, WhatsApp message log, dashboard layout and plan history, the students' profile photos (as base64 text under `student_photos`), and the class materials list and the connected Google account's email. Passwords, sign-in tokens, invite tokens and the Google Drive token are never included.
 - **Delete data** appears only for a teacher who has been switched off (**Deactivate** first). It asks for the teacher's full name. Then it deletes the teacher, everything they own, and the students nobody else teaches (with their sign-in accounts).
 
 Students who also study with another teacher stay, with that other teacher's records.
@@ -25,6 +25,10 @@ Erasing a student removes who they are (name, phone, school, guardian, profile p
 ## Profile photos
 
 A student's photo is one small JPEG (about 320 px square, 15 to 40 kB) in `students.student_photos`, shared like the student record: any teacher who teaches the student can see or replace it. It is part of the student's export, is deleted with the student when a teacher's erasure removes students nobody else teaches, and is deleted when the student is erased. It is never shown to other students.
+
+## WhatsApp messages
+
+`whatsapp.messages` is a log of every message a teacher sent: the student's name, the parent's phone number (guardian's number when there is one), the words sent (first name, class, month, amount owed, or marks, grade and rank), the status, and a key that stops repeats. `whatsapp.opt_outs` holds the numbers whose owners replied STOP. Both are tenant-owned, so they are part of the teacher's export and are erased with the teacher. They also hold a student's personal data, so a student's export includes their messages, and erasing a student deletes those rows and any opt-out for numbers that have no other messages left. The teacher's WhatsApp screen shows only the last four digits of a number. Meta, as the carrier, keeps its own records under its terms.
 
 ## Class materials
 
