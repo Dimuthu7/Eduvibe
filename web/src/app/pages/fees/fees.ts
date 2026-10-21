@@ -14,6 +14,7 @@ import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
 import { fileNamePart } from '../../shared/download';
 import { ExportService } from '../../shared/export.service';
+import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/format';
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
@@ -43,6 +44,10 @@ export const ALL_CLASSES = 'all';
           <button mat-stroked-button type="button" (click)="exportFees()">
             <mat-icon>ios_share</mat-icon>
             {{ 'export.button' | t }}
+          </button>
+          <button mat-stroked-button type="button" (click)="remind()">
+            <mat-icon>chat</mat-icon>
+            {{ 'whatsapp.remind' | t }}
           </button>
         }
       </div>
@@ -171,6 +176,7 @@ export class Fees {
 
   private readonly api = inject(FeesService);
   private readonly exporter = inject(ExportService);
+  private readonly whatsapp = inject(WhatsAppActions);
   private readonly router = inject(Router);
   private readonly i18n = inject(TranslateService);
 
@@ -238,6 +244,15 @@ export class Fees {
 
   protected reload(): void {
     this.refresh.update((n) => n + 1);
+  }
+
+  /** Offers WhatsApp reminders to the students who still owe for this class's month; the dialog shows who first. */
+  protected remind(): void {
+    void this.whatsapp.open({
+      path: `/api/fees/classes/${this.chosen()}/whatsapp?month=${this.chosenMonth()}`,
+      title: 'whatsapp.fees_title',
+      intro: 'whatsapp.fees_intro',
+    });
   }
 
   /** Opens the Export / Share sheet for this class's month. */

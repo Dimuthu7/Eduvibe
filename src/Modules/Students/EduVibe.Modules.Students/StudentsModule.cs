@@ -21,6 +21,7 @@ public sealed class StudentsModule : IModule
         services.AddModuleDbContext<StudentsDbContext>(configuration, ModuleName);
         services.AddScoped<IPersonalDataSource, StudentsPersonalData>();
         services.AddScoped<IClassRoster, ClassRoster>();
+        services.AddScoped<IStudentContacts, StudentContacts>();
         services.AddScoped<IReportSource, ClassListReport>();
         services.AddScoped<IStatsSource, StudentsStats>();
     }

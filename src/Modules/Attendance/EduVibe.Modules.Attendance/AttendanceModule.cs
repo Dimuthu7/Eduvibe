@@ -28,6 +28,7 @@ public sealed class AttendanceModule : IModule
     {
         var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Attendance");
         SessionEndpoints.Map(group);
+        WhatsAppEndpoints.Map(group);
         SummaryEndpoints.Map(group);
         WatchEndpoints.Map(group);
     }

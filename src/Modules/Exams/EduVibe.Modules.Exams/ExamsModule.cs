@@ -32,6 +32,7 @@ public sealed class ExamsModule : IModule
         GradeSchemeEndpoints.Map(group);
         ProgressEndpoints.Map(group);
         ExamEndpoints.Map(group);
+        WhatsAppEndpoints.Map(group);
         HistoryEndpoints.Map(group);
     }
 }

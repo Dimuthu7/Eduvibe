@@ -4,14 +4,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { AttendanceMark } from './mark';
 
 const API = 'http://api.test';
 
-const detail = (editable = true) => ({
+const detail = (editable = true, saved: { taken?: boolean; absent?: number } = {}) => ({
   session: {
     id: 's1', classId: 'c1', classTitle: '2027 Maths', date: '2026-10-11', start: '16:00', end: '18:00',
-    isExtra: false, note: null, taken: false, present: 0, late: 0, absent: 0, editable,
+    isExtra: false, note: null, taken: saved.taken ?? false, present: 0, late: 0, absent: saved.absent ?? 0, editable,
   },
   students: [
     { enrolmentId: 'e1', indexNumber: 1, fullName: 'Amara Silva', status: 'Present' },
@@ -40,12 +41,12 @@ describe('AttendanceMark', () => {
     http.verify();
   });
 
-  const open = async (editable = true) => {
+  const open = async (editable = true, saved: { taken?: boolean; absent?: number } = {}) => {
     fixture = TestBed.createComponent(AttendanceMark);
     fixture.componentRef.setInput('id', 's1');
     fixture.detectChanges();
     await Promise.resolve();
-    http.expectOne(`${API}/api/attendance/sessions/s1`).flush(detail(editable));
+    http.expectOne(`${API}/api/attendance/sessions/s1`).flush(detail(editable, saved));
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     return { root, rows: () => Array.from(root.querySelectorAll<HTMLButtonElement>('button.hit')) };
@@ -122,5 +123,19 @@ describe('AttendanceMark', () => {
     expect(rows().every((r) => r.disabled)).toBe(true);
     expect(root.querySelector('form')).toBeNull();
     expect(root.textContent).toContain('attendance.locked');
+  });
+
+  it('offers to tell the parents of absent students only once attendance is saved with someone absent', async () => {
+    const tell = (root: HTMLElement) => Array.from(root.querySelectorAll('button')).find((b) => b.textContent!.includes('whatsapp.tell_parents'));
+
+    expect(tell((await open()).root)).toBeUndefined();
+    fixture.destroy();
+    expect(tell((await open(true, { taken: true, absent: 0 })).root)).toBeUndefined();
+    fixture.destroy();
+
+    const { root } = await open(true, { taken: true, absent: 1 });
+    const whatsapp = vi.spyOn(TestBed.inject(WhatsAppActions), 'open').mockResolvedValue();
+    tell(root)!.click();
+    expect(whatsapp).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/attendance/sessions/s1/whatsapp' }));
   });
 });

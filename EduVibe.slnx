@@ -28,6 +28,9 @@
   <Folder Name="/src/Modules/Materials/">
     <Project Path="src/Modules/Materials/EduVibe.Modules.Materials/EduVibe.Modules.Materials.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/WhatsApp/">
+    <Project Path="src/Modules/WhatsApp/EduVibe.Modules.WhatsApp/EduVibe.Modules.WhatsApp.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/EduVibe.Modules.Notifications/EduVibe.Modules.Notifications.csproj" />
   </Folder>
