@@ -7,6 +7,7 @@ import { of } from 'rxjs';
 import { ExamDetail } from '../../core/api/exams.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { ExamScreen } from './exam';
 
 const API = 'http://api.test';
@@ -181,6 +182,12 @@ describe('ExamScreen', () => {
     req.flush({ ...detail(), publishedAt: '2026-10-14T08:00:00Z' });
     fixture.detectChanges();
     expect(el.textContent).toContain('exams.published_on');
-    expect(el.querySelector('.share button')).toBeNull();
+    // The publish button is gone; a published exam offers its results on WhatsApp instead.
+    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>('.share button'));
+    expect(buttons.map((b) => b.textContent!.trim())).toEqual(['chat whatsapp.send_results']);
+
+    const whatsapp = vi.spyOn(TestBed.inject(WhatsAppActions), 'open').mockResolvedValue();
+    buttons[0].click();
+    expect(whatsapp).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/exams/x1/whatsapp' }));
   });
 });

@@ -11,6 +11,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { formatDate, formatTime } from '../../shared/format';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { SubmitButton } from '../../shared/submit-button';
+import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { StudentAvatar } from '../../shared/student-avatar';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
@@ -59,6 +60,13 @@ const MOVE_LIMIT_PX = 8;
               <span class="count late"><mat-icon aria-hidden="true">schedule</mat-icon>{{ 'attendance.late' | t }} {{ counts().late }}</span>
               <span class="count absent"><mat-icon aria-hidden="true">cancel</mat-icon>{{ 'attendance.absent' | t }} {{ counts().absent }}</span>
             </div>
+
+            @if (s.taken && s.absent > 0) {
+              <button mat-stroked-button type="button" class="tell" (click)="tellParents()">
+                <mat-icon>chat</mat-icon>
+                {{ 'whatsapp.tell_parents' | t }}
+              </button>
+            }
 
             <div class="panel">
               @for (student of students(); track student.enrolmentId) {
@@ -143,6 +151,7 @@ const MOVE_LIMIT_PX = 8;
     .count.present mat-icon { color: var(--mat-sys-primary); }
     .count.late mat-icon { color: var(--mat-sys-tertiary); }
     .count.absent mat-icon { color: var(--mat-sys-error); }
+    .tell { margin-bottom: 0.75rem; }
     .student { padding: 0; gap: 0; }
     .student.absent { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
     .student.late { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
@@ -163,6 +172,7 @@ export class AttendanceMark {
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
+  private readonly whatsapp = inject(WhatsAppActions);
 
   protected readonly detail = new Loadable<SessionDetail>();
   protected readonly session = computed(() => this.detail.data()?.session);
@@ -261,6 +271,13 @@ export class AttendanceMark {
       },
       error: () => this.busy.set(false),
     });
+  }
+
+  /** Offers to tell the parents of the students saved as absent; the dialog shows who first. */
+  protected tellParents(): void {
+    const session = this.session();
+    if (!session) return;
+    void this.whatsapp.open({ path: `/api/attendance/sessions/${session.id}/whatsapp`, title: 'whatsapp.absence_title', intro: 'whatsapp.absence_intro' });
   }
 
   protected remove(): void {

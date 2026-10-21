@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { monthOf, todayColombo } from '../../shared/format';
+import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { Fees } from './fees';
 
 const API = 'http://api.test';
@@ -45,6 +46,7 @@ describe('Fees', () => {
     expect(text).toContain('fees.collected');
     // The Excel export is for one class, so it is not offered here.
     expect(text).not.toContain('export.button');
+    expect(text).not.toContain('whatsapp.remind');
   });
 
   it('shows the students of one class and offers the Excel export', () => {
@@ -58,5 +60,15 @@ describe('Fees', () => {
     expect(text).toContain('Amara Silva');
     expect(text).toContain('fees.status.Unpaid');
     expect(text).toContain('export.button');
+  });
+
+  it('offers WhatsApp reminders for the class and month shown', () => {
+    const fixture = setup('c1');
+    http.expectOne(`${API}/api/fees/classes/c1?month=${month}`).flush({ classId: 'c1', month, totals, rows: [] });
+    fixture.detectChanges();
+    const open = vi.spyOn(TestBed.inject(WhatsAppActions), 'open').mockResolvedValue();
+    const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) => b.textContent!.includes('whatsapp.remind'))!;
+    button.click();
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({ path: `/api/fees/classes/c1/whatsapp?month=${month}`, title: 'whatsapp.fees_title' }));
   });
 });

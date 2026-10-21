@@ -16,6 +16,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { fileNamePart } from '../../shared/download';
 import { ExportService } from '../../shared/export.service';
+import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { parseMark, previewRow, RowPreview } from '../../shared/exam-calc';
 import { formatDate } from '../../shared/format';
 import { ExamAnalysis } from './exam-analysis';
@@ -94,6 +95,11 @@ interface Entry {
             </span>
             @if (!d.publishedAt) {
               <button mat-stroked-button type="button" (click)="publish(d)" [disabled]="publishing()">{{ 'exams.publish' | t }}</button>
+            } @else {
+              <button mat-stroked-button type="button" (click)="sendOnWhatsApp(d)">
+                <mat-icon>chat</mat-icon>
+                {{ 'whatsapp.send_results' | t }}
+              </button>
             }
           </div>
 
@@ -284,6 +290,7 @@ export class ExamScreen {
   private readonly toast = inject(ToastService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly exporter = inject(ExportService);
+  private readonly whatsapp = inject(WhatsAppActions);
   private readonly i18n = inject(TranslateService);
 
   protected readonly exam = new Loadable<ExamDetail>();
@@ -435,6 +442,11 @@ export class ExamScreen {
       this.exam.data.set(saved);
       this.toast.success('exams.unpublished');
     });
+  }
+
+  /** Offers to send each student's marks, grade and rank to their parent; the dialog shows who first. */
+  protected sendOnWhatsApp(d: ExamDetail): void {
+    void this.whatsapp.open({ path: `/api/exams/${d.id}/whatsapp`, title: 'whatsapp.results_title', intro: 'whatsapp.results_intro' });
   }
 
   protected exportResults(d: ExamDetail): void {
