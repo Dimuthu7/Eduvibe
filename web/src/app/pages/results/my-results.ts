@@ -103,7 +103,7 @@ interface ClassResults {
     .parts { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.375rem; }
     .part { padding: 0.125rem 0.5rem; border-radius: var(--mat-sys-corner-small); background: var(--mat-sys-surface-container-high); font: var(--mat-sys-label-medium); color: var(--mat-sys-on-surface-variant); }
     .part strong { color: var(--mat-sys-on-surface); }
-    .grade-chip { min-width: 2.25rem; padding: 0.375rem 0.75rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-title-medium); text-align: center; }
+    .grade-chip { width: 2.5rem; height: 2.5rem; font: var(--mat-sys-title-medium); }
   `,
 })
 export class MyResults {

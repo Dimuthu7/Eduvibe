@@ -13,7 +13,9 @@ import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
-import { formatDate, formatLkr, formatMonthShort, formatTime } from '../../shared/format';
+import { formatDate, formatLkr, formatMonthShort } from '../../shared/format';
+import { slotSummary } from '../../shared/schedule';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { short } from '../exams/exam-analysis';
 
 interface MyClassView {
@@ -59,8 +61,8 @@ interface MyClassView {
                 }
               </div>
 
-              @for (slot of item.klass.slots; track $index) {
-                <div class="slot"><mat-icon aria-hidden="true">schedule</mat-icon> {{ 'day.' + slot.day | t }} · {{ time(slot.start) }} – {{ time(slot.end) }}</div>
+              @if (item.klass.slots.length > 0) {
+                <div class="slot"><mat-icon aria-hidden="true">schedule</mat-icon> {{ schedule(item.klass.slots) }}</div>
               }
 
               @if (item.attendance && item.attendance.recent.length > 0) {
@@ -185,7 +187,6 @@ interface MyClassView {
     .result:hover { background: var(--mat-sys-surface-container); }
     .result > mat-icon:first-child { width: 1.125rem; height: 1.125rem; font-size: 1.125rem; color: var(--mat-sys-primary); }
     .result .chevron { color: var(--mat-sys-on-surface-variant); }
-    .grade-chip { min-width: 2rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); font: var(--mat-sys-label-large); text-align: center; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .welcome { display: grid; justify-items: center; gap: 0.5rem; text-align: center; padding: 1.5rem 0.5rem; }
     .welcome mat-icon { width: 3rem; height: 3rem; font-size: 3rem; color: var(--mat-sys-primary); }
@@ -202,7 +203,8 @@ export class Welcome {
 
   protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[]; results: MyExam[]; materials: StudentMaterial[] }>();
   protected readonly num = short;
-  protected readonly time = formatTime;
+  private readonly i18n = inject(TranslateService);
+  protected readonly schedule = (slots: { day: number; start: string; end: string }[]) => slotSummary(slots, (key) => this.i18n.translate(key));
   protected readonly date = formatDate;
   protected readonly money = formatLkr;
   protected readonly monthShort = formatMonthShort;

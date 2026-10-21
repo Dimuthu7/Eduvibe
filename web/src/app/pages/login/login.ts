@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { inlineError } from '../../core/api/problem';
+import { BrandMark } from '../../shared/brand-mark';
 import { SubmitButton } from '../../shared/submit-button';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -15,13 +16,14 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
   selector: 'app-login',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, SubmitButton, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [ReactiveFormsModule, BrandMark, SubmitButton, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
-    <mat-card appearance="outlined">
-      <mat-card-header>
-        <mat-card-title>{{ 'login.title' | t }}</mat-card-title>
-        <mat-card-subtitle>{{ 'app.tagline' | t }}</mat-card-subtitle>
-      </mat-card-header>
+    <header class="hero">
+      <app-brand-mark [size]="56" />
+      <h1 class="hero-title">{{ 'login.title' | t }}</h1>
+      <p class="hero-tagline">{{ 'app.tagline' | t }}</p>
+    </header>
+    <mat-card appearance="outlined" class="sign-in">
       <mat-card-content>
         <form class="stack form" [formGroup]="form" (ngSubmit)="submit()">
           <mat-form-field>
@@ -52,6 +54,10 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
     </mat-card>
   `,
   styles: `
+    .hero { display: grid; justify-items: start; gap: 0.5rem; padding: 1.5rem 0 1.25rem; }
+    .hero-title { margin: 0.5rem 0 0; font: var(--mat-sys-headline-medium); font-weight: 600; letter-spacing: -0.02em; }
+    .hero-tagline { margin: 0; color: var(--mat-sys-on-surface-variant); font: var(--mat-sys-body-large); }
+    .sign-in { margin-bottom: 0; }
     .form { padding-top: 1rem; }
   `,
 })

@@ -1,11 +1,15 @@
 @use '@angular/material' as mat;
+@use 'theme-colors' as brand;
 
 // Light and dark come from the browser by default. The theme switch sets
 // data-theme on <html> to force one of them (see ThemeService).
 html {
   color-scheme: light dark;
   @include mat.theme((
-    color: mat.$azure-palette,
+    color: (
+      primary: brand.$primary-palette,
+      tertiary: brand.$tertiary-palette,
+    ),
     typography: (
       plain-family: 'Inter',
       brand-family: 'Inter',
@@ -120,6 +124,13 @@ body {
   margin-bottom: 1.25rem;
 }
 
+// A row of actions under a page title: one labelled button, the rest icon-only.
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .section-title {
   margin: 1.5rem 0 0.5rem;
   font: var(--mat-sys-title-medium);
@@ -176,6 +187,21 @@ body {
   text-transform: uppercase;
 }
 
+// A grade drawn the way a teacher circles a mark with a pen.
+.grade-chip {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  box-sizing: border-box;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 2px solid var(--mat-sys-tertiary);
+  border-radius: 50%;
+  color: var(--mat-sys-tertiary);
+  font: var(--mat-sys-label-large);
+  font-weight: 700;
+}
+
 .empty {
   display: grid;
   justify-items: center;
@@ -185,10 +211,14 @@ body {
   color: var(--mat-sys-on-surface-variant);
 
   mat-icon {
-    width: 3rem;
-    height: 3rem;
-    font-size: 3rem;
-    opacity: 0.6;
+    box-sizing: content-box;
+    width: 2rem;
+    height: 2rem;
+    padding: 1rem;
+    border-radius: 50%;
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    font-size: 2rem;
   }
 }
 

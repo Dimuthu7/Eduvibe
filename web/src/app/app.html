@@ -1,10 +1,13 @@
 <mat-toolbar class="toolbar">
-  @if (hasNav() && !wide()) {
+  @if (hasNav() && !wide() && !showsTabs()) {
     <button mat-icon-button type="button" (click)="toggleMenu()" [attr.aria-label]="'nav.menu' | t">
       <mat-icon>menu</mat-icon>
     </button>
   }
-  <a class="brand" routerLink="/">{{ 'app.name' | t }}</a>
+  <a class="brand" routerLink="/">
+    <app-brand-mark [size]="26" />
+    <span>{{ 'app.name' | t }}</span>
+  </a>
   <span class="spacer"></span>
 
   <app-language-menu />
@@ -67,7 +70,7 @@
 
 <mat-sidenav-container class="container">
   @if (hasNav()) {
-    <mat-sidenav [mode]="wide() ? 'side' : 'over'" [opened]="wide()" [fixedInViewport]="!wide()" fixedTopGap="56">
+    <mat-sidenav [mode]="wide() ? 'side' : 'over'" [opened]="wide()" [fixedInViewport]="!wide()" fixedTopGap="56" [fixedBottomGap]="showsTabs() ? 72 : 0">
       <mat-nav-list>
         @for (item of nav(); track item.route) {
           <a mat-list-item [routerLink]="item.route" routerLinkActive="active" #link="routerLinkActive" [activated]="link.isActive">
@@ -79,8 +82,23 @@
     </mat-sidenav>
   }
   <mat-sidenav-content>
-    <main>
+    <main [class.has-tabs]="showsTabs()">
       <router-outlet />
     </main>
   </mat-sidenav-content>
 </mat-sidenav-container>
+
+@if (showsTabs()) {
+  <nav class="tabs" [attr.aria-label]="'nav.main' | t">
+    @for (item of tabs; track item.route) {
+      <a class="tab" [routerLink]="item.route" routerLinkActive="active" #link="routerLinkActive" [attr.aria-current]="link.isActive ? 'page' : null">
+        <span class="pill"><mat-icon aria-hidden="true">{{ item.icon }}</mat-icon></span>
+        <span class="label">{{ item.label | t }}</span>
+      </a>
+    }
+    <button class="tab" type="button" (click)="toggleMenu()">
+      <span class="pill"><mat-icon aria-hidden="true">menu</mat-icon></span>
+      <span class="label">{{ 'nav.more' | t }}</span>
+    </button>
+  </nav>
+}
