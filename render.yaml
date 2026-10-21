@@ -40,3 +40,14 @@ services:
         sync: false
       - key: Google__RedirectUri
         sync: false
+      # WhatsApp messages (see docs/whatsapp-setup.md). Simulated pretends to send so the screens can be tried; change to Meta only once the Meta account and templates are ready (Off turns it off).
+      - key: WhatsApp__Mode
+        value: Simulated
+      - key: WhatsApp__PhoneNumberId
+        sync: false
+      - key: WhatsApp__AccessToken
+        sync: false
+      - key: WhatsApp__VerifyToken
+        sync: false
+      - key: WhatsApp__AppSecret
+        sync: false

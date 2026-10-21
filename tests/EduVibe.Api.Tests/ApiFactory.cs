@@ -17,6 +17,8 @@ using EduVibe.Modules.Notifications;
 using EduVibe.Modules.Plans;
 using EduVibe.Modules.Plans.Services;
 using EduVibe.Modules.Students;
+using EduVibe.Modules.WhatsApp;
+using EduVibe.Modules.WhatsApp.Client;
 using EduVibe.Shared.Auditing;
 using EduVibe.Shared.Security;
 using Microsoft.AspNetCore.Hosting;
@@ -109,6 +111,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Stands in for Google Drive so no test reaches the network.</summary>
     public FakeDriveClient Drive { get; } = new();
 
+    public const string WhatsAppAppSecret = "test-app-secret";
+    public const string WhatsAppVerifyToken = "test-verify-token";
+
+    /// <summary>Stands in for WhatsApp so no test reaches Meta.</summary>
+    public FakeWhatsAppClient WhatsApp { get; } = new();
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -122,6 +130,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Fees:MonthlyJob", "false");
         builder.UseSetting("Plans:SeedOnStartup", "false");
         builder.UseSetting("Notifications:CleanupJob", "false");
+        builder.UseSetting("WhatsApp:DispatchJob", "false");
+        builder.UseSetting("WhatsApp:AppSecret", WhatsAppAppSecret);
+        builder.UseSetting("WhatsApp:VerifyToken", WhatsAppVerifyToken);
 
         builder.ConfigureServices(services =>
         {
@@ -136,6 +147,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<DashboardDbContext>(services);
             UseSqlite<PlansDbContext>(services);
             UseSqlite<MaterialsDbContext>(services);
+            UseSqlite<WhatsAppDbContext>(services);
+            services.RemoveAll<IWhatsAppClient>();
+            services.AddSingleton<IWhatsAppClient>(WhatsApp);
             services.RemoveAll<IDriveClient>();
             services.AddSingleton(Drive);
             services.AddSingleton<IDriveClient>(Drive);
@@ -162,6 +176,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<DashboardDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<PlansDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<MaterialsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<WhatsAppDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();

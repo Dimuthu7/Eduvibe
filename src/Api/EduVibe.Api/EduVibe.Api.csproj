@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\Modules\Exams\EduVibe.Modules.Exams\EduVibe.Modules.Exams.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\EduVibe.Modules.Dashboard\EduVibe.Modules.Dashboard.csproj" />
     <ProjectReference Include="..\..\Modules\Materials\EduVibe.Modules.Materials\EduVibe.Modules.Materials.csproj" />
+    <ProjectReference Include="..\..\Modules\WhatsApp\EduVibe.Modules.WhatsApp\EduVibe.Modules.WhatsApp.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\EduVibe.Modules.Notifications\EduVibe.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\Modules\Plans\EduVibe.Modules.Plans\EduVibe.Modules.Plans.csproj" />
   </ItemGroup>

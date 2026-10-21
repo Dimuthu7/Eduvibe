@@ -11,6 +11,7 @@ using EduVibe.Modules.Plans;
 using EduVibe.Modules.Privacy;
 using EduVibe.Modules.Reports;
 using EduVibe.Modules.Students;
+using EduVibe.Modules.WhatsApp;
 using EduVibe.Shared.Modules;
 
 namespace EduVibe.Api;
@@ -32,6 +33,7 @@ public static class ModuleCatalog
         new DashboardModule(),
         new PlansModule(),
         new MaterialsModule(),
+        new WhatsAppModule(),
         new PrivacyModule(),
     ];
 }
