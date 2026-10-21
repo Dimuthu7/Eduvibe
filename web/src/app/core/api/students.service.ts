@@ -166,6 +166,15 @@ export interface StudentPhotoEntry {
   enrolmentIds: string[];
 }
 
+/** What is printed on one student's card. The QR text is the code with the card prefix in front. */
+export interface StudentCard {
+  studentId: string;
+  fullName: string;
+  /** The student's number in the class the card was asked for; null when no class was named. */
+  indexNumber: number | null;
+  code: string;
+}
+
 /** A teacher's students, their enrolments in classes, and the links students use to sign themselves up. */
 @Injectable({ providedIn: 'root' })
 export class StudentsService {
@@ -226,6 +235,21 @@ export class StudentsService {
   /** The signed-in parent's children. */
   family() {
     return this.http.get<Child[]>(`${this.base}/family`);
+  }
+
+  /** The cards of a class's active students; a card is made now for anyone who has none. */
+  cards(classId: string) {
+    return this.http.get<StudentCard[]>(`${this.base}/cards`, { params: { classId } });
+  }
+
+  /** One student's card, made now if there is none. Name a class to get the student's number in it. */
+  card(studentId: string, classId?: string) {
+    return this.http.get<StudentCard>(`${this.base}/${studentId}/card`, { params: classId ? { classId } : {} });
+  }
+
+  /** Gives the student a new code, so a lost card stops working. */
+  replaceCard(studentId: string) {
+    return this.http.post<StudentCard>(`${this.base}/${studentId}/card/replace`, {});
   }
 
   /** Who has a photo among the teacher's students. Quiet: a failure just leaves initials showing. */

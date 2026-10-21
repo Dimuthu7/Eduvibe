@@ -102,6 +102,26 @@ describe('colomboNow', () => {
   });
 });
 
+describe('format helpers in Tamil', () => {
+  beforeEach(() => currentLanguage.set('ta'));
+  afterEach(() => currentLanguage.set('en'));
+
+  it('writes dates, months and times in Tamil letters', () => {
+    // As with Sinhala, the exact words differ between versions of the browser's own Tamil data, so only the shape is checked.
+    const tamilLetters = /[\u0B80-\u0BFF]/;
+    expect(formatDate('2026-10-12')).toMatch(tamilLetters);
+    expect(formatDate('2026-10-12')).toContain('2026');
+    expect(formatMonth('2026-10')).toMatch(tamilLetters);
+    // Times stay "4:00 PM": the browser's own Tamil puts PM before the time, which is not how people here write it.
+    expect(formatTime('16:00:00')).toBe('4:00 PM');
+    expect(formatDateTime('2026-10-12T11:00:00Z')).toMatch(/2026, 4:30 PM$/);
+  });
+
+  it('writes rupees with ordinary digits', () => {
+    expect(formatLkr(2500)).toMatch(/2,500$/);
+  });
+});
+
 describe('format helpers in Sinhala', () => {
   beforeEach(() => currentLanguage.set('si'));
   afterEach(() => currentLanguage.set('en'));

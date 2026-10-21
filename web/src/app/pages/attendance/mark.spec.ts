@@ -1,7 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { WhatsAppActions } from '../../shared/whatsapp-actions';
@@ -137,5 +139,36 @@ describe('AttendanceMark', () => {
     const whatsapp = vi.spyOn(TestBed.inject(WhatsAppActions), 'open').mockResolvedValue();
     tell(root)!.click();
     expect(whatsapp).toHaveBeenCalledWith(expect.objectContaining({ path: '/api/attendance/sessions/s1/whatsapp' }));
+  });
+  describe('scanning cards', () => {
+    const scanWith = (ids: string[]) => vi.spyOn(TestBed.inject(MatDialog), 'open').mockReturnValue({ afterClosed: () => of(ids) } as never);
+    const click = (root: HTMLElement, text: string) =>
+      Array.from(root.querySelectorAll('button')).find((b) => b.textContent!.includes(text))!.click();
+
+    it('marks a scanned student present even if they were absent, and says how many were scanned', async () => {
+      const { root } = await open();
+      scanWith(['e3']);
+      click(root, 'scan.button');
+      fixture.detectChanges();
+      expect(root.querySelector('.count.absent')!.textContent).toContain('0');
+      expect(root.querySelector('.count.present')!.textContent).toContain('3');
+      expect(root.querySelector('.scan-result')!.textContent).toContain('scan.summary');
+    });
+
+    it('marks everyone who was not scanned as absent, and leaves the scanned ones alone', async () => {
+      const { root } = await open();
+      scanWith(['e1']);
+      click(root, 'scan.button');
+      fixture.detectChanges();
+      click(root, 'scan.mark_rest');
+      fixture.detectChanges();
+      expect(root.querySelector('.count.present')!.textContent).toContain('1');
+      expect(root.querySelector('.count.absent')!.textContent).toContain('2');
+    });
+
+    it('offers no scanning once the days to correct have passed', async () => {
+      const { root } = await open(false);
+      expect(root.textContent).not.toContain('scan.button');
+    });
   });
 });

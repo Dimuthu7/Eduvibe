@@ -13,7 +13,9 @@ import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { ConfirmData, ConfirmDialog } from '../../shared/confirm-dialog';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { fileNamePart } from '../../shared/download';
 import { formatLkr } from '../../shared/format';
+import { CardActions } from '../../shared/card-actions';
 import { StudentPhotos } from '../../shared/student-photos';
 import { EnrolmentDialog, EnrolmentDialogData } from './enrolment-dialog';
 import { PasswordDialog } from './password-dialog';
@@ -127,6 +129,23 @@ import { StudentDialog } from './student-dialog';
             </mat-card-content>
           </mat-card>
 
+          <h2 class="section-title parent-title">{{ 'cards.student_title' | t }}</h2>
+          <mat-card appearance="outlined">
+            <mat-card-content>
+              <div class="parent-row">
+                <mat-icon aria-hidden="true">badge</mat-icon>
+                <div class="row-main">{{ 'cards.student_intro' | t }}</div>
+              </div>
+              <div class="parent-actions">
+                <button mat-stroked-button type="button" (click)="printCard(s)">
+                  <mat-icon>print</mat-icon>
+                  {{ 'cards.print_one' | t }}
+                </button>
+                <button mat-button type="button" (click)="confirmReplaceCard(s)">{{ 'cards.replace' | t }}</button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
           <div class="section-head">
             <h2 class="section-title">{{ 'students.classes' | t }}</h2>
             <button mat-stroked-button type="button" (click)="enrolAnother(s)">
@@ -202,6 +221,7 @@ export class StudentDetail {
   private readonly toast = inject(ToastService);
 
   private readonly photos = inject(StudentPhotos);
+  private readonly cards = inject(CardActions);
   protected readonly record = new Loadable<Student>();
   protected readonly hasPhoto = computed(() => this.photos.entryOf(this.id()) !== undefined);
   protected readonly student = computed(() => this.record.data());
@@ -329,6 +349,29 @@ export class StudentDetail {
           error: (e) => {
             if (errorCode(e) === 'account_not_resettable') this.toast.error('error.account_not_resettable');
           },
+        });
+      });
+  }
+
+  /** The card is printed for the student's current class, so it shows their number there. */
+  protected printCard(s: Student): void {
+    const enrolment = s.enrolments.find((e) => e.status === 'Active') ?? s.enrolments[0];
+    if (!enrolment) return;
+    void this.cards.open({ classId: enrolment.classId, classTitle: enrolment.classTitle, studentId: s.id, fileName: fileNamePart(`${s.firstName} ${s.lastName}`) });
+  }
+
+  protected confirmReplaceCard(s: Student): void {
+    this.dialog
+      .open<ConfirmDialog, ConfirmData, boolean>(ConfirmDialog, {
+        data: { title: 'cards.replace_title', message: 'cards.replace_message', confirm: 'cards.replace' },
+        maxWidth: 'calc(100vw - 1rem)',
+      })
+      .afterClosed()
+      .subscribe((yes) => {
+        if (!yes) return;
+        this.api.replaceCard(s.id).subscribe(() => {
+          this.toast.success('cards.replaced');
+          this.printCard(s);
         });
       });
   }

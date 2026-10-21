@@ -32,7 +32,11 @@
             "styles": [
               "src/styles.scss"
             ],
-            "serviceWorker": "ngsw-config.json"
+            "serviceWorker": "ngsw-config.json",
+            "allowedCommonJsDependencies": [
+              "jsqr",
+              "qrcode-generator"
+            ]
           },
           "configurations": {
             "production": {

@@ -99,3 +99,17 @@ public sealed class ParentLink : Entity, ITenantOwned, IAuditable
     public Guid StudentId { get; set; }
     public Guid ParentUserId { get; set; }
 }
+
+/// <summary>
+/// The code printed as a QR on one teacher's card for one student. It is random, so it cannot be guessed from the student's
+/// details, and each teacher has their own: a teacher can only look up their own cards, and replacing a lost card changes the code
+/// for that teacher alone. It proves nothing but "this card was handed to this student by this teacher", and only opens attendance marking.
+/// </summary>
+public sealed class StudentCard : Entity, ITenantOwned, IAuditable
+{
+    public Guid TenantId { get; set; }
+    public Guid StudentId { get; set; }
+
+    /// <summary>22 URL-safe letters and digits (16 random bytes).</summary>
+    public required string Code { get; set; }
+}

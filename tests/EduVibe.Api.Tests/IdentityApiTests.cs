@@ -220,6 +220,7 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(created.Teacher.FirstName, me.GetProperty("firstName").GetString());
 
         Assert.Equal(HttpStatusCode.BadRequest, (await teacher.PutAsJsonAsync("/api/identity/me/language", new { language = "fr" })).StatusCode);
+        Assert.Equal("ta", (await (await teacher.PutAsJsonAsync("/api/identity/me/language", new { language = "ta" })).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("language").GetString());
         Assert.Equal(HttpStatusCode.BadRequest, (await teacher.PutAsJsonAsync("/api/identity/me/language", new { })).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().PutAsJsonAsync("/api/identity/me/language", new { language = "en" })).StatusCode);
     }

@@ -1,21 +1,21 @@
-import { currentLanguage, knowsSinhala, Language, localeOf } from '../core/i18n/language';
+import { currentLanguage, knowsSinhala, knowsTamil, Language, localeOf, nativeLocale } from '../core/i18n/language';
 
 // Everything people read here follows the language on screen. Reading the language signal is what redraws a screen when it changes.
-const sinhala = (): boolean => currentLanguage() === 'si' && knowsSinhala;
-
 const lkr: Record<Language, Intl.NumberFormat> = {
   en: new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }),
   si: new Intl.NumberFormat(knowsSinhala ? 'si-LK' : 'en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }),
+  ta: new Intl.NumberFormat(knowsTamil ? 'ta-LK' : 'en-LK', { style: 'currency', currency: 'LKR', maximumFractionDigits: 0 }),
 };
 
-/** Money in rupees, for example "LKR 2,500", or "රු. 2,500" in Sinhala. */
+/** Money in rupees, for example "LKR 2,500", or "රු. 2,500" in Sinhala and "ரூ 2,500" in Tamil. */
 export const formatLkr = (amount: number): string => lkr[currentLanguage()].format(amount);
 
-/** "16:00:00" or "16:00" as "4:00 PM" (in Sinhala "ප.ව. 4.00"). */
+/** "16:00:00" or "16:00" as "4:00 PM" (in Sinhala "ප.ව. 4.00"). Tamil keeps "4:00 PM", as people in Sri Lanka write it; the browser's own Tamil puts PM first. */
 export function formatTime(time: string): string {
   const [h, m] = time.split(':').map(Number);
-  if (sinhala()) {
-    return new Intl.DateTimeFormat('si-LK', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
+  const locale = nativeLocale(currentLanguage());
+  if (locale === 'si-LK') {
+    return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(Date.UTC(2000, 0, 1, h, m)));
   }
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
@@ -48,8 +48,14 @@ export const formatDate = (date: string): string =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
 /** An instant as Sri Lanka time, for example "12 Oct 2026, 4:30 pm", whatever the phone's own time zone is. */
-export const formatDateTime = (instant: string): string =>
-  new Date(instant).toLocaleString(localeOf(currentLanguage()), { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+export function formatDateTime(instant: string): string {
+  const at = new Date(instant);
+  if (nativeLocale(currentLanguage()) === 'ta-LK') {
+    const day = at.toLocaleDateString('ta-LK', { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', year: 'numeric' });
+    return `${day}, ${formatTime(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Colombo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at))}`;
+  }
+  return at.toLocaleString(localeOf(currentLanguage()), { timeZone: 'Asia/Colombo', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
 
 /** The "yyyy-MM" fee month a "yyyy-MM-dd" date falls in. */
 export const monthOf = (date: string): string => date.slice(0, 7);

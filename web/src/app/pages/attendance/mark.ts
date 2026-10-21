@@ -6,13 +6,17 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { AttendanceService, AttendanceStatus, SessionDetail, SessionStudent } from '../../core/api/attendance.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { formatDate, formatTime } from '../../shared/format';
+import { CardActions } from '../../shared/card-actions';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { fileNamePart } from '../../shared/download';
 import { SubmitButton } from '../../shared/submit-button';
 import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { ScanDialog } from './scan-dialog';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
 const LONG_PRESS_MS = 500;
@@ -60,6 +64,24 @@ const MOVE_LIMIT_PX = 8;
               <span class="count late"><mat-icon aria-hidden="true">schedule</mat-icon>{{ 'attendance.late' | t }} {{ counts().late }}</span>
               <span class="count absent"><mat-icon aria-hidden="true">cancel</mat-icon>{{ 'attendance.absent' | t }} {{ counts().absent }}</span>
             </div>
+
+            @if (s.editable) {
+              <div class="scan-row">
+                <button mat-stroked-button type="button" (click)="scan()">
+                  <mat-icon>qr_code_scanner</mat-icon>
+                  {{ 'scan.button' | t }}
+                </button>
+                <button mat-icon-button type="button" class="cards" (click)="printCards()" [attr.aria-label]="'cards.title' | t">
+                  <mat-icon>badge</mat-icon>
+                </button>
+              </div>
+              @if (scanned().size > 0) {
+                <div class="scan-result" role="status">
+                  <span>{{ scannedText() }}</span>
+                  <button mat-button type="button" (click)="markRestAbsent()">{{ 'scan.mark_rest' | t }}</button>
+                </div>
+              }
+            }
 
             @if (s.taken && s.absent > 0) {
               <button mat-stroked-button type="button" class="tell" (click)="tellParents()">
@@ -151,6 +173,9 @@ const MOVE_LIMIT_PX = 8;
     .count.present mat-icon { color: var(--mat-sys-primary); }
     .count.late mat-icon { color: var(--mat-sys-tertiary); }
     .count.absent mat-icon { color: var(--mat-sys-error); }
+    .scan-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+    .scan-row .cards { margin-left: auto; }
+    .scan-result { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; padding: 0.25rem 0.5rem 0.25rem 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-secondary-container); color: var(--mat-sys-on-secondary-container); font: var(--mat-sys-label-large); }
     .tell { margin-bottom: 0.75rem; }
     .student { padding: 0; gap: 0; }
     .student.absent { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
@@ -173,11 +198,16 @@ export class AttendanceMark {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly whatsapp = inject(WhatsAppActions);
+  private readonly i18n = inject(TranslateService);
+  private readonly cards = inject(CardActions);
 
   protected readonly detail = new Loadable<SessionDetail>();
   protected readonly session = computed(() => this.detail.data()?.session);
   protected readonly students = computed(() => this.detail.data()?.students ?? []);
   protected readonly marks = signal<ReadonlyMap<string, AttendanceStatus>>(new Map());
+  /** Enrolments whose cards were scanned. Scanning marks a student present; the rest stay as they were until the teacher says otherwise. */
+  protected readonly scanned = signal<ReadonlySet<string>>(new Set());
+  protected readonly scannedText = computed(() => this.i18n.format('scan.summary', { scanned: this.scanned().size, total: this.students().length }));
   protected readonly busy = signal(false);
   protected readonly options: AttendanceStatus[] = ['Present', 'Late', 'Absent'];
   protected readonly time = formatTime;
@@ -251,6 +281,49 @@ export class AttendanceMark {
   protected release(): void {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
+  }
+
+  protected printCards(): void {
+    const session = this.session();
+    if (!session) return;
+    void this.cards.open({ classId: session.classId, classTitle: session.classTitle, fileName: fileNamePart(`${this.i18n.translate('cards.title')} ${session.classTitle}`) });
+  }
+
+  /** Opens the camera. Everyone scanned is marked present, even if they were tapped absent earlier. */
+  protected scan(): void {
+    const session = this.session();
+    if (!session) return;
+    this.dialog
+      .open<ScanDialog, { sessionId: string; arrived: string[] }, string[]>(ScanDialog, {
+        data: { sessionId: session.id, arrived: [...this.scanned()] },
+        width: '100vw',
+        maxWidth: '100vw',
+        height: '100dvh',
+        maxHeight: '100dvh',
+        panelClass: 'scan-panel',
+        autoFocus: 'dialog',
+      })
+      .afterClosed()
+      .subscribe((arrived) => {
+        if (!arrived) return;
+        this.scanned.set(new Set(arrived));
+        this.marks.update((m) => {
+          const next = new Map(m);
+          for (const id of arrived) next.set(id, 'Present');
+          return next;
+        });
+      });
+  }
+
+  /** For a class where only the students who came were scanned: everyone not scanned and still marked present becomes absent. */
+  protected markRestAbsent(): void {
+    this.marks.update((m) => {
+      const next = new Map(m);
+      for (const student of this.students()) {
+        if (!this.scanned().has(student.enrolmentId) && this.status(student) === 'Present') next.set(student.enrolmentId, 'Absent');
+      }
+      return next;
+    });
   }
 
   protected allPresent(): void {

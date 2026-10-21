@@ -16,6 +16,7 @@ import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { fileNamePart } from '../../shared/download';
+import { CardActions } from '../../shared/card-actions';
 import { ExportService } from '../../shared/export.service';
 import { formatDate, formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
@@ -68,6 +69,10 @@ import { openExtraClass } from './extra-session-dialog';
               </button>
               <mat-menu #menu="matMenu">
                 @if (c.status === 'Active') {
+                  <button mat-menu-item type="button" (click)="printCards(c)">
+                    <mat-icon>badge</mat-icon>
+                    <span>{{ 'cards.title' | t }}</span>
+                  </button>
                   <button mat-menu-item type="button" (click)="archive(c)">
                     <mat-icon>archive</mat-icon>
                     <span>{{ 'classes.archive' | t }}</span>
@@ -257,6 +262,7 @@ export class ClassHome {
   private readonly fees = inject(FeesService);
   private readonly exams = inject(ExamsService);
   private readonly exporter = inject(ExportService);
+  private readonly cardActions = inject(CardActions);
   private readonly i18n = inject(TranslateService);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
@@ -308,6 +314,10 @@ export class ClassHome {
       facts: [`${t('export.class')}: ${c.title}`],
       fileName: fileNamePart(`${t('classes.list_title')} ${c.title}`),
     });
+  }
+
+  protected printCards(c: TuitionClass): void {
+    void this.cardActions.open({ classId: c.id, classTitle: c.title, fileName: fileNamePart(`${this.i18n.translate('cards.title')} ${c.title}`) });
   }
 
   protected addExtra(c: TuitionClass): void {

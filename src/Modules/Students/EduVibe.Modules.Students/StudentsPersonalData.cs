@@ -98,6 +98,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         }
 
         await Db.StudentPhotos.Where(p => p.StudentId == studentId).ExecuteDeleteAsync(ct);
+        await Db.StudentCards.IgnoreQueryFilters().Where(c => c.StudentId == studentId).ExecuteDeleteAsync(ct);
 
         // No parent may keep seeing a child who has been erased; a parent left with no child stops being a parent.
         var parentIds = await Db.ParentLinks.IgnoreQueryFilters().Where(l => l.StudentId == studentId).Select(l => l.ParentUserId).Distinct().ToListAsync(ct);
