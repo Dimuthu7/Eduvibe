@@ -33,6 +33,12 @@ public interface IClassRoster
     /// <summary>The active enrolments of a student account, across all teachers. For the student's own screens.</summary>
     Task<IReadOnlyList<MyEnrolment>> ActiveEnrolmentsOfUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The active enrolments of one child that a teacher has linked to this parent account, across teachers. Only the teachers whose plan
+    /// includes the parent portal are returned, so a teacher who drops the plan switches their classes off for parents.
+    /// </summary>
+    Task<IReadOnlyList<MyEnrolment>> ActiveEnrolmentsOfChildAsync(Guid parentUserId, Guid studentId, CancellationToken cancellationToken = default);
+
     /// <summary>The current teacher's active enrolments for fees, optionally for one class.</summary>
     Task<IReadOnlyList<FeeBasis>> FeeBasisAsync(Guid? classId, CancellationToken cancellationToken = default);
 

@@ -17,6 +17,7 @@ internal static class HistoryEndpoints
     {
         group.MapGet("/enrolments/{enrolmentId:guid}/history", History).RequireAuthorization(Policies.Teacher);
         group.MapGet("/mine", Mine).RequireAuthorization(Policies.Student);
+        group.MapGet("/children/{studentId:guid}", Child).RequireAuthorization(Policies.Parent);
     }
 
     // Every exam of the student's class that has something entered for them, oldest first, with the class average beside
@@ -67,11 +68,26 @@ internal static class HistoryEndpoints
             return Results.Unauthorized();
         }
 
-        var enrolments = await roster.ActiveEnrolmentsOfUserAsync(userId, ct);
+        return Results.Ok(await LoadPublished(db, await roster.ActiveEnrolmentsOfUserAsync(userId, ct), ct));
+    }
+
+    // One child's published results for a parent, in each class whose teacher linked them and has the parent portal.
+    private static async Task<IResult> Child(Guid studentId, ExamsDbContext db, IClassRoster roster, ITenantContext user, CancellationToken ct)
+    {
+        if (user.UserId is not { } userId)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(await LoadPublished(db, await roster.ActiveEnrolmentsOfChildAsync(userId, studentId, ct), ct));
+    }
+
+    private static async Task<MyExamDto[]> LoadPublished(ExamsDbContext db, IReadOnlyList<MyEnrolment> enrolments, CancellationToken ct)
+    {
         var enrolmentIds = enrolments.Select(e => e.EnrolmentId).ToList();
         var classIds = enrolments.Select(e => e.ClassId).ToList();
 
-        // The student is not a teacher, so the teacher filter is lifted and the student's own enrolments are the only way in.
+        // The reader is not a teacher, so the teacher filter is lifted and the enrolments handed in are the only way in.
         var exams = await db.Exams.IgnoreQueryFilters().AsNoTracking()
             .Where(e => classIds.Contains(e.ClassId) && e.PublishedAt != null)
             .ToListAsync(ct);
@@ -104,7 +120,7 @@ internal static class HistoryEndpoints
             })
             .OrderByDescending(i => i.HeldOn).ThenBy(i => i.Name)
             .ToArray();
-        return Results.Ok(items);
+        return items;
     }
 
     /// <summary>A grade only when the student has a percentage, which they have once every part is marked.</summary>

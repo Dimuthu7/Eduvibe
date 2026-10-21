@@ -2,6 +2,8 @@ namespace EduVibe.Shared.Modules;
 
 public sealed record NewStudentAccount(string Phone, string FirstName, string LastName, string? PasswordHash);
 
+public sealed record NewParentAccount(string Phone, string FirstName, string LastName);
+
 public enum AccountOutcome
 {
     /// <summary>A new account was made.</summary>
@@ -34,6 +36,18 @@ public interface IAccountProvisioner
     /// account gets the Student role instead of failing.
     /// </summary>
     Task<AccountResult> CreateStudentAccountAsync(NewStudentAccount account, bool linkExisting, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Makes a parent account for a guardian phone number with a one-time password, or, when the number already has an account (another
+    /// teacher's link, or a teacher or student who is also a parent), adds the Parent role to it and keeps its password.
+    /// </summary>
+    Task<AccountResult> CreateParentAccountAsync(NewParentAccount account, CancellationToken cancellationToken = default);
+
+    /// <summary>Gives a parent a new one-time password. Returns null for an account that has any role besides Parent.</summary>
+    Task<string?> ResetParentPasswordAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Takes the Parent role off an account, and deletes the account when nothing else is left on it.</summary>
+    Task RemoveParentAccountAsync(Guid userId, CancellationToken cancellationToken = default);
 
     /// <summary>Gives a student a new one-time password. Returns null for an account that is not a plain student account.</summary>
     Task<string?> ResetStudentPasswordAsync(Guid userId, CancellationToken cancellationToken = default);

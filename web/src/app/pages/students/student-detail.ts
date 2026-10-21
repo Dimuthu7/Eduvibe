@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { PlansService } from '../../core/api/plans.service';
 import { Student, StudentCreated, StudentEnrolment, StudentRow, StudentsService } from '../../core/api/students.service';
 import { errorCode } from '../../core/api/problem';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -74,6 +75,58 @@ import { StudentDialog } from './student-dialog';
             </mat-card-content>
           </mat-card>
 
+          <h2 class="section-title parent-title">{{ 'students.parent.title' | t }}</h2>
+          <mat-card appearance="outlined" class="parent-card">
+            <mat-card-content>
+              @if (parentLocked()) {
+                <div class="parent-row">
+                  <mat-icon aria-hidden="true">lock</mat-icon>
+                  <div class="row-main">
+                    <div>{{ 'students.parent.locked' | t }}</div>
+                    @if (availableOn()) {
+                      <div class="row-meta">{{ 'my_plan.available_on' | t }} <strong>{{ availableOn() }}</strong></div>
+                    }
+                  </div>
+                </div>
+              } @else if (!s.guardianPhone) {
+                <div class="parent-row">
+                  <mat-icon aria-hidden="true">family_restroom</mat-icon>
+                  <div class="row-main">
+                    <div>{{ 'students.parent.need_phone' | t }}</div>
+                  </div>
+                  <button mat-stroked-button type="button" (click)="edit(s)">{{ 'students.edit' | t }}</button>
+                </div>
+              } @else if (s.hasParent) {
+                <div class="parent-row">
+                  <mat-icon aria-hidden="true">family_restroom</mat-icon>
+                  <div class="row-main">
+                    <div class="row-title">{{ s.guardianName || s.guardianPhone }}</div>
+                    <div class="row-meta">{{ 'students.parent.linked' | t }} · {{ s.guardianPhone }}</div>
+                  </div>
+                </div>
+                <div class="parent-actions">
+                  <button mat-stroked-button type="button" (click)="confirmResetParent(s)">
+                    <mat-icon>lock_reset</mat-icon>
+                    {{ 'students.reset_password' | t }}
+                  </button>
+                  <button mat-button type="button" (click)="confirmRemoveParent(s)">
+                    <mat-icon>link_off</mat-icon>
+                    {{ 'students.parent.remove' | t }}
+                  </button>
+                </div>
+              } @else {
+                <div class="parent-row">
+                  <mat-icon aria-hidden="true">family_restroom</mat-icon>
+                  <div class="row-main">
+                    <div>{{ 'students.parent.intro' | t }}</div>
+                    <div class="row-meta">{{ s.guardianName || '' }} {{ s.guardianPhone }}</div>
+                  </div>
+                  <button mat-flat-button type="button" (click)="invite(s)">{{ 'students.parent.invite' | t }}</button>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+
           <div class="section-head">
             <h2 class="section-title">{{ 'students.classes' | t }}</h2>
             <button mat-stroked-button type="button" (click)="enrolAnother(s)">
@@ -124,6 +177,11 @@ import { StudentDialog } from './student-dialog';
     .add-photo mat-icon { font-size: 1.125rem; width: 1.125rem; height: 1.125rem; }
     .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
     .facts div { display: flex; flex-direction: column; overflow-wrap: anywhere; }
+    .parent-title { margin-top: 1.5rem; }
+    .parent-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+    .parent-row > mat-icon { color: var(--mat-sys-primary); }
+    .parent-row .row-main { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+    .parent-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
     .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 1.5rem; }
     .section-head .section-title { margin: 0; }
     .section-head + .panel { margin-top: 0.75rem; }
@@ -147,9 +205,21 @@ export class StudentDetail {
   protected readonly record = new Loadable<Student>();
   protected readonly hasPhoto = computed(() => this.photos.entryOf(this.id()) !== undefined);
   protected readonly student = computed(() => this.record.data());
+  private readonly plans = inject(PlansService);
+  protected readonly parentLocked = signal(false);
+  protected readonly availableOn = signal<string | null>(null);
 
   constructor() {
     queueMicrotask(() => this.load());
+    // Which plan has the parent portal is shown when the teacher's does not; if the plan cannot be read the invite button stays and the server decides.
+    this.plans.mine().subscribe({
+      next: (plan) => {
+        const feature = plan.features.find((f) => f.key === 'parent_portal');
+        this.parentLocked.set(feature !== undefined && !feature.enabled);
+        this.availableOn.set(feature?.availableOn ?? null);
+      },
+      error: () => undefined,
+    });
   }
 
   protected load(): void {
@@ -226,6 +296,68 @@ export class StudentDetail {
       .subscribe((yes) => {
         if (yes) this.reset(s);
       });
+  }
+
+  protected invite(s: Student): void {
+    this.api.inviteParent(s.id).subscribe({
+      next: (parent) => {
+        this.load();
+        if (parent.oneTimePassword) {
+          this.showParentPassword(parent.name, parent.phone, parent.oneTimePassword, 'students.parent.invited_title');
+        } else {
+          this.toast.success('students.parent.linked_existing');
+        }
+      },
+      error: (e) => {
+        const code = errorCode(e);
+        if (code === 'guardian_phone_missing' || code === 'guardian_phone_is_student') this.toast.error(`error.${code}`);
+      },
+    });
+  }
+
+  protected confirmResetParent(s: Student): void {
+    this.dialog
+      .open<ConfirmDialog, ConfirmData, boolean>(ConfirmDialog, {
+        data: { title: 'students.reset_password', message: 'students.parent.reset_confirm', confirm: 'students.reset_password' },
+        maxWidth: 'calc(100vw - 1rem)',
+      })
+      .afterClosed()
+      .subscribe((yes) => {
+        if (!yes) return;
+        this.api.resetParentPassword(s.id).subscribe({
+          next: ({ oneTimePassword }) => this.showParentPassword(s.guardianName || s.guardianPhone || '', s.guardianPhone ?? '', oneTimePassword, 'students.parent.reset_title'),
+          error: (e) => {
+            if (errorCode(e) === 'account_not_resettable') this.toast.error('error.account_not_resettable');
+          },
+        });
+      });
+  }
+
+  protected confirmRemoveParent(s: Student): void {
+    this.dialog
+      .open<ConfirmDialog, ConfirmData, boolean>(ConfirmDialog, {
+        data: { title: 'students.parent.remove', message: 'students.parent.remove_confirm', confirm: 'students.parent.remove' },
+        maxWidth: 'calc(100vw - 1rem)',
+      })
+      .afterClosed()
+      .subscribe((yes) => {
+        if (!yes) return;
+        this.api.removeParent(s.id).subscribe(() => {
+          this.toast.success('students.parent.removed');
+          this.load();
+        });
+      });
+  }
+
+  private showParentPassword(name: string, phone: string, oneTimePassword: string, title: string): void {
+    this.dialog.open(PasswordDialog, {
+      data: {
+        name, phone, oneTimePassword, title,
+        keys: { intro: 'students.parent.otp_intro', person: 'students.parent.person', share: 'students.parent.share_message' },
+      },
+      width: '28rem',
+      maxWidth: 'calc(100vw - 1rem)',
+    });
   }
 
   private reset(s: Student): void {

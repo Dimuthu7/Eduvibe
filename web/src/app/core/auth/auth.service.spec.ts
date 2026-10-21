@@ -113,6 +113,17 @@ describe('AuthService', () => {
     expect(auth.homeRoute()).toBe('/welcome');
   });
 
+  it('sends a parent to their children, and a parent who is also a student to their own classes first', () => {
+    const auth = setup();
+    auth.login('0771234567', 'pw').subscribe();
+    http.expectOne(`${API}/api/identity/login`).flush(session({ user: user({ roles: ['Parent'], teacherId: null }) }));
+    expect(auth.homeRoute()).toBe('/family');
+
+    auth.login('0771234567', 'pw').subscribe();
+    http.expectOne(`${API}/api/identity/login`).flush(session({ user: user({ roles: ['Parent', 'Student'], teacherId: null }) }));
+    expect(auth.homeRoute()).toBe('/welcome');
+  });
+
   it('adds the access token to API calls only', () => {
     const auth = setup();
     auth.login('0771234567', 'pw').subscribe();

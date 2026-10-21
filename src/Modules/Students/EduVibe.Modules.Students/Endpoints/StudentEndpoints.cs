@@ -35,7 +35,7 @@ public sealed record EnrolmentDto(
 
 public sealed record StudentDto(
     Guid Id, string FirstName, string LastName, string FullName, string Phone, string? School, string? Grade,
-    string? GuardianName, string? GuardianPhone, bool HasAccount, EnrolmentDto[] Enrolments);
+    string? GuardianName, string? GuardianPhone, bool HasAccount, bool HasParent, EnrolmentDto[] Enrolments);
 
 public sealed record OneTimePasswordDto(string OneTimePassword);
 
@@ -98,7 +98,8 @@ internal static class StudentEndpoints
         }
 
         var titles = await classes.FindManyAsync(enrolments.Select(e => e.ClassId), ct);
-        return Results.Ok(ToStudent(enrolments[0].Student, enrolments, titles));
+        var hasParent = await db.ParentLinks.AnyAsync(l => l.StudentId == id, ct);
+        return Results.Ok(ToStudent(enrolments[0].Student, enrolments, titles, hasParent));
     }
 
     private static async Task<IResult> Add(
@@ -177,7 +178,7 @@ internal static class StudentEndpoints
             $"/api/students/{student.Id}", new StudentCreatedDto(ToRow(enrolment, TitlesOf(cls)), otp));
     }
 
-    private static async Task<IResult> Update(Guid id, UpdateStudentRequest request, StudentsDbContext db, CancellationToken ct)
+    private static async Task<IResult> Update(Guid id, UpdateStudentRequest request, StudentsDbContext db, IAccountProvisioner accounts, CancellationToken ct)
     {
         // Only a teacher who has the student in a class may edit them.
         if (!await db.Enrolments.AnyAsync(e => e.StudentId == id, ct))
@@ -199,8 +200,16 @@ internal static class StudentEndpoints
         student.School = clean.School;
         student.Grade = clean.Grade;
         student.GuardianName = clean.GuardianName;
+        var guardianChanged = student.GuardianPhone != clean.GuardianPhone;
         student.GuardianPhone = clean.GuardianPhone;
         await db.SaveChangesAsync(ct);
+
+        // Parent links were made for the old number, with every teacher, so a new guardian starts with none and must be invited again.
+        if (guardianChanged)
+        {
+            await ParentEndpoints.DropLinksAsync(db, accounts, id, allTeachers: true, ct);
+        }
+
         return Results.NoContent();
     }
 
@@ -465,8 +474,8 @@ internal static class StudentEndpoints
         e.Student.FirstName, e.Student.LastName, e.Student.FullName, e.Student.Phone, e.Student.School, e.Student.Grade,
         e.Status.ToString(), e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn);
 
-    private static StudentDto ToStudent(Student s, List<Enrolment> enrolments, IReadOnlyDictionary<Guid, ClassSummary> titles) => new(
-        s.Id, s.FirstName, s.LastName, s.FullName, s.Phone, s.School, s.Grade, s.GuardianName, s.GuardianPhone, s.UserId is not null,
+    private static StudentDto ToStudent(Student s, List<Enrolment> enrolments, IReadOnlyDictionary<Guid, ClassSummary> titles, bool hasParent) => new(
+        s.Id, s.FirstName, s.LastName, s.FullName, s.Phone, s.School, s.Grade, s.GuardianName, s.GuardianPhone, s.UserId is not null, hasParent,
         [.. enrolments.OrderBy(e => e.JoinedOn).Select(e => new EnrolmentDto(
             e.Id, e.ClassId, titles.TryGetValue(e.ClassId, out var c) ? c.Title : "", e.IndexNumber,
             e.Status.ToString(), e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn))]);

@@ -1,4 +1,5 @@
 using EduVibe.Modules.Students.Domain;
+using EduVibe.Modules.Students.Endpoints;
 using EduVibe.Shared.Auditing;
 using EduVibe.Shared.Modules;
 using EduVibe.Shared.Privacy;
@@ -38,6 +39,8 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         var elsewhere = await Db.Enrolments.IgnoreQueryFilters().Where(e => ids.Contains(e.StudentId) && e.TenantId != teacherId).Select(e => e.StudentId).Distinct().ToListAsync(ct);
         var orphans = ids.Except(elsewhere).ToList();
 
+        var parentIds = await Db.ParentLinks.IgnoreQueryFilters()
+            .Where(l => l.TenantId == teacherId || orphans.Contains(l.StudentId)).Select(l => l.ParentUserId).Distinct().ToListAsync(ct);
         var userIds = await Db.Students.IgnoreQueryFilters().Where(s => orphans.Contains(s.Id) && s.UserId != null).Select(s => s.UserId!.Value).ToListAsync(ct);
         foreach (var userId in userIds)
         {
@@ -50,6 +53,7 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         await Db.StudentPhotos.Where(p => orphans.Contains(p.StudentId)).ExecuteDeleteAsync(ct);
         await Db.Students.IgnoreQueryFilters().Where(s => orphans.Contains(s.Id)).ExecuteDeleteAsync(ct);
         await transaction.CommitAsync(ct);
+        await ParentEndpoints.ReleaseParentsAsync(Db, accounts, parentIds, ct);
         await AuditRedaction.RedactRecordsAsync(audit, nameof(Student), orphans, ct);
     }
 
@@ -94,6 +98,11 @@ internal sealed class StudentsPersonalData(StudentsDbContext db, IAccountProvisi
         }
 
         await Db.StudentPhotos.Where(p => p.StudentId == studentId).ExecuteDeleteAsync(ct);
+
+        // No parent may keep seeing a child who has been erased; a parent left with no child stops being a parent.
+        var parentIds = await Db.ParentLinks.IgnoreQueryFilters().Where(l => l.StudentId == studentId).Select(l => l.ParentUserId).Distinct().ToListAsync(ct);
+        await Db.ParentLinks.IgnoreQueryFilters().Where(l => l.StudentId == studentId).ExecuteDeleteAsync(ct);
+        await ParentEndpoints.ReleaseParentsAsync(Db, accounts, parentIds, ct);
 
         // The phone number must stay unique and fit its column, so it becomes a marker rather than null.
         var marker = "~" + studentId.ToString("N")[^18..];

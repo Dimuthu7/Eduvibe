@@ -57,3 +57,14 @@ internal sealed class InviteLinkConfiguration : IEntityTypeConfiguration<InviteL
         builder.HasIndex(i => i.ClassId);
     }
 }
+
+internal sealed class ParentLinkConfiguration : IEntityTypeConfiguration<ParentLink>
+{
+    public void Configure(EntityTypeBuilder<ParentLink> builder)
+    {
+        builder.ToTable("parent_links");
+        builder.HasOne<Student>().WithMany().HasForeignKey(l => l.StudentId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(l => new { l.TenantId, l.StudentId, l.ParentUserId }).IsUnique();
+        builder.HasIndex(l => l.ParentUserId);
+    }
+}

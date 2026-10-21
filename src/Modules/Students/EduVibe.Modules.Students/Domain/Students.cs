@@ -87,3 +87,15 @@ public sealed class InviteLink : Entity, ITenantOwned, IAuditable
     public int UsedCount { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
 }
+
+/// <summary>
+/// A teacher's grant letting one parent account see one child's fees, attendance and published results for that teacher's classes.
+/// It is made on purpose, by the teacher, from the student's page: a guardian phone number alone never opens a child's records.
+/// ParentUserId is the Parent account in the Identity module, kept as a plain id.
+/// </summary>
+public sealed class ParentLink : Entity, ITenantOwned, IAuditable
+{
+    public Guid TenantId { get; set; }
+    public Guid StudentId { get; set; }
+    public Guid ParentUserId { get; set; }
+}

@@ -14,6 +14,7 @@ public sealed class StudentsDbContext(DbContextOptions<StudentsDbContext> option
     public DbSet<StudentPhoto> StudentPhotos => Set<StudentPhoto>();
     public DbSet<Enrolment> Enrolments => Set<Enrolment>();
     public DbSet<InviteLink> InviteLinks => Set<InviteLink>();
+    public DbSet<ParentLink> ParentLinks => Set<ParentLink>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

@@ -13,4 +13,7 @@ public static class Policies
 
     /// <summary>A student account: the screens about their own classes, attendance and results.</summary>
     public const string Student = "Student";
+
+    /// <summary>A parent account: read-only screens about the children a teacher linked to them.</summary>
+    public const string Parent = "Parent";
 }
