@@ -21,7 +21,7 @@ The API accepts this `postgresql://` form as is.
 
 1. In Render choose **New > Blueprint**, pick this repository and the `main` branch. Render reads `render.yaml` and proposes the `eduvibe-api` web service on the Free plan.
 2. Fill in the four values it asks for:
-   - `ConnectionStrings__EduVibe`: the Neon string from step 1.
+   - `ConnectionStrings__GuruBook`: the Neon string from step 1.
    - `SuperAdmin__Phone` and `SuperAdmin__Password`: the first Super Admin. The password is one-time (you must change it at first sign-in), but the site is public, so use a long random one, not the local `ChangeMe123`.
    - `Cors__AllowedOrigins__0`: the web address from step 3. You do not have it yet, so type `https://placeholder.invalid` and fix it after step 3.
 3. Create the service. When the deploy finishes, note the address, for example `https://eduvibe-api.onrender.com`. Opening `/health/ready` there should say `Healthy`.
@@ -52,7 +52,7 @@ Open the site and sign in with the Super Admin phone number and one-time passwor
 
 | Variable | Meaning |
 | --- | --- |
-| `ConnectionStrings__EduVibe` | Postgres, `postgresql://` URI or Npgsql `Host=...;` form |
+| `ConnectionStrings__GuruBook` | Postgres, `postgresql://` URI or Npgsql `Host=...;` form |
 | `Database__MigrateOnStartup` | `true` applies migrations at start |
 | `Jwt__SigningKey` | At least 32 characters, secret |
 | `Cors__AllowedOrigins__0` | The web address allowed to call the API |

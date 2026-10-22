@@ -86,5 +86,5 @@ async function drawCard(ctx: CanvasRenderingContext2D, card: CardFace, data: Car
   }
   text(ctx, fit(ctx, data.classTitle, width, SMALL_FONT), left, line + 6, SMALL_FONT, MUTED);
   if (data.teacher) text(ctx, fit(ctx, data.teacher, width, SMALL_FONT), left, line + 22, SMALL_FONT, MUTED);
-  text(ctx, 'EduVibe', x + CARD_W - 10, y + CARD_H - 12, LABEL_FONT, MUTED, 'right');
+  text(ctx, 'GuruBook', x + CARD_W - 10, y + CARD_H - 12, LABEL_FONT, MUTED, 'right');
 }

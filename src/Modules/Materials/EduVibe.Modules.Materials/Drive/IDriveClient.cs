@@ -20,7 +20,7 @@ public sealed class DriveDownload(Stream content, string contentType, long? leng
     }
 }
 
-/// <summary>Google refused the teacher's token: they removed EduVibe's access or the grant expired. They must connect again.</summary>
+/// <summary>Google refused the teacher's token: they removed GuruBook's access or the grant expired. They must connect again.</summary>
 public sealed class DriveAuthException(string message) : Exception(message);
 
 /// <summary>
@@ -35,8 +35,8 @@ public sealed class DriveUnavailableException(string message, Exception? inner =
 }
 
 /// <summary>
-/// Everything EduVibe does with Google Drive, kept behind one interface so the rest of the module (and its tests) never touch Google.
-/// Every call that acts for a teacher takes that teacher's refresh token. Only the drive.file scope is used: EduVibe sees just the
+/// Everything GuruBook does with Google Drive, kept behind one interface so the rest of the module (and its tests) never touch Google.
+/// Every call that acts for a teacher takes that teacher's refresh token. Only the drive.file scope is used: GuruBook sees just the
 /// folders and files it created.
 /// </summary>
 public interface IDriveClient
@@ -44,7 +44,7 @@ public interface IDriveClient
     /// <summary>False until the Google client id, secret and callback address are set.</summary>
     bool IsConfigured { get; }
 
-    /// <summary>The Google page where the teacher agrees to let EduVibe use its own folder in their Drive.</summary>
+    /// <summary>The Google page where the teacher agrees to let GuruBook use its own folder in their Drive.</summary>
     string ConsentUrl(string state);
 
     /// <summary>Turns the code Google sent to the callback into a refresh token. Throws <see cref="DriveAuthException"/> when the code is refused or the Drive permission was not given.</summary>
@@ -71,6 +71,6 @@ public interface IDriveClient
     /// <summary>Removes a file or an (empty) folder from Drive. One that is already gone is fine.</summary>
     Task DeleteAsync(string refreshToken, string fileId, CancellationToken ct);
 
-    /// <summary>Tells Google to drop EduVibe's access. Best effort: it never throws.</summary>
+    /// <summary>Tells Google to drop GuruBook's access. Best effort: it never throws.</summary>
     Task RevokeAsync(string refreshToken, CancellationToken ct);
 }

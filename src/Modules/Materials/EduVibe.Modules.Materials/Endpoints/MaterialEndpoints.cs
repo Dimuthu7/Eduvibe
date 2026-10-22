@@ -192,7 +192,7 @@ internal static class MaterialEndpoints
     }
 
     /// <summary>
-    /// Puts the file in the matching Drive folder. The list in EduVibe is what students see, so a Drive that cannot be reached only leaves
+    /// Puts the file in the matching Drive folder. The list in GuruBook is what students see, so a Drive that cannot be reached only leaves
     /// the file where it was in Drive: it is not an error for the teacher, and the next move starts from where the file really is.
     /// </summary>
     private static async Task MoveInDriveAsync(

@@ -25,7 +25,7 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var info = await client.GetFromJsonAsync<SystemInfo>("/api/system/info");
 
         Assert.NotNull(info);
-        Assert.Equal("EduVibe", info.Name);
+        Assert.Equal("GuruBook", info.Name);
         Assert.Equal(
             ["identity", "catalog", "classes", "students", "fees", "attendance", "reports", "exams", "notifications", "dashboard", "plans", "materials", "whatsapp", "privacy"],
             info.Modules);

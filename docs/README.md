@@ -1,6 +1,6 @@
-# EduVibe docs
+# GuruBook docs
 
-- [Requirements and data model](https://claude.ai/code/artifact/3f14c910-0255-48f7-a440-db1953ba76f8) — what EduVibe does, roles, data model, architecture, deployment cost.
+- [Requirements and data model](https://claude.ai/code/artifact/3f14c910-0255-48f7-a440-db1953ba76f8) — what GuruBook does, roles, data model, architecture, deployment cost.
 - [Sprint plan](https://claude.ai/code/artifact/47646ddb-8f73-4205-8ae4-af233e3682a9) — 10 MVP sprints and 4 Phase 2 sprints, with tickets and status.
 
 - [Backups](backups.md) — the nightly encrypted database backup and how to restore it.

@@ -28,8 +28,8 @@ public sealed class WhatsAppOptions
     /// <summary>The language code the templates were approved in.</summary>
     public string Language { get; set; } = "en";
 
-    /// <summary>Template names are this plus the message kind, for example eduvibe_fee_reminder.</summary>
-    public string TemplatePrefix { get; set; } = "eduvibe_";
+    /// <summary>Template names are this plus the message kind, for example gurubook_fee_reminder.</summary>
+    public string TemplatePrefix { get; set; } = "gurubook_";
 
     public bool IsSimulated => string.Equals(Mode, "Simulated", StringComparison.OrdinalIgnoreCase);
 

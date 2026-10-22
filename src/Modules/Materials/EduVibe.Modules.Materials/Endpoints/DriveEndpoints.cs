@@ -61,7 +61,7 @@ internal static class DriveEndpoints
             return Results.NoContent();
         }
 
-        // The list of materials stays, so connecting the same Google account again brings everything back. Google is told to drop EduVibe's access.
+        // The list of materials stays, so connecting the same Google account again brings everything back. Google is told to drop GuruBook's access.
         if (tokens.TryUnprotect(connection.RefreshToken) is { } token)
         {
             await drive.RevokeAsync(token, ct);

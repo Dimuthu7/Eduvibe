@@ -1,6 +1,8 @@
-# EduVibe
+# GuruBook
 
 App for private tuition teachers in Sri Lanka: classes, students, fees, attendance and exam marks. Minimal, fast on phones, easy to extend.
+
+The product was renamed from EduVibe to GuruBook. Code identifiers keep the old name on purpose (`EduVibe.*` namespaces and projects, `EduVibe.slnx`, the `eduvibe` database and user, `ConnectionStrings__EduVibe`, the `eduvibe` JWT issuer, `eduvibe.*` localStorage keys, `eduvibe-web`, deployed URLs). Anything a person reads says GuruBook.
 
 ## Layout
 

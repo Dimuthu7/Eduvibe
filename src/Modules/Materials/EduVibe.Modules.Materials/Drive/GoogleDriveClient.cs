@@ -294,7 +294,7 @@ public sealed class GoogleDriveClient(HttpClient http, IOptions<DriveOptions> op
         {
             if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
             {
-                // invalid_grant: the teacher removed EduVibe from their Google account, or the grant lapsed.
+                // invalid_grant: the teacher removed GuruBook from their Google account, or the grant lapsed.
                 AccessTokens.TryRemove(key, out _);
                 throw new DriveAuthException("Google no longer accepts this connection.");
             }

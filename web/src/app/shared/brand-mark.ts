@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
- * The EduVibe mark: a teacher's tick inside a ring of ink, drawn with the theme colours so it follows light and dark.
+ * The GuruBook mark: a teacher's tick inside a ring of ink, drawn with the theme colours so it follows light and dark.
  * Decorative: the name next to it carries the meaning.
  */
 @Component({

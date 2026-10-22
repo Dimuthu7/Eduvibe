@@ -6,7 +6,7 @@ namespace EduVibe.Modules.Materials;
 
 /// <summary>
 /// A teacher's connection, class folders and material list are tenant-owned rows, so they are exported (the refresh token is a
-/// secret and is left out) and erased with the rest of their data. Erasing also tells Google to drop EduVibe's access. The files
+/// secret and is left out) and erased with the rest of their data. Erasing also tells Google to drop GuruBook's access. The files
 /// themselves are the teacher's own and stay in their Drive; nothing here deletes them.
 /// </summary>
 internal sealed class MaterialsPersonalData(MaterialsDbContext db, DriveTokens tokens, IDriveClient drive)

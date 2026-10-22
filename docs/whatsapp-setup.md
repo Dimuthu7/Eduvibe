@@ -1,6 +1,6 @@
 # WhatsApp setup (messages to parents)
 
-Teachers on a plan with **WhatsApp** (Pro) send fee reminders, absence alerts and exam results to parents from the Fees, Attendance and Exams screens. Messages go out through Meta's **WhatsApp Cloud API** from one EduVibe number, using three message templates that Meta must approve first. This page is the one-time setup the person running the API does, and how the feature behaves.
+Teachers on a plan with **WhatsApp** (Pro) send fee reminders, absence alerts and exam results to parents from the Fees, Attendance and Exams screens. Messages go out through Meta's **WhatsApp Cloud API** from one GuruBook number, using three message templates that Meta must approve first. This page is the one-time setup the person running the API does, and how the feature behaves.
 
 Nothing here is needed to try the screens: with `WhatsApp__Mode=Simulated` (the test site's setting) every send is accepted and nothing is sent, and the screens say *Test mode*.
 
@@ -18,9 +18,9 @@ Nothing here is needed to try the screens: with `WhatsApp__Mode=Simulated` (the 
 
 ## One-time setup with Meta
 
-1. Create a **Meta Business portfolio** at <https://business.facebook.com/> for EduVibe and complete **business verification** (needed to send to anyone beyond a handful of test numbers). Meta asks for the registered business details and a document; allow a few days.
+1. Create a **Meta Business portfolio** at <https://business.facebook.com/> for GuruBook and complete **business verification** (needed to send to anyone beyond a handful of test numbers). Meta asks for the registered business details and a document; allow a few days.
 2. At <https://developers.facebook.com/> create an app of type **Business** and add the **WhatsApp** product. Link it to the portfolio.
-3. In **WhatsApp > API setup** add the sending phone number. It must not be registered in the ordinary WhatsApp or WhatsApp Business app. Choose a display name Meta will accept (for example *EduVibe*). Note the **Phone number ID** (not the number itself).
+3. In **WhatsApp > API setup** add the sending phone number. It must not be registered in the ordinary WhatsApp or WhatsApp Business app. Choose a display name Meta will accept (for example *GuruBook*). Note the **Phone number ID** (not the number itself).
 4. Create the access token: in **Business settings > Users > System users** add a system user, give it the app and the WhatsApp account, and generate a token with the permissions `whatsapp_business_messaging` and `whatsapp_business_management` and **no expiry**. (The temporary token on the API setup page lasts 24 hours and is for trying only.)
 5. Submit the three **message templates** below in **WhatsApp Manager > Message templates**: category **Utility**, language **English**, with exactly these names and texts. Approval usually takes minutes to a day. Templates in other languages (Sinhala, Tamil) can be added later; today every message goes out in the language set by `WhatsApp__Language`.
 6. Set the webhook: in **WhatsApp > Configuration** set the callback URL to `https://<your API>/api/whatsapp/webhook` (Render test site: `https://eduvibe-api-hnd2.onrender.com/api/whatsapp/webhook`) and the verify token to the same text as `WhatsApp__VerifyToken`, then subscribe to the **messages** field (delivery reports and STOP replies both arrive through it). Meta calls the address once to check it, so the API must already be running with the settings below.
@@ -28,27 +28,27 @@ Nothing here is needed to try the screens: with `WhatsApp__Mode=Simulated` (the 
 
 ## Message templates
 
-Submit these exactly (the `{{n}}` places are filled by EduVibe in this order). Meta asks for example values; the ones shown work.
+Submit these exactly (the `{{n}}` places are filled by GuruBook in this order). Meta asks for example values; the ones shown work.
 
-**`eduvibe_fee_reminder`** (5 values)
+**`gurubook_fee_reminder`** (5 values)
 
 > Dear parent, this is a reminder about {{1}}'s {{2}} fee for {{3}}: {{4}} is still due to {{5}}. Thank you. Reply STOP to stop these messages.
 
 Examples: Kamal, 2027 A/L Maths, March 2027, LKR 2,000, Mr Perera.
 
-**`eduvibe_absence_alert`** (4 values)
+**`gurubook_absence_alert`** (4 values)
 
 > Dear parent, {{1}} was absent from the {{2}} class on {{3}}. This message is from {{4}}. Reply STOP to stop these messages.
 
 Examples: Kamal, 2027 A/L Maths, Mon 15 Mar, Mr Perera.
 
-**`eduvibe_results`** (7 values)
+**`gurubook_results`** (7 values)
 
 > Dear parent, {{1}}'s result for {{2}} ({{3}}): {{4}} marks, grade {{5}}, rank {{6}}. From {{7}}. Reply STOP to stop these messages.
 
 Examples: Kamal, Term test, 2027 A/L Maths, 78 / 100, B, 3 of 24, Mr Perera.
 
-The template names are `WhatsApp__TemplatePrefix` (default `eduvibe_`) plus `fee_reminder`, `absence_alert` and `results`. Changing the wording in Meta is fine as long as the number and order of the `{{n}}` places stay the same; adding a place needs a code change.
+The template names are `WhatsApp__TemplatePrefix` (default `gurubook_`) plus `fee_reminder`, `absence_alert` and `results`. Changing the wording in Meta is fine as long as the number and order of the `{{n}}` places stay the same; adding a place needs a code change.
 
 ## Settings on the API
 
@@ -60,7 +60,7 @@ The template names are `WhatsApp__TemplatePrefix` (default `eduvibe_`) plus `fee
 | `WhatsApp__VerifyToken` | Any long random text; the same text goes into Meta's webhook setup. |
 | `WhatsApp__AppSecret` | The Meta app's secret (**App settings > Basic**). Every webhook call is checked against it, and calls that fail the check are refused. |
 | `WhatsApp__Language` | Template language code, default `en`. |
-| `WhatsApp__TemplatePrefix` | Default `eduvibe_`. |
+| `WhatsApp__TemplatePrefix` | Default `gurubook_`. |
 | `WhatsApp__ApiVersion` | Graph API version, default `v21.0`. |
 | `WhatsApp__DispatchJob` | `false` stops the background sender (tests). |
 

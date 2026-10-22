@@ -18,7 +18,7 @@ public sealed record CardDto(Guid StudentId, string FullName, int? IndexNumber, 
 /// </summary>
 internal static class CardEndpoints
 {
-    /// <summary>Marks the text as an EduVibe card, so a scanner that reads some other QR code can say so instead of looking it up.</summary>
+    /// <summary>Marks the text as an GuruBook card, so a scanner that reads some other QR code can say so instead of looking it up.</summary>
     public const string Prefix = "EV1:"; // the Attendance module reads the same text; see SessionEndpoints.CardPrefix
 
     public static void Map(RouteGroupBuilder group)

@@ -75,7 +75,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false }
 app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).AllowAnonymous();
 
 app.MapGet("/api/system/info", () => new SystemInfo(
-        "EduVibe",
+        "GuruBook",
         typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.0.0",
         app.Environment.EnvironmentName,
         modules.Select(m => m.Name).ToArray()))

@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 export interface AppConfigValues {
-  /** Base address of the EduVibe API, without a trailing slash. */
+  /** Base address of the GuruBook API, without a trailing slash. */
   apiBaseUrl: string;
 }
 
