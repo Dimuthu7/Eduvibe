@@ -21,11 +21,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - run: dotnet restore EduVibe.slnx
-      - run: dotnet build EduVibe.slnx --no-restore -c Release
-      - run: dotnet test EduVibe.slnx --no-build -c Release
+      - run: dotnet restore GuruBook.slnx
+      - run: dotnet build GuruBook.slnx --no-restore -c Release
+      - run: dotnet test GuruBook.slnx --no-build -c Release
       - name: Docker image builds
-        run: docker build -f src/Api/EduVibe.Api/Dockerfile -t eduvibe-api:ci .
+        run: docker build -f src/Api/GuruBook.Api/Dockerfile -t gurubook-api:ci .
 
   web:
     name: Web (Angular)

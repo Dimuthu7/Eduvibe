@@ -28,12 +28,12 @@ describe('ThemeService', () => {
     TestBed.tick();
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    expect(localStorage.getItem('eduvibe.theme')).toBe('dark');
+    expect(localStorage.getItem('gurubook.theme')).toBe('dark');
     expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#0b1b33');
   });
 
   it('restores the remembered choice on the next visit', () => {
-    localStorage.setItem('eduvibe.theme', 'light');
+    localStorage.setItem('gurubook.theme', 'light');
 
     const theme = TestBed.inject(ThemeService);
     TestBed.tick();
@@ -43,7 +43,7 @@ describe('ThemeService', () => {
   });
 
   it('ignores a corrupt stored value', () => {
-    localStorage.setItem('eduvibe.theme', 'purple');
+    localStorage.setItem('gurubook.theme', 'purple');
 
     expect(TestBed.inject(ThemeService).preference()).toBe('system');
   });
