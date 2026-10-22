@@ -29,7 +29,7 @@ describe('ThemeService', () => {
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(localStorage.getItem('gurubook.theme')).toBe('dark');
-    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#0b1b33');
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#14161f');
   });
 
   it('restores the remembered choice on the next visit', () => {

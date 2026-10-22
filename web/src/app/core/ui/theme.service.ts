@@ -4,7 +4,7 @@ import { effect, inject, Injectable, signal } from '@angular/core';
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 const STORAGE_KEY = 'gurubook.theme';
-const THEME_COLORS = { light: '#1565c0', dark: '#0b1b33' } as const;
+const THEME_COLORS = { light: '#27388f', dark: '#14161f' } as const;
 
 /** Light or dark theme. "system" follows the device; the choice is remembered on this device. */
 @Injectable({ providedIn: 'root' })

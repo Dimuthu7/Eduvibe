@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>GuruBook</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3646a8"/>
+      <stop offset="1" stop-color="#1f2c7a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <path d="M92 168 Q176 136 248 184 L248 392 Q176 348 92 372 Z" fill="#ffffff"/>
+  <path d="M264 184 Q336 136 420 168 L420 372 Q336 348 264 392 Z" fill="#dfe3ff"/>
+  <path d="M160 272 L226 336 L364 198" fill="none" stroke="#ffb547" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
