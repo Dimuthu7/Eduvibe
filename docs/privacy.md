@@ -48,7 +48,7 @@ The audit log is a trail of who changed what. When data is erased, its rows stay
 
 ## How it works, and what can go wrong
 
-- Each module that holds personal data registers an `IPersonalDataSource` (`src/Shared/EduVibe.Shared/Privacy`). The Privacy module calls them in order and has no tables of its own. **A new module that stores personal data must register one**, usually a one-line subclass of `TenantTablesSource`.
+- Each module that holds personal data registers an `IPersonalDataSource` (`src/Shared/GuruBook.Shared/Privacy`). The Privacy module calls them in order and has no tables of its own. **A new module that stores personal data must register one**, usually a one-line subclass of `TenantTablesSource`.
 - Erasing runs module by module without one database transaction. If it stops part way (for example the database goes away), run the same request again: every step is safe to repeat. A teacher who is half erased still shows up in the export until the last step finishes.
 - Erasing cannot be undone. Download the data first, and note that backups (see [backups](backups.md)) keep older copies until they expire.
 

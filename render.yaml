@@ -5,7 +5,7 @@ services:
     name: eduvibe-api
     runtime: docker
     plan: free
-    dockerfilePath: ./src/Api/EduVibe.Api/Dockerfile
+    dockerfilePath: ./src/Api/GuruBook.Api/Dockerfile
     dockerContext: .
     branch: main
     # Deploy on every push to main. CI is already required before anything reaches main (branch protection),

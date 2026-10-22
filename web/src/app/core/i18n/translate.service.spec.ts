@@ -59,7 +59,7 @@ describe('TranslateService', () => {
     http.expectOne('i18n/si.json').flush({});
     await switching;
 
-    expect(localStorage.getItem('eduvibe.language')).toBe('si');
+    expect(localStorage.getItem('gurubook.language')).toBe('si');
     expect(document.documentElement.lang).toBe('si');
   });
 
@@ -68,11 +68,11 @@ describe('TranslateService', () => {
 
     await service.use('en', false);
 
-    expect(localStorage.getItem('eduvibe.language')).toBeNull();
+    expect(localStorage.getItem('gurubook.language')).toBeNull();
   });
 
   it('starts in the language remembered on the device, and in English when that is not one it has', async () => {
-    localStorage.setItem('eduvibe.language', 'si');
+    localStorage.setItem('gurubook.language', 'si');
     const loading = service.load();
     http.expectOne('i18n/en.json').flush({ a: 'Hello' });
     await new Promise((resolve) => setTimeout(resolve)); // the remembered language is asked for once English has arrived
@@ -80,7 +80,7 @@ describe('TranslateService', () => {
     await loading;
     expect(service.translate('a')).toBe('ආයුබෝවන්');
 
-    localStorage.setItem('eduvibe.language', 'fr');
+    localStorage.setItem('gurubook.language', 'fr');
     await service.load(); // English is already fetched
     expect(service.language()).toBe('en');
   });
