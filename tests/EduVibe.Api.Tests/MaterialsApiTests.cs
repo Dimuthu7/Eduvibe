@@ -155,7 +155,7 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task Adding_a_file_puts_it_on_its_shelf_in_the_class_folder_inside_the_EduVibe_folder_and_lists_it()
+    public async Task Adding_a_file_puts_it_on_its_shelf_in_the_class_folder_inside_the_GuruBook_folder_and_lists_it()
     {
         var teacher = await ProTeacher("Uploader");
         await Connect(teacher.Client);
@@ -172,7 +172,7 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal("Past papers", shelf.Name);
         var classFolder = factory.Drive.Folders[shelf.Parent!];
         Assert.Equal("Grade 11 Maths", classFolder.Name);
-        Assert.Equal("EduVibe", factory.Drive.Folders[classFolder.Parent!].Name);
+        Assert.Equal("GuruBook", factory.Drive.Folders[classFolder.Parent!].Name);
 
         // A second file of the same kind reuses the folders; the first file of another kind only adds its own shelf.
         var folders = factory.Drive.Folders.Count;
@@ -226,14 +226,14 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.DoesNotContain(listed.EnumerateArray(), f => f.GetProperty("name").GetString() == "Notes");
 
         var drivePaths = factory.Drive.Folders.Keys.Select(id => DrivePath(factory.Drive, id)).ToList();
-        Assert.Contains("EduVibe/Grade 10/Notes/Term 1/Week 1", drivePaths);
-        Assert.Contains("EduVibe/Grade 10/Past papers/2023", drivePaths);
+        Assert.Contains("GuruBook/Grade 10/Notes/Term 1/Week 1", drivePaths);
+        Assert.Contains("GuruBook/Grade 10/Past papers/2023", drivePaths);
 
         var form = Upload(classId, "week1.pdf", title: "Week 1 notes", kind: "Notes");
         form.Add(new StringContent(week.GetProperty("id").GetString()!), "folderId");
         var added = await Json(await teacher.Client.PostAsync("/api/materials", form));
         Assert.Equal(week.GetProperty("id").GetGuid(), added.GetProperty("folderId").GetGuid());
-        Assert.Equal("EduVibe/Grade 10/Notes/Term 1/Week 1", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "week1.pdf").Folder));
+        Assert.Equal("GuruBook/Grade 10/Notes/Term 1/Week 1", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "week1.pdf").Folder));
     }
 
     [Fact]
@@ -285,7 +285,7 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var renamed = await teacher.Client.PutAsJsonAsync($"/api/materials/folders/{termId}", new { name = "First term" });
         Assert.Equal("First term", (await Json(renamed)).GetProperty("name").GetString());
-        Assert.Contains("EduVibe/Grade 9/Notes/First term/Renamer week", factory.Drive.Folders.Keys.Select(id => DrivePath(factory.Drive, id)));
+        Assert.Contains("GuruBook/Grade 9/Notes/First term/Renamer week", factory.Drive.Folders.Keys.Select(id => DrivePath(factory.Drive, id)));
         await NewFolder(teacher.Client, classId, "Term 2");
         Assert.Equal("folder_name_taken", await Code(await teacher.Client.PutAsJsonAsync($"/api/materials/folders/{termId}", new { name = "term 2" })));
         Assert.Equal("folder_invalid", await Code(await teacher.Client.PutAsJsonAsync($"/api/materials/folders/{termId}", new { name = "" })));
@@ -309,21 +309,21 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var term = (await NewFolder(teacher.Client, classId, "Term 1")).GetProperty("id").GetGuid();
         var id = (await AddMaterial(teacher.Client, classId, "m.pdf", "Moving", "Notes")).GetProperty("id").GetGuid();
         string Where() => DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "m.pdf").Folder);
-        Assert.Equal("EduVibe/Grade 8/Notes", Where());
+        Assert.Equal("GuruBook/Grade 8/Notes", Where());
 
         var moved = await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "Notes", folderId = term });
         Assert.Equal(term, (await Json(moved)).GetProperty("folderId").GetGuid());
-        Assert.Equal("EduVibe/Grade 8/Notes/Term 1", Where());
+        Assert.Equal("GuruBook/Grade 8/Notes/Term 1", Where());
 
         // Changing the shelf takes the file out of a folder that belongs to the old one.
         var other = await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "PastPaper" });
         Assert.Equal(JsonValueKind.Null, (await Json(other)).GetProperty("folderId").ValueKind);
-        Assert.Equal("EduVibe/Grade 8/Past papers", Where());
+        Assert.Equal("GuruBook/Grade 8/Past papers", Where());
         Assert.Equal("material_folder_invalid", await Code(await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "PastPaper", folderId = term })));
 
         // Back to the folder, and the file still opens.
         await teacher.Client.PutAsJsonAsync($"/api/materials/{id}", new { title = "Moving", kind = "Notes", folderId = term });
-        Assert.Equal("EduVibe/Grade 8/Notes/Term 1", Where());
+        Assert.Equal("GuruBook/Grade 8/Notes/Term 1", Where());
         Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync($"/api/materials/{id}/file")).StatusCode);
     }
 
@@ -346,13 +346,13 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var moved = await MoveFolder(teacher.Client, term, parentId: archive.GetProperty("id").GetGuid());
         Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
         Assert.Equal(archive.GetProperty("id").GetGuid(), (await Json(moved)).GetProperty("parentId").GetGuid());
-        Assert.Equal("EduVibe/Grade 6/Notes/Mv archive/Mv term/Mv week", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "mv.pdf").Folder));
+        Assert.Equal("GuruBook/Grade 6/Notes/Mv archive/Mv term/Mv week", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "mv.pdf").Folder));
         Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync($"/api/materials/{file}/file")).StatusCode);
 
         // Back onto the shelf.
         var back = await MoveFolder(teacher.Client, term, kind: "Notes");
         Assert.Equal(JsonValueKind.Null, (await Json(back)).GetProperty("parentId").ValueKind);
-        Assert.Equal("EduVibe/Grade 6/Notes/Mv term/Mv week", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "mv.pdf").Folder));
+        Assert.Equal("GuruBook/Grade 6/Notes/Mv term/Mv week", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "mv.pdf").Folder));
         var listed = await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"));
         Assert.Equal(JsonValueKind.Null, listed.EnumerateArray().Single(f => f.GetProperty("name").GetString() == "Mv term").GetProperty("parentId").ValueKind);
     }
@@ -372,7 +372,7 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var moved = await MoveFolder(teacher.Client, papers, kind: "PastPaper");
         Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
         Assert.Equal("PastPaper", (await Json(moved)).GetProperty("kind").GetString());
-        Assert.Equal("EduVibe/Grade 5/Past papers/Mv papers/Mv sub", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "cross.pdf").Folder));
+        Assert.Equal("GuruBook/Grade 5/Past papers/Mv papers/Mv sub", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "cross.pdf").Folder));
         Assert.Equal("PastPaper", (await Json(await teacher.Client.GetAsync($"/api/materials?classId={classId}"))).EnumerateArray().Single().GetProperty("kind").GetString());
         var folders = await Json(await teacher.Client.GetAsync($"/api/materials/folders?classId={classId}"));
         Assert.All(folders.EnumerateArray(), f => Assert.Equal("PastPaper", f.GetProperty("kind").GetString()));
@@ -438,7 +438,7 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var form = Upload(classId, "back.pdf", kind: "Notes");
         form.Add(new StringContent(term.ToString()), "folderId");
         Assert.Equal(HttpStatusCode.Created, (await teacher.Client.PostAsync("/api/materials", form)).StatusCode);
-        Assert.Equal("EduVibe/Grade 7/Notes/Gone term", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "back.pdf").Folder));
+        Assert.Equal("GuruBook/Grade 7/Notes/Gone term", DrivePath(factory.Drive, factory.Drive.Files.Values.Single(f => f.Name == "back.pdf").Folder));
 
         factory.Drive.FailWithCode = "drive_api_disabled";
         var refused = await teacher.Client.PostAsJsonAsync("/api/materials/folders", new { classId, kind = "Notes", name = "Term 2" });

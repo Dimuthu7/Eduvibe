@@ -142,7 +142,7 @@ internal static class FolderEndpoints
         folder.Name = name;
         await db.SaveChangesAsync(ct);
 
-        // The name in EduVibe is what counts; Drive follows when it can.
+        // The name in GuruBook is what counts; Drive follows when it can.
         var (link, problem) = await DriveFolders.LinkAsync(db, tokens, ct);
         if (problem is null)
         {
@@ -225,8 +225,8 @@ internal static class FolderEndpoints
                     }
                     catch (FolderMissingException) when (verify)
                     {
-                        // The folder itself is gone from Drive; EduVibe's list still moves, and the next upload makes it again.
-                        logger.LogWarning("Folder {FolderId} is missing in Drive, so only its place in EduVibe changed", id);
+                        // The folder itself is gone from Drive; GuruBook's list still moves, and the next upload makes it again.
+                        logger.LogWarning("Folder {FolderId} is missing in Drive, so only its place in GuruBook changed", id);
                     }
                 }
 

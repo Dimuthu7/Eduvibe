@@ -7,12 +7,12 @@ using Microsoft.EntityFrameworkCore;
 namespace EduVibe.Modules.Materials.Endpoints;
 
 /// <summary>
-/// Where things live in a teacher's Drive: EduVibe / class / Notes, Past papers or Other / the teacher's own folders. Each level is a row
+/// Where things live in a teacher's Drive: GuruBook / class / Notes, Past papers or Other / the teacher's own folders. Each level is a row
 /// here that remembers its Drive folder id, so a folder is made once, on the first need, and made again if the teacher deleted it in Drive.
 /// </summary>
 internal static class DriveFolders
 {
-    private const string RootName = "EduVibe";
+    private const string RootName = "GuruBook";
 
     public static string ShelfName(MaterialKind kind) => kind switch
     {

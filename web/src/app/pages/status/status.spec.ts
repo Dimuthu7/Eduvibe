@@ -25,7 +25,7 @@ describe('Status page', () => {
     fixture.detectChanges();
 
     http.expectOne('http://api.test/api/system/info').flush({
-      name: 'EduVibe',
+      name: 'GuruBook',
       version: '1.2.3',
       environment: 'Test',
       modules: ['identity', 'fees'],

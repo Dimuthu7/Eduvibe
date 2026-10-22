@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EduVibe.Modules.Materials;
 
 /// <summary>
-/// Class notes and past papers. The files live in the teacher's own Google Drive (drive.file scope: only what EduVibe created);
+/// Class notes and past papers. The files live in the teacher's own Google Drive (drive.file scope: only what GuruBook created);
 /// this module stores where each one is and how to list it, and hands the bytes to students through the API so Drive is never shared.
 /// It is the first module that calls an outside service.
 /// </summary>

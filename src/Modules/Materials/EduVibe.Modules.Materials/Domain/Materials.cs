@@ -5,7 +5,7 @@ using EduVibe.Shared.Tenancy;
 namespace EduVibe.Modules.Materials.Domain;
 
 /// <summary>
-/// A teacher's link to their own Google Drive. EduVibe keeps only a refresh token (encrypted) so it can add and read files the app
+/// A teacher's link to their own Google Drive. GuruBook keeps only a refresh token (encrypted) so it can add and read files the app
 /// itself created there (the drive.file scope); the files stay in the teacher's Drive. One per teacher.
 /// </summary>
 public sealed class DriveConnection : Entity, ITenantOwned
@@ -19,14 +19,14 @@ public sealed class DriveConnection : Entity, ITenantOwned
     [NotAudited]
     public required string RefreshToken { get; set; }
 
-    /// <summary>The "EduVibe" folder in the teacher's Drive that holds a subfolder per class.</summary>
+    /// <summary>The "GuruBook" folder in the teacher's Drive that holds a subfolder per class.</summary>
     public string? RootFolderId { get; set; }
 
-    /// <summary>Set when Google refused the token (the teacher removed EduVibe's access); the teacher must connect again.</summary>
+    /// <summary>Set when Google refused the token (the teacher removed GuruBook's access); the teacher must connect again.</summary>
     public bool NeedsReconnect { get; set; }
 }
 
-/// <summary>The Drive folder of one class, inside the teacher's EduVibe folder. ClassId belongs to the Classes module and is kept as a plain id.</summary>
+/// <summary>The Drive folder of one class, inside the teacher's GuruBook folder. ClassId belongs to the Classes module and is kept as a plain id.</summary>
 public sealed class ClassFolder : Entity, ITenantOwned
 {
     public Guid TenantId { get; set; }
@@ -57,7 +57,7 @@ public sealed class MaterialFolder : Entity, ITenantOwned
     public required string DriveFolderId { get; set; }
 }
 
-/// <summary>What EduVibe knows about a file in the teacher's Drive: where it is and how to list it. The bytes stay in Drive.</summary>
+/// <summary>What GuruBook knows about a file in the teacher's Drive: where it is and how to list it. The bytes stay in Drive.</summary>
 public sealed class Material : Entity, ITenantOwned
 {
     public Guid TenantId { get; set; }

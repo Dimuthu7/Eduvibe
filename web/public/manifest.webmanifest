@@ -1,6 +1,6 @@
 {
-  "name": "EduVibe",
-  "short_name": "EduVibe",
+  "name": "GuruBook",
+  "short_name": "GuruBook",
   "description": "Run your tuition classes in one place: students, fees, attendance and exam marks.",
   "start_url": "/",
   "scope": "/",

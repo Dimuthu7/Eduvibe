@@ -13,7 +13,7 @@ public sealed class FakeDriveClient : IDriveClient
     /// <summary>The account the next sign-in comes back as.</summary>
     public string Email { get; set; } = "teacher@example.com";
 
-    /// <summary>When set, calls fail as if the teacher had removed EduVibe's access in their Google account.</summary>
+    /// <summary>When set, calls fail as if the teacher had removed GuruBook's access in their Google account.</summary>
     public bool RevokedByTeacher { get; set; }
 
     public bool Unreachable { get; set; }

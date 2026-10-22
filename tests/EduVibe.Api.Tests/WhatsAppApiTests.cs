@@ -140,7 +140,7 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(2, factory.WhatsApp.Sent.Count);
         var kamal = factory.WhatsApp.Sent.Single(s => s.Params[0] == "Kamal");
         Assert.Equal("94711234567", kamal.To);
-        Assert.Equal("eduvibe_fee_reminder", kamal.Template);
+        Assert.Equal("gurubook_fee_reminder", kamal.Template);
         Assert.Equal("en", kamal.Language);
         Assert.Equal("2027 A/L Maths", kamal.Params[1]);
         Assert.Matches(@"^[A-Z][a-z]+ \d{4}$", kamal.Params[2]);
@@ -329,7 +329,7 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await Dispatch();
         var sent = Assert.Single(factory.WhatsApp.Sent);
         Assert.Equal("94772223333", sent.To);
-        Assert.Equal("eduvibe_absence_alert", sent.Template);
+        Assert.Equal("gurubook_absence_alert", sent.Template);
         Assert.Equal(["Absentee", "Daily maths", Today.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture), "Wanda Teacher"], sent.Params);
 
         var again = await Json(await teacher.Client.PostAsync(url, null));
@@ -373,7 +373,7 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(2, (await Json(await teacher.Client.PostAsync(url, null))).GetProperty("queued").GetInt32());
         await Dispatch();
         var top = factory.WhatsApp.Sent.Single(s => s.Params[0] == "Topper");
-        Assert.Equal("eduvibe_results", top.Template);
+        Assert.Equal("gurubook_results", top.Template);
         Assert.Equal(["Topper", "Term test", "Science class", "90 / 100", "A", "1 of 2", "Wanda Teacher"], top.Params);
         var low = factory.WhatsApp.Sent.Single(s => s.Params[0] == "Second");
         Assert.Equal("50.5 / 100", low.Params[3]);

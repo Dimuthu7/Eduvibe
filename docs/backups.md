@@ -20,7 +20,7 @@ Run the workflow once by hand after adding them and check it finishes green and 
 1. Download the artifact from the workflow run and unzip it.
 2. Decrypt: `gpg --output eduvibe.dump --decrypt eduvibe-YYYY-MM-DD.dump.gpg` (it asks for the passphrase).
 3. Make an empty database (a new Neon branch or a local one) and load it: `pg_restore --no-owner --dbname "<connection string>" eduvibe.dump`.
-4. Point the API at it (`ConnectionStrings__EduVibe`) and check `/health/ready`.
+4. Point the API at it (`ConnectionStrings__GuruBook`) and check `/health/ready`.
 
 Try a restore into a scratch database once before the first real teacher depends on the data.
 

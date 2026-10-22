@@ -1,6 +1,6 @@
 namespace EduVibe.Shared.Security;
 
-/// <summary>The roles EduVibe knows. All five exist from day one; only some have screens yet.</summary>
+/// <summary>The roles GuruBook knows. All five exist from day one; only some have screens yet.</summary>
 public static class Roles
 {
     public const string SuperAdmin = "SuperAdmin";

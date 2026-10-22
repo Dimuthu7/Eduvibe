@@ -1,7 +1,7 @@
 namespace EduVibe.Modules.Materials.Drive;
 
 /// <summary>
-/// The Google OAuth client EduVibe uses, from the "Google" configuration section. Without a client id and secret the feature reports
+/// The Google OAuth client GuruBook uses, from the "Google" configuration section. Without a client id and secret the feature reports
 /// itself as not set up and nothing calls Google. See docs/drive-setup.md for how to create the client.
 /// </summary>
 public sealed class DriveOptions

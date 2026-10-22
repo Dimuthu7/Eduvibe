@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EduVibe.Shared.Modules;
 
 /// <summary>
-/// A feature area of EduVibe (Identity, Fees, Exams, ...). The API host discovers modules
+/// A feature area of GuruBook (Identity, Fees, Exams, ...). The API host discovers modules
 /// through this interface, so adding a feature means adding a module, not editing the host.
 /// </summary>
 public interface IModule

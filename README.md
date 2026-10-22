@@ -1,4 +1,4 @@
-# EduVibe
+# GuruBook
 
 A minimal, phone-first app that helps private tuition teachers in Sri Lanka run their classes: students and enrolment, monthly fees, attendance, and exam marks with grades and ranks.
 
@@ -54,7 +54,7 @@ See [docs](docs/README.md) for the plan and [CLAUDE.md](CLAUDE.md) for the conve
 
 | Setting | Where | Notes |
 | --- | --- | --- |
-| `ConnectionStrings__EduVibe` | API environment | PostgreSQL connection string |
+| `ConnectionStrings__GuruBook` | API environment | PostgreSQL connection string |
 | `Database__MigrateOnStartup` | API environment | `true` applies migrations on start; on in Development |
 | `Jwt__SigningKey` | API environment | Secret of at least 32 characters; the API will not start without it. Development has a throwaway key in `appsettings.Development.json` |
 | `SuperAdmin__Phone`, `SuperAdmin__Password` | API environment | Creates the first Super Admin when none exists; the password must be changed at first sign-in |
