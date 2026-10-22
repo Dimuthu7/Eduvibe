@@ -10,7 +10,7 @@ You need the .NET 10 SDK, Node.js 22.12 or newer, and Docker.
 
 ```bash
 docker compose up -d                      # PostgreSQL on localhost:5432
-dotnet run --project src/Api/EduVibe.Api  # API on http://localhost:5077 (migrates the database on start)
+dotnet run --project src/Api/GuruBook.Api  # API on http://localhost:5077 (migrates the database on start)
 
 cd web
 npm ci
@@ -33,7 +33,7 @@ In Development the first Super Admin is created for you: sign in with your phone
 ## Test
 
 ```bash
-dotnet test EduVibe.slnx
+dotnet test GuruBook.slnx
 cd web && npm test -- --watch=false
 ```
 

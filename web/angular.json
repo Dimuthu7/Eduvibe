@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "eduvibe-web": {
+    "gurubook-web": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -66,10 +66,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "eduvibe-web:build:production"
+              "buildTarget": "gurubook-web:build:production"
             },
             "development": {
-              "buildTarget": "eduvibe-web:build:development"
+              "buildTarget": "gurubook-web:build:development"
             }
           },
           "defaultConfiguration": "development"

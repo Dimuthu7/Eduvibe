@@ -7,7 +7,7 @@ import { asLanguage, Language } from '../i18n/language';
 import { TranslateService } from '../i18n/translate.service';
 import { ProfileInput, Role, Session, User } from './auth.models';
 
-const STORAGE_KEY = 'eduvibe.session';
+const STORAGE_KEY = 'gurubook.session';
 
 /** True while the person must still replace a one-time password or choose a username. */
 export const needsSetup = (user: User): boolean => user.mustChangePassword || user.mustChooseUsername;

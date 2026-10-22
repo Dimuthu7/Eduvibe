@@ -6,7 +6,7 @@ import { asLanguage, currentLanguage, Language } from './language';
 
 export type { Language } from './language';
 
-const STORAGE_KEY = 'eduvibe.language';
+const STORAGE_KEY = 'gurubook.language';
 
 /**
  * Looks up UI text by key from public/i18n/{language}.json. Every string in the app goes through

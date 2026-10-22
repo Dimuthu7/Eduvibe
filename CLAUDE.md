@@ -2,13 +2,13 @@
 
 App for private tuition teachers in Sri Lanka: classes, students, fees, attendance and exam marks. Minimal, fast on phones, easy to extend.
 
-The product was renamed from EduVibe to GuruBook. Code identifiers keep the old name on purpose (`EduVibe.*` namespaces and projects, `EduVibe.slnx`, the `eduvibe` database and user, `ConnectionStrings__EduVibe`, the `eduvibe` JWT issuer, `eduvibe.*` localStorage keys, `eduvibe-web`, deployed URLs). Anything a person reads says GuruBook.
+The product was renamed from EduVibe to GuruBook. The code, projects and namespaces now use GuruBook too. A few internal names keep the old spelling so running systems do not break: the `eduvibe` database and user, the `eduvibe` JWT issuer, the Render service `eduvibe-api` and its `ConnectionStrings__EduVibe` setting (still read as a fallback), and the repository name.
 
 ## Layout
 
-- `src/Api/EduVibe.Api` — the ASP.NET Core host. Only wires modules together; `ModuleCatalog.cs` lists them.
-- `src/Modules/<Name>/EduVibe.Modules.<Name>` — one project per feature area (Identity, Catalog, Classes, Students, Fees, Attendance, Reports, Exams, Notifications, Dashboard, Plans). Each owns its PostgreSQL schema, entities, endpoints and migrations.
-- `src/Shared/EduVibe.Shared` — tenancy, auditing, base entity, module interface and persistence wiring.
+- `src/Api/GuruBook.Api` — the ASP.NET Core host. Only wires modules together; `ModuleCatalog.cs` lists them.
+- `src/Modules/<Name>/GuruBook.Modules.<Name>` — one project per feature area (Identity, Catalog, Classes, Students, Fees, Attendance, Reports, Exams, Notifications, Dashboard, Plans). Each owns its PostgreSQL schema, entities, endpoints and migrations.
+- `src/Shared/GuruBook.Shared` — tenancy, auditing, base entity, module interface and persistence wiring.
 - `web/` — Angular PWA (standalone components, signals, Angular Material).
 - `tests/` — xUnit tests. `web/**/*.spec.ts` — Vitest unit tests.
 
@@ -24,9 +24,9 @@ The product was renamed from EduVibe to GuruBook. Code identifiers keep the old 
 
 ## Commands
 
-- API: `dotnet build EduVibe.slnx` · `dotnet test EduVibe.slnx` · `dotnet run --project src/Api/EduVibe.Api`
+- API: `dotnet build GuruBook.slnx` · `dotnet test GuruBook.slnx` · `dotnet run --project src/Api/GuruBook.Api`
 - Database: `docker compose up -d`; migrations apply on start in Development.
-- New migration for a module: `dotnet dotnet-ef migrations add <Name> -p <module project> -s src/Api/EduVibe.Api -c <Module>DbContext -o Migrations`
+- New migration for a module: `dotnet dotnet-ef migrations add <Name> -p <module project> -s src/Api/GuruBook.Api -c <Module>DbContext -o Migrations`
 - Web: `cd web && npm ci && npm start` · `npm test -- --watch=false` · `npm run build`
 
 ## Docs

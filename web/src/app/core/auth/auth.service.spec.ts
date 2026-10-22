@@ -65,7 +65,7 @@ describe('AuthService', () => {
 
     expect(auth.user()?.fullName).toBe('Nimal Perera');
     expect(auth.accessToken).toBe('access-1');
-    expect(localStorage.getItem('eduvibe.session')).toContain('refresh-1');
+    expect(localStorage.getItem('gurubook.session')).toContain('refresh-1');
   });
 
   it('sends a one-time password user to change it first', () => {
@@ -167,7 +167,7 @@ describe('AuthService', () => {
 
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/login'));
     expect(auth.user()).toBeNull();
-    expect(localStorage.getItem('eduvibe.session')).toBeNull();
+    expect(localStorage.getItem('gurubook.session')).toBeNull();
   });
 
   it('clears the session on sign-out', async () => {
