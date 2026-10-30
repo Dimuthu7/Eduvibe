@@ -64,4 +64,4 @@ See [docs](docs/README.md) for the plan and [CLAUDE.md](CLAUDE.md) for the conve
 
 ## Free test deployment
 
-A live copy for testers (Azure Static Web Apps, Render, Neon, all free) is described in [docs/deploy-free.md](docs/deploy-free.md).
+A live copy for testers (Cloudflare, Render, Neon, all free) is described in [docs/deploy-free.md](docs/deploy-free.md).

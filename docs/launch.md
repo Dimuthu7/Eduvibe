@@ -5,7 +5,7 @@ Tick items off as they are done. Items marked *deferred* wait for the end of the
 ## Before real teachers use it
 
 - [ ] API on Render deploys on every push to `main`: confirm in Render > Deploys after each merge.
-- [ ] Web on Azure Static Web Apps updates after CI passes (see `deploy-web.yml`).
+- [ ] Web on Cloudflare updates after CI passes (see `deploy-web.yml`), and the old Azure Static Web App is removed.
 - [ ] Database migrations ran: the API log says migrations applied, and the Super Admin dashboard loads.
 - [ ] A Super Admin account exists and its one-time password was replaced. No developer test accounts exist in the live database.
 - [ ] Plans: Free and Pro exist. Check their features and limits on the Plans page, and assign Pro to any teacher who should have it.
