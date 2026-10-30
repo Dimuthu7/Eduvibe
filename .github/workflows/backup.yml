@@ -29,12 +29,12 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # A recent pg_dump from a container, because it must be at least as new as the server.
+      # pg_dump from a container, because it must be at least as new as the server (Neon runs Postgres 18).
       - name: Dump and encrypt
         if: steps.gate.outputs.run == 'true'
         run: |
           set -euo pipefail
-          docker run --rm -e PGURL="$NEON_DATABASE_URL" postgres:17-alpine sh -c 'pg_dump --format=custom --no-owner "$PGURL"' > eduvibe.dump
+          docker run --rm -e PGURL="$NEON_DATABASE_URL" postgres:18-alpine sh -c 'pg_dump --format=custom --no-owner "$PGURL"' > eduvibe.dump
           gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
             --symmetric --cipher-algo AES256 --output "eduvibe-$(date -u +%F).dump.gpg" eduvibe.dump
           rm eduvibe.dump
