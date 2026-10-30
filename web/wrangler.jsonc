@@ -1,0 +1,12 @@
+// Cloudflare deploy of the web app as a Worker with static assets only (no Worker code).
+// The deploy workflow uploads the production build; see docs/deploy-free.md.
+{
+  "$schema": "https://unpkg.com/wrangler@4.151.0/config-schema.json",
+  "name": "gurubook-web",
+  "compatibility_date": "2026-10-13",
+  "assets": {
+    "directory": "./dist/gurubook-web/browser",
+    // Deep links such as /classes/12 get index.html; missing files (i18n, icons) still answer 404.
+    "not_found_handling": "single-page-application"
+  }
+}

@@ -1,8 +1,10 @@
 name: Deploy web (free test)
 
-# Publishes the Angular app to Azure Static Web Apps (free plan) after CI has passed on main.
-# Needs the repository secret AZURE_STATIC_WEB_APPS_API_TOKEN and the repository variable API_BASE_URL
-# (see docs/deploy-free.md). Until both exist the job is skipped, so CI is never blocked.
+# Publishes the Angular app after CI has passed on main, to every host that is set up:
+# - Cloudflare Workers (static assets): secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, config in web/wrangler.jsonc.
+# - Azure Static Web Apps (free plan): secret AZURE_STATIC_WEB_APPS_API_TOKEN. Kept until the Cloudflare site is verified.
+# Both need the repository variable API_BASE_URL (see docs/deploy-free.md). A host whose settings are missing is skipped,
+# so CI is never blocked.
 on:
   workflow_run:
     workflows: [CI]
@@ -18,19 +20,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    name: Static Web Apps
+  build:
+    name: Build
     runs-on: ubuntu-latest
     # Only after CI went green on main (or when started by hand).
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     env:
       API_BASE_URL: ${{ vars.API_BASE_URL }}
-      SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+    outputs:
+      go: ${{ steps.ready.outputs.go }}
     steps:
       - name: Check settings
         id: ready
         run: |
-          if [ -n "$API_BASE_URL" ] && [ -n "$SWA_TOKEN" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "Deployment not set up yet; skipping."; fi
+          if [ -n "$API_BASE_URL" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "API_BASE_URL not set yet; skipping."; fi
       - uses: actions/checkout@v4
         if: steps.ready.outputs.go == 'true'
         with:
@@ -50,6 +53,63 @@ jobs:
           npm run build
           # One build runs anywhere: the API address is written next to it, not compiled in.
           jq -n --arg url "${API_BASE_URL%/}" '{apiBaseUrl: $url}' > dist/gurubook-web/browser/config.json
+      - uses: actions/upload-artifact@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          name: web
+          path: web/dist/gurubook-web/browser
+          retention-days: 1
+
+  cloudflare:
+    name: Cloudflare
+    needs: build
+    if: needs.build.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check settings
+        id: ready
+        run: |
+          if [ -n "$CF_TOKEN" ] && [ -n "$CF_ACCOUNT" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "Cloudflare not set up yet; skipping."; fi
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          sparse-checkout: web/wrangler.jsonc
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          name: web
+          path: web/dist/gurubook-web/browser
+      - uses: cloudflare/wrangler-action@v3
+        if: steps.ready.outputs.go == 'true'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.151.0"
+          workingDirectory: web
+          command: deploy
+
+  azure:
+    name: Static Web Apps
+    needs: build
+    if: needs.build.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+    steps:
+      - name: Check settings
+        id: ready
+        run: |
+          if [ -n "$SWA_TOKEN" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "Azure not set up; skipping."; fi
+      - uses: actions/download-artifact@v4
+        if: steps.ready.outputs.go == 'true'
+        with:
+          name: web
+          path: web-dist
       - uses: Azure/static-web-apps-deploy@v1
         if: steps.ready.outputs.go == 'true'
         with:
@@ -57,5 +117,5 @@ jobs:
           action: upload
           skip_app_build: true
           skip_api_build: true
-          app_location: web/dist/gurubook-web/browser
+          app_location: web-dist
           output_location: ""
