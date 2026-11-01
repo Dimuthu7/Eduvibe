@@ -39,6 +39,7 @@ public sealed class WhatsAppModule : IModule
                 : sp.GetRequiredService<NoWhatsAppClient>();
         });
         services.AddSingleton<WhatsAppSignal>();
+        services.AddSingleton<WhatsAppDispatchRunner>();
         services.AddScoped<IWhatsAppSender, WhatsAppSender>();
         services.AddScoped<WhatsAppDispatcher>();
         services.AddScoped<WhatsAppWebhook>();

@@ -45,6 +45,7 @@ public sealed class WhatsAppDispatcher(
                     message.ProviderMessageId = accepted.ProviderMessageId;
                     message.SentAt = clock.GetUtcNow();
                     message.NextAttemptAt = null;
+                    log.LogInformation("WhatsApp message {Id} sent", message.Id);
                     break;
                 case SendOutcome.Retry retry when message.Attempts < MaxAttempts:
                     message.NextAttemptAt = clock.GetUtcNow().AddMinutes(Math.Pow(2, message.Attempts));
@@ -52,9 +53,11 @@ public sealed class WhatsAppDispatcher(
                     break;
                 case SendOutcome.Retry:
                     Fail(message, "unreachable");
+                    log.LogWarning("WhatsApp message {Id} failed: unreachable", message.Id);
                     break;
                 case SendOutcome.Rejected rejected:
                     Fail(message, rejected.Code);
+                    log.LogWarning("WhatsApp message {Id} failed: {Code}", message.Id, rejected.Code);
                     break;
             }
 

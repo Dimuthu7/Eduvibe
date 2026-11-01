@@ -100,6 +100,8 @@ public static class Errors
     {
         131026 => "not_on_whatsapp",
         131049 => "not_delivered",
+        // Meta's free test number only sends to the (up to five) numbers added under "To" in WhatsApp Manager.
+        131030 => "not_allowed_recipient",
         132000 or 132001 or 132005 or 132007 or 132012 or 132015 or 132016 => "template_problem",
         190 or 10 or >= 200 and <= 299 => "auth_problem",
         _ => "failed",

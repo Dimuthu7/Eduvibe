@@ -1,46 +1,52 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace GuruBook.Modules.WhatsApp.Services;
 
 /// <summary>
-/// Runs the dispatcher when teachers queue messages and every half minute otherwise (to pick up retries). Turn off with WhatsApp:DispatchJob=false.
+/// Sends queued messages as soon as a teacher queues them and every half minute otherwise (to pick up retries and anything left from before a
+/// restart). Only the app stopping ends the loop; any other error is logged and the next round tries again. Turn off with WhatsApp:DispatchJob=false.
 /// </summary>
-internal sealed class WhatsAppDispatchJob(IServiceScopeFactory scopes, WhatsAppSignal signal, IConfiguration configuration, ILogger<WhatsAppDispatchJob> log)
+internal sealed class WhatsAppDispatchJob(
+    WhatsAppDispatchRunner runner, WhatsAppSignal signal, IOptions<WhatsAppOptions> options, ILogger<WhatsAppDispatchJob> log)
     : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!configuration.GetValue("WhatsApp:DispatchJob", true))
+        if (!runner.Enabled)
         {
+            log.LogInformation("WhatsApp sender is turned off (WhatsApp:DispatchJob=false)");
             return;
         }
 
-        try
+        log.LogInformation("WhatsApp sender started in {Mode} mode", options.Value.Mode);
+        while (!stoppingToken.IsCancellationRequested)
         {
-            while (!stoppingToken.IsCancellationRequested)
+            try
             {
+                // Messages left queued from before a restart go out on the first round, without waiting.
+                await runner.RunAsync(stoppingToken);
                 await signal.WaitAsync(Interval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception e)
+            {
+                log.LogError(e, "WhatsApp sender round failed; trying again shortly");
                 try
                 {
-                    await using var scope = scopes.CreateAsyncScope();
-                    while (await scope.ServiceProvider.GetRequiredService<WhatsAppDispatcher>().RunOnceAsync(stoppingToken) > 0)
-                    {
-                    }
+                    await Task.Delay(Interval, stoppingToken);
                 }
-                catch (Exception e) when (e is not OperationCanceledException)
+                catch (OperationCanceledException)
                 {
-                    log.LogError(e, "Sending WhatsApp messages failed; the next run will try again");
+                    return;
                 }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // The app is stopping.
         }
     }
 }

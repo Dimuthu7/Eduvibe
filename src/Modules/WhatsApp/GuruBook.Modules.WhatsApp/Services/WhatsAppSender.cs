@@ -14,7 +14,7 @@ namespace GuruBook.Modules.WhatsApp.Services;
 /// </summary>
 internal sealed class WhatsAppSender(
     WhatsAppDbContext db, IStudentContacts contacts, IPlanGate plans, IWhatsAppClient client,
-    WhatsAppSignal signal, TimeProvider clock) : IWhatsAppSender
+    WhatsAppSignal signal, WhatsAppDispatchRunner runner, TimeProvider clock) : IWhatsAppSender
 {
     public async Task<WhatsAppPreview> PreviewAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken ct)
     {
@@ -51,7 +51,9 @@ internal sealed class WhatsAppSender(
         if (plan.Ready.Count > 0)
         {
             await db.SaveChangesAsync(ct);
+            // Wakes the background loop, and also starts a run straight away in case that loop is not running.
             signal.Wake();
+            runner.Kick();
         }
 
         return new WhatsAppSendResult(true, plan.Ready.Count, plan.NoNumber.Count, plan.OptedOut, plan.AlreadySent, plan.Over);
