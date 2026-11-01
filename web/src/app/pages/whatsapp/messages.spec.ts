@@ -5,7 +5,7 @@ import { provideRouter } from '@angular/router';
 import { WhatsAppList, WhatsAppMessage } from '../../core/api/whatsapp.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
-import { WhatsAppMessages } from './messages';
+import { REFRESH_MS, REFRESH_TIMES, WhatsAppMessages } from './messages';
 
 const API = 'http://api.test';
 
@@ -59,6 +59,41 @@ describe('WhatsAppMessages', () => {
     expect(rows[2].textContent).toContain('whatsapp.error_not_on_whatsapp');
     expect(el.textContent).toContain('"used":3,"limit":500');
     expect(el.querySelector('mat-progress-bar')).not.toBeNull();
+  });
+
+  it('explains a waiting message and checks again until it is sent', () => {
+    vi.useFakeTimers();
+    try {
+      const { fixture, el } = setup(list([message('1', { status: 'Queued' })]));
+      expect(el.querySelector('.panel-row')!.textContent).toContain('whatsapp.status_queued');
+      expect(el.querySelector('.row-meta.queued')!.textContent).toContain('whatsapp.queued_hint');
+
+      vi.advanceTimersByTime(REFRESH_MS);
+      http.expectOne(`${API}/api/whatsapp/messages`).flush(list([message('1', { status: 'Sent' })]));
+      fixture.detectChanges();
+      expect(el.querySelector('.panel-row')!.textContent).toContain('whatsapp.status_sent');
+      expect(el.querySelector('.row-meta.queued')).toBeNull();
+
+      vi.advanceTimersByTime(REFRESH_MS * 2);
+      http.expectNone(`${API}/api/whatsapp/messages`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops checking again after a few tries', () => {
+    vi.useFakeTimers();
+    try {
+      setup(list([message('1', { status: 'Queued' })]));
+      for (let i = 0; i < REFRESH_TIMES; i++) {
+        vi.advanceTimersByTime(REFRESH_MS);
+        http.expectOne(`${API}/api/whatsapp/messages`).flush(list([message('1', { status: 'Queued' })]));
+      }
+      vi.advanceTimersByTime(REFRESH_MS * 3);
+      http.expectNone(`${API}/api/whatsapp/messages`);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('says there is nothing yet', () => {

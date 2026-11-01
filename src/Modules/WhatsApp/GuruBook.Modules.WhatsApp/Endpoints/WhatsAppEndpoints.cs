@@ -1,5 +1,6 @@
 using GuruBook.Modules.WhatsApp.Client;
 using GuruBook.Modules.WhatsApp.Domain;
+using GuruBook.Modules.WhatsApp.Services;
 using GuruBook.Shared.Plans;
 using GuruBook.Shared.Security;
 using Microsoft.AspNetCore.Builder;
@@ -47,7 +48,10 @@ internal static class WhatsAppEndpoints
     }
 
     // Newest first. The id is time-ordered, so it sorts like the date and works on every database.
-    private static async Task<IResult> Messages(string? kind, WhatsAppDbContext db, IPlanGate plans, IWhatsAppClient client, IOptions<WhatsAppOptions> options, TimeProvider clock, CancellationToken ct)
+    // Opening the list also nudges the sender when something is still waiting, so a message never sits queued just because the server was asleep.
+    private static async Task<IResult> Messages(
+        string? kind, WhatsAppDbContext db, IPlanGate plans, IWhatsAppClient client, IOptions<WhatsAppOptions> options, TimeProvider clock,
+        WhatsAppDispatchRunner runner, CancellationToken ct)
     {
         var query = db.Messages.AsNoTracking().AsQueryable();
         if (kind is not null)
@@ -56,6 +60,11 @@ internal static class WhatsAppEndpoints
         }
 
         var rows = await query.OrderByDescending(m => m.Id).Take(Shown).ToListAsync(ct);
+        if (rows.Any(m => m.Status == MessageStatus.Queued))
+        {
+            runner.Kick();
+        }
+
         return Results.Ok(new WhatsAppListDto(
             await StatusAsync(db, plans, client, options.Value, clock, ct),
             [.. rows.Select(m => new WhatsAppMessageDto(m.Id, m.StudentName, m.Kind, m.Status.ToString(), m.Error, Mask(m.ToPhone), m.CreatedAt))]));

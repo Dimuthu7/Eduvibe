@@ -242,6 +242,35 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         }
     }
 
+    [Theory]
+    [InlineData(131026, "not_on_whatsapp")]
+    [InlineData(131030, "not_allowed_recipient")]
+    [InlineData(132001, "template_problem")]
+    [InlineData(190, "auth_problem")]
+    [InlineData(null, "failed")]
+    public void Meta_error_codes_become_codes_the_app_has_words_for(int? metaCode, string expected) =>
+        Assert.Equal(expected, Errors.Describe(metaCode));
+
+    [Fact]
+    public async Task The_sender_stays_off_when_the_dispatch_job_is_turned_off()
+    {
+        var teacher = await ProTeacher();
+        var classId = await ClassOf(teacher.Client);
+        await Enrol(teacher.Client, classId, "Waiting");
+        await teacher.Client.PostAsync(Reminders(classId), null);
+
+        // Opening the list nudges the sender; with the job off (as in these tests) nothing is sent behind the test's back.
+        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.GetAsync("/api/whatsapp/messages")).StatusCode);
+        var runner = factory.Services.GetRequiredService<WhatsAppDispatchRunner>();
+        Assert.False(runner.Enabled);
+        await runner.RunAsync(CancellationToken.None);
+        Assert.Equal(MessageStatus.Queued, Assert.Single(await Log(teacher.Id)).Status);
+
+        // Other tests' messages may be waiting too, so only this teacher's message is checked.
+        await Dispatch();
+        Assert.Equal(MessageStatus.Sent, Assert.Single(await Log(teacher.Id)).Status);
+    }
+
     [Fact]
     public async Task A_message_whatsapp_refuses_is_marked_failed_and_does_not_use_the_allowance()
     {

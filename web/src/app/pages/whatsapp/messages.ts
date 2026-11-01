@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -9,6 +9,10 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { formatDateTime } from '../../shared/format';
+
+/** While a message is waiting, the list is checked again this often, a few times, so the teacher sees it turn to Sent without reloading. */
+export const REFRESH_MS = 10_000;
+export const REFRESH_TIMES = 6;
 
 const KIND_ICON: Record<WhatsAppMessage['kind'], string> = {
   fee_reminder: 'payments',
@@ -80,6 +84,8 @@ const KIND_ICON: Record<WhatsAppMessage['kind'], string> = {
                       <div class="row-meta">{{ row.when }}</div>
                       @if (row.m.status === 'Failed') {
                         <div class="row-meta failed">{{ row.reason }}</div>
+                      } @else if (row.m.status === 'Queued') {
+                        <div class="row-meta queued">{{ 'whatsapp.queued_hint' | t }}</div>
                       }
                     </div>
                     <span [class]="'state ' + row.m.status.toLowerCase()">{{ row.state }}</span>
@@ -117,6 +123,7 @@ const KIND_ICON: Record<WhatsAppMessage['kind'], string> = {
     .allowance-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; align-items: baseline; }
     .kind { font-size: 24px; width: 24px; height: 24px; flex: none; color: var(--mat-sys-on-surface-variant); }
     .row-meta.failed { color: var(--mat-sys-error); }
+    .row-meta.queued { color: var(--mat-sys-on-surface-variant); }
     .state { font: var(--mat-sys-label-medium); white-space: nowrap; color: var(--mat-sys-on-surface-variant); }
     .state.delivered, .state.read { color: var(--mat-sys-primary); }
     .state.failed { color: var(--mat-sys-error); }
@@ -126,6 +133,12 @@ export class WhatsAppMessages implements OnInit {
   private readonly api = inject(WhatsAppApi);
   private readonly plans = inject(PlansService);
   private readonly i18n = inject(TranslateService);
+  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  private refreshesLeft = REFRESH_TIMES;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.refreshTimer));
+  }
 
   protected readonly list = new Loadable<WhatsAppList>();
   protected readonly locked = signal(false);
@@ -162,10 +175,20 @@ export class WhatsAppMessages implements OnInit {
   protected load(): void {
     this.locked.set(false);
     this.list.status.set('loading');
+    this.refreshesLeft = REFRESH_TIMES;
+    this.fetch();
+  }
+
+  private fetch(): void {
+    clearTimeout(this.refreshTimer);
     this.api.messages().subscribe({
       next: (data) => {
         this.list.data.set(data);
         this.list.status.set('ready');
+        // Asking for the list also nudges the server to send what is waiting, so a quiet re-check usually shows it Sent.
+        if (data.items.some((m) => m.status === 'Queued') && this.refreshesLeft-- > 0) {
+          this.refreshTimer = setTimeout(() => this.fetch(), REFRESH_MS);
+        }
       },
       error: (e) => {
         if (errorCode(e) === 'plan_feature_locked') {
@@ -174,7 +197,8 @@ export class WhatsAppMessages implements OnInit {
             next: (plan) => this.availableOn.set(plan.features.find((f) => f.key === 'whatsapp')?.availableOn ?? null),
             error: () => undefined,
           });
-        } else {
+        } else if (this.list.status() !== 'ready') {
+          // A failed quiet re-check keeps what is already on screen.
           this.list.error.set(e);
           this.list.status.set('error');
         }
