@@ -18,7 +18,7 @@ import { formatLkr } from '../../shared/format';
 import { CardActions } from '../../shared/card-actions';
 import { StudentPhotos } from '../../shared/student-photos';
 import { EnrolmentDialog, EnrolmentDialogData } from './enrolment-dialog';
-import { PasswordDialog } from './password-dialog';
+import { PasswordDialog, passwordDialogConfig } from './password-dialog';
 import { PhotoPicker } from './photo-picker';
 import { StudentDialog } from './student-dialog';
 
@@ -325,7 +325,11 @@ export class StudentDetail {
         if (parent.oneTimePassword) {
           this.showParentPassword(parent.name, parent.phone, parent.oneTimePassword, 'students.parent.invited_title');
         } else {
-          this.toast.success('students.parent.linked_existing');
+          // No password to hand out: say why in a dialog, since a passing toast is easy to miss and the teacher is left looking for one.
+          this.dialog.open<ConfirmDialog, ConfirmData>(ConfirmDialog, {
+            data: { title: 'students.parent.linked_existing_title', message: 'students.parent.linked_existing', confirm: 'common.done', notice: true },
+            maxWidth: 'calc(100vw - 1rem)',
+          });
         }
       },
       error: (e) => {
@@ -347,7 +351,7 @@ export class StudentDetail {
         this.api.resetParentPassword(s.id).subscribe({
           next: ({ oneTimePassword }) => this.showParentPassword(s.guardianName || s.guardianPhone || '', s.guardianPhone ?? '', oneTimePassword, 'students.parent.reset_title'),
           error: (e) => {
-            if (errorCode(e) === 'account_not_resettable') this.toast.error('error.account_not_resettable');
+            if (errorCode(e) === 'account_not_resettable') this.toast.error('error.parent_not_resettable');
           },
         });
       });
@@ -393,24 +397,19 @@ export class StudentDetail {
   }
 
   private showParentPassword(name: string, phone: string, oneTimePassword: string, title: string): void {
-    this.dialog.open(PasswordDialog, {
-      data: {
+    this.dialog.open(
+      PasswordDialog,
+      passwordDialogConfig({
         name, phone, oneTimePassword, title,
         keys: { intro: 'students.parent.otp_intro', person: 'students.parent.person', share: 'students.parent.share_message' },
-      },
-      width: '28rem',
-      maxWidth: 'calc(100vw - 1rem)',
-    });
+      }),
+    );
   }
 
   private reset(s: Student): void {
     this.api.resetPassword(s.id).subscribe({
       next: ({ oneTimePassword }) =>
-        this.dialog.open(PasswordDialog, {
-          data: { name: s.fullName, phone: s.phone, oneTimePassword, title: 'students.reset_title' },
-          width: '28rem',
-          maxWidth: 'calc(100vw - 1rem)',
-        }),
+        this.dialog.open(PasswordDialog, passwordDialogConfig({ name: s.fullName, phone: s.phone, oneTimePassword, title: 'students.reset_title' })),
       error: (e) => {
         if (errorCode(e) === 'account_not_resettable') this.toast.error('error.account_not_resettable');
       },

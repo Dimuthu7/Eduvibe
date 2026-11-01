@@ -62,9 +62,23 @@ internal sealed class AccountProvisioner(IdentityDbContext db, PasswordService p
             {
                 db.UserRoles.Add(new UserRole { UserId = existing.Id, Role = Roles.Parent });
                 await db.SaveChangesAsync(ct);
+                return new AccountResult(AccountOutcome.Linked, existing.Id, null);
             }
 
-            return new AccountResult(AccountOutcome.Linked, existing.Id, null);
+            // A parent-only account that has never been signed in to has no password of its own yet, so the inviting teacher gets a fresh
+            // one-time password to pass on instead of a dead end. A parent who has chosen a password keeps it.
+            var parentOnly = existing.Roles.All(r => r.Role == Roles.Parent);
+            if (!parentOnly || !existing.MustChangePassword)
+            {
+                return new AccountResult(AccountOutcome.Linked, existing.Id, null);
+            }
+
+            var fresh = PasswordService.NewOneTimePassword();
+            existing.PasswordHash = passwords.Hash(existing, fresh);
+            existing.FailedLoginCount = 0;
+            existing.LockedUntil = null;
+            await db.SaveChangesAsync(ct);
+            return new AccountResult(AccountOutcome.Linked, existing.Id, fresh);
         }
 
         var user = new User { Phone = account.Phone, FirstName = account.FirstName, LastName = account.LastName };

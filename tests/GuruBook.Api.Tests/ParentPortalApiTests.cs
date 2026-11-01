@@ -129,15 +129,15 @@ public class ParentPortalApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         Assert.Equal(International(guardian), first.GetProperty("phone").GetString());
         Assert.Equal("Mrs Fernando", first.GetProperty("name").GetString());
         var otp = first.GetProperty("oneTimePassword").GetString()!;
+        var parent = await SignIn(International(guardian), otp);
 
-        // The second teacher links the same number: the account exists, so no new password is given out.
+        // The second teacher links the same number: the parent has chosen their own password, so no new one is given out.
         var second = await Invite(science.Client, nimali.StudentId);
         Assert.False(second.GetProperty("accountCreated").GetBoolean());
         Assert.Equal(JsonValueKind.Null, second.GetProperty("oneTimePassword").ValueKind);
         // Inviting again changes nothing.
         Assert.False((await Invite(maths.Client, kamal.StudentId)).GetProperty("accountCreated").GetBoolean());
 
-        var parent = await SignIn(International(guardian), otp);
         var children = (await Family(parent)).EnumerateArray().ToArray();
         Assert.Equal(["Kamal Silva", "Nimali Silva"], children.Select(c => c.GetProperty("fullName").GetString()));
         var kamalClasses = children[0].GetProperty("classes").EnumerateArray().Single();
@@ -274,8 +274,14 @@ public class ParentPortalApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         var classId = await ClassOf(teacher.Client, "Links class");
         var kamal = await Enrol(teacher.Client, classId, "Kamal", guardian);
         var nimali = await Enrol(teacher.Client, classId, "Nimali", guardian);
-        var otp = (await Invite(teacher.Client, kamal.StudentId)).GetProperty("oneTimePassword").GetString()!;
-        await Invite(teacher.Client, nimali.StudentId);
+        var first = (await Invite(teacher.Client, kamal.StudentId)).GetProperty("oneTimePassword").GetString()!;
+
+        // The parent has not signed in yet, so inviting them for a second child gives a fresh password to pass on instead of none.
+        var second = await Invite(teacher.Client, nimali.StudentId);
+        Assert.False(second.GetProperty("accountCreated").GetBoolean());
+        var otp = second.GetProperty("oneTimePassword").GetString()!;
+        Assert.NotEqual(first, otp);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await factory.CreateClient().PostAsJsonAsync("/api/identity/login", new { username = International(guardian), password = first })).StatusCode);
 
         // A reset gives a new one-time password; the old one no longer works.
         var newOtp = (await Json(await teacher.Client.PostAsync($"/api/students/{kamal.StudentId}/parent/reset-password", null))).GetProperty("oneTimePassword").GetString()!;
@@ -324,9 +330,9 @@ public class ParentPortalApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         var nimali = await Enrol(staying.Client, await ClassOf(staying.Client, "Stay class"), "Nimali", shared);
         var loner = await Enrol(leaving.Client, await ClassOf(leaving.Client, "Gone class 2"), "Loner", onlyHere);
         var otp = (await Invite(leaving.Client, kamal.StudentId)).GetProperty("oneTimePassword").GetString()!;
+        var parent = await SignIn(International(shared), otp);
         await Invite(staying.Client, nimali.StudentId);
         await Invite(leaving.Client, loner.StudentId);
-        var parent = await SignIn(International(shared), otp);
         Assert.Equal(2, (await Family(parent)).GetArrayLength());
 
         var admin = await factory.AdminClientAsync();
@@ -349,9 +355,8 @@ public class ParentPortalApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         var classId = await ClassOf(teacher.Client, "Erase class");
         var kamal = await Enrol(teacher.Client, classId, "Kamal", guardian);
         var nimali = await Enrol(teacher.Client, classId, "Nimali", guardian);
-        var otp = (await Invite(teacher.Client, kamal.StudentId)).GetProperty("oneTimePassword").GetString()!;
-        await Invite(teacher.Client, nimali.StudentId);
-        var parent = await SignIn(International(guardian), otp);
+        await Invite(teacher.Client, kamal.StudentId);
+        var parent = await SignIn(International(guardian), (await Invite(teacher.Client, nimali.StudentId)).GetProperty("oneTimePassword").GetString()!);
 
         var admin = await factory.AdminClientAsync();
         Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsJsonAsync($"/api/privacy/students/{kamal.StudentId}/erase", new { confirm = "Kamal Silva" })).StatusCode);
