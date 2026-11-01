@@ -77,6 +77,8 @@
   "theme.dark": "Dark",
   "language.title": "Language",
   "toast.close": "Close",
+  "update.ready": "A new version of GuruBook is ready.",
+  "update.reload": "Reload",
   "teachers.copied": "Password copied",
   "teachers.copy_failed": "Could not copy. Select the password and copy it by hand.",
   "teachers.created": "Teacher added",

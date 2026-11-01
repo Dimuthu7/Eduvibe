@@ -17,6 +17,7 @@ import { TranslateService } from './core/i18n/translate.service';
 import { BrandMark } from './shared/brand-mark';
 import { LanguageMenu } from './shared/language-menu';
 import { UnreadNotifications } from './core/state/unread-notifications';
+import { AppUpdates } from './core/ui/app-updates';
 import { LoadingService } from './core/ui/loading.service';
 import { ThemePreference, ThemeService } from './core/ui/theme.service';
 
@@ -131,6 +132,8 @@ export class App {
   );
 
   constructor() {
+    inject(AppUpdates).start();
+
     // On a phone, close the menu after the person picks a screen.
     inject(Router)
       .events.pipe(filter((e) => e instanceof NavigationEnd))
