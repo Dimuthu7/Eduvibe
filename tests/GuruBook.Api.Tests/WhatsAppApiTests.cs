@@ -266,7 +266,8 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await runner.RunAsync(CancellationToken.None);
         Assert.Equal(MessageStatus.Queued, Assert.Single(await Log(teacher.Id)).Status);
 
-        Assert.Equal(1, await Dispatch());
+        // Other tests' messages may be waiting too, so only this teacher's message is checked.
+        await Dispatch();
         Assert.Equal(MessageStatus.Sent, Assert.Single(await Log(teacher.Id)).Status);
     }
 
