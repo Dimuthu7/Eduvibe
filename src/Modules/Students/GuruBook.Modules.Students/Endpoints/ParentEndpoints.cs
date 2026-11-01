@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GuruBook.Modules.Students.Endpoints;
 
-/// <summary>OneTimePassword is set only when the parent had no account yet; a parent who already signs in keeps their own password.</summary>
+/// <summary>OneTimePassword is set when the parent has not signed in yet (a new account, or one made by an earlier invite); a parent who already signs in keeps their own password.</summary>
 public sealed record ParentInvitedDto(string Name, string Phone, bool AccountCreated, string? OneTimePassword);
 
 public sealed record ChildClassDto(Guid EnrolmentId, Guid ClassId, string ClassTitle, string? TeacherName, bool Locked, MySlotDto[] Slots);

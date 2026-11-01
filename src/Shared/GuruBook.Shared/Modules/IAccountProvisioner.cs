@@ -39,7 +39,8 @@ public interface IAccountProvisioner
 
     /// <summary>
     /// Makes a parent account for a guardian phone number with a one-time password, or, when the number already has an account (another
-    /// teacher's link, or a teacher or student who is also a parent), adds the Parent role to it and keeps its password.
+    /// teacher's link, or a teacher or student who is also a parent), adds the Parent role to it and keeps its password. A parent-only account nobody has signed in to yet gets a new one-time
+    /// password instead, since the earlier one was never used.
     /// </summary>
     Task<AccountResult> CreateParentAccountAsync(NewParentAccount account, CancellationToken cancellationToken = default);
 

@@ -17,7 +17,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { StudentAvatar } from '../../shared/student-avatar';
 import { StudentPhotos } from '../../shared/student-photos';
-import { PasswordDialog } from './password-dialog';
+import { PasswordDialog, passwordDialogConfig } from './password-dialog';
 import { StudentDialog } from './student-dialog';
 
 type View = 'current' | 'left';
@@ -221,11 +221,10 @@ export class Students {
         this.toast.success('students.saved');
         this.reload();
         if (created.oneTimePassword) {
-          this.dialog.open(PasswordDialog, {
-            data: { name: created.row.fullName, phone: created.row.phone, oneTimePassword: created.oneTimePassword, title: 'students.otp_title' },
-            width: '28rem',
-            maxWidth: 'calc(100vw - 1rem)',
-          });
+          this.dialog.open(
+            PasswordDialog,
+            passwordDialogConfig({ name: created.row.fullName, phone: created.row.phone, oneTimePassword: created.oneTimePassword, title: 'students.otp_title' }),
+          );
         }
       });
   }

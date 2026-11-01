@@ -6,6 +6,7 @@ import { provideRouter } from '@angular/router';
 import { Student } from '../../core/api/students.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
 import { PasswordDialog } from './password-dialog';
 import { StudentDetail } from './student-detail';
 
@@ -55,8 +56,21 @@ describe('StudentDetail parent card', () => {
     http.expectOne(`${API}/api/students/s1`).flush(student({ hasParent: true }));
     fixture.detectChanges();
 
-    expect(open).toHaveBeenCalledWith(PasswordDialog, expect.objectContaining({ data: expect.objectContaining({ oneTimePassword: 'ABCD-2345', phone: '+94772222222' }) }));
+    expect(open).toHaveBeenCalledWith(PasswordDialog, expect.objectContaining({ disableClose: true, data: expect.objectContaining({ oneTimePassword: 'ABCD-2345', phone: '+94772222222' }) }));
     expect(text(fixture)).toContain('students.parent.linked');
+  });
+
+  it('explains in a dialog when the parent already signs in with their own password', async () => {
+    const fixture = await setup(student());
+    const open = vi.spyOn(TestBed.inject(MatDialog), 'open');
+
+    const button = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.parent-card button')).find((b) => b.textContent!.includes('students.parent.invite')) as HTMLButtonElement;
+    button.click();
+    http.expectOne({ method: 'POST', url: `${API}/api/students/s1/parent` }).flush({ name: 'Mrs Fernando', phone: '+94772222222', accountCreated: false, oneTimePassword: null });
+    http.match(`${API}/api/students/photos`);
+    http.expectOne(`${API}/api/students/s1`).flush(student({ hasParent: true }));
+
+    expect(open).toHaveBeenCalledWith(ConfirmDialog, expect.objectContaining({ data: expect.objectContaining({ message: 'students.parent.linked_existing', notice: true }) }));
   });
 
   it('asks for the guardian phone first, and says when the plan does not have the parent portal', async () => {

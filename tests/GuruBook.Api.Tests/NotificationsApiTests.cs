@@ -303,8 +303,9 @@ public class NotificationsApiTests(ApiFactory factory) : IClassFixture<ApiFactor
         var amaraClient = await SignInStudent(amara.Phone, amara.Otp);
         await teacher.Client.PostAsJsonAsync("/api/fees/payments", new { enrolmentId = bimal.Enrolment, amount = 2500m, method = "Cash" });
 
-        // Before the 10th the student hears, the teacher does not.
-        await RunFeeJob(ColomboDay(5));
+        // Before the 10th the student hears, the teacher does not. The student hears only about a due made in the last few days, and the dues
+        // were made just now by the real clock, so on the 1st or 2nd of a month the job runs today rather than on the 5th.
+        await RunFeeJob(ColomboDay(Math.Min(DateTime.UtcNow.AddMinutes(330).Day, 5)));
         var due = Of(await Notifications(amaraClient), "fee_due").Single();
         Assert.Equal(2500m, due.GetProperty("params").GetProperty("amount").GetDecimal());
         Assert.Equal("Economics", due.GetProperty("params").GetProperty("classTitle").GetString());
