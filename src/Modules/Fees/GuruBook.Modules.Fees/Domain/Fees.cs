@@ -14,11 +14,24 @@ public sealed class FeeDue : Entity, ITenantOwned, IAuditable
     public Guid EnrolmentId { get; set; }
     public Guid ClassId { get; set; }
 
-    /// <summary>The fee month as "yyyy-MM".</summary>
+    /// <summary>The first month the due covers, as "yyyy-MM". For a monthly class that is the month it is for.</summary>
     public required string Month { get; set; }
+
+    /// <summary>How many months the due covers: 1 for a monthly class, or 3, 6 or 12 for a longer fee cycle.</summary>
+    public int PeriodMonths { get; set; } = 1;
+
+    /// <summary>The last month the due covers, as "yyyy-MM". Kept beside Month so a query can ask which due covers a month.</summary>
+    public string LastMonth { get; set; } = "";
+
+    /// <summary>The day the fee should have been paid by (Asia/Colombo date).</summary>
+    public DateOnly DueDate { get; set; }
 
     /// <summary>LKR. Zero for a free card.</summary>
     public decimal AmountDue { get; set; }
+
+    /// <summary>True when the month is one this due covers.</summary>
+    public bool Covers(string month) =>
+        string.CompareOrdinal(Month, month) <= 0 && string.CompareOrdinal(LastMonth, month) >= 0;
 }
 
 public enum PaymentMethod

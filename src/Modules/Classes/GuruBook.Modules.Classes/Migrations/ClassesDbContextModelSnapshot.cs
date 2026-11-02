@@ -176,6 +176,12 @@ namespace GuruBook.Modules.Classes.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("exam_year");
 
+                    b.Property<int>("FeeCycleMonths")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("fee_cycle_months");
+
                     b.Property<Guid?>("InstituteId")
                         .HasColumnType("uuid")
                         .HasColumnName("institute_id");
@@ -190,6 +196,12 @@ namespace GuruBook.Modules.Classes.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("monthly_fee");
+
+                    b.Property<int>("PayByDay")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(10)
+                        .HasColumnName("pay_by_day");
 
                     b.Property<string>("Status")
                         .IsRequired()

@@ -43,15 +43,31 @@ namespace GuruBook.Modules.Fees.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("due_date");
+
                     b.Property<Guid>("EnrolmentId")
                         .HasColumnType("uuid")
                         .HasColumnName("enrolment_id");
+
+                    b.Property<string>("LastMonth")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("last_month");
 
                     b.Property<string>("Month")
                         .IsRequired()
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)")
                         .HasColumnName("month");
+
+                    b.Property<int>("PeriodMonths")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("period_months");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

@@ -48,7 +48,8 @@ public sealed class ClassMonthService(FeesDbContext db, FeeDueService dues, ICla
         }
 
         await dues.EnsureForClassAsync(classId, [chosen], ct);
-        var rows = await db.Dues.Where(d => d.ClassId == classId && d.Month == chosen).ToListAsync(ct);
+        var rows = await db.Dues.Where(d => d.ClassId == classId).Covering(chosen).ToListAsync(ct);
+        var today = FeeMonths.Today(clock);
         var paid = await FeeLedger.PaidByDueAsync(db, [.. rows.Select(r => r.Id)], ct);
 
         // Active students, plus anyone who has since left but was billed this month.
@@ -68,15 +69,17 @@ public sealed class ClassMonthService(FeesDbContext db, FeeDueService dues, ICla
             {
                 var p = people[r.EnrolmentId];
                 var got = paid.GetValueOrDefault(r.Id);
-                return new MonthRowDto(r.EnrolmentId, p.IndexNumber, p.FullName, FeeMonths.StatusOf(r.AmountDue, got).ToString(), r.AmountDue, got);
+                var status = FeeMonths.StatusOf(r.AmountDue, got);
+                var (timing, late) = FeeTiming.Of(status, r.DueDate, today);
+                return new MonthRowDto(r.EnrolmentId, p.IndexNumber, p.FullName, status.ToString(), r.AmountDue, got, r.DueDate, timing, late, r.Month, r.PeriodMonths);
             })
             .OrderBy(r => r.IndexNumber)
             .ToArray();
-        return new ClassMonthResult(new ClassMonthDto(classId, chosen, Totals(lines.Select(l => (l.Status, l.Due, l.Paid))), lines), null);
+        return new ClassMonthResult(new ClassMonthDto(classId, chosen, Totals(lines.Select(l => (l.Status, l.Due, l.Paid, l.Timing))), lines), null);
     }
 
     /// <summary>Counts by status and the money. A free card owes nothing, so it is counted but adds no due.</summary>
-    public static MonthTotalsDto Totals(IEnumerable<(string Status, decimal Due, decimal Paid)> rows)
+    public static MonthTotalsDto Totals(IEnumerable<(string Status, decimal Due, decimal Paid, string Timing)> rows)
     {
         var all = rows.ToList();
         var billed = all.Where(r => r.Status != nameof(MonthStatus.FreeCard)).ToList();
@@ -85,6 +88,6 @@ public sealed class ClassMonthService(FeesDbContext db, FeeDueService dues, ICla
         return new MonthTotalsDto(
             all.Count(r => r.Status == nameof(MonthStatus.Paid)), all.Count(r => r.Status == nameof(MonthStatus.PartlyPaid)),
             all.Count(r => r.Status == nameof(MonthStatus.Unpaid)), all.Count(r => r.Status == nameof(MonthStatus.FreeCard)),
-            due, collected, due - collected);
+            due, collected, due - collected, all.Count(r => r.Timing == FeeTiming.Overdue));
     }
 }

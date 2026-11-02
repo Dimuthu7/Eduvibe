@@ -14,7 +14,8 @@ public sealed record SlotInput(int? Day, TimeOnly? Start, TimeOnly? End);
 
 public sealed record ClassRequest(
     string? Title, Guid? SubjectId, Guid? StreamId, int? ExamYear, string? Medium,
-    Guid? InstituteId, Guid? VenueId, decimal? MonthlyFee, SlotInput[]? Slots);
+    Guid? InstituteId, Guid? VenueId, decimal? MonthlyFee, SlotInput[]? Slots,
+    int? FeeCycleMonths = null, int? PayByDay = null);
 
 public sealed record SlotDto(Guid Id, int Day, TimeOnly Start, TimeOnly End);
 
@@ -22,7 +23,7 @@ public sealed record SlotDto(Guid Id, int Day, TimeOnly Start, TimeOnly End);
 public sealed record ClassDto(
     Guid Id, string Title, Guid SubjectId, Guid StreamId, int ExamYear, string Medium,
     string PlaceType, Guid PlaceId, string PlaceName, Guid? InstituteId, decimal MonthlyFee, string Status,
-    DateTimeOffset? ArchivedAt, SlotDto[] Slots);
+    DateTimeOffset? ArchivedAt, SlotDto[] Slots, int FeeCycleMonths = 1, int PayByDay = 10);
 
 /// <summary>One weekly slot on the timetable. OverlapsWith lists the other classes that meet at the same time.</summary>
 public sealed record TimetableEntryDto(
@@ -34,6 +35,7 @@ internal static class ClassEndpoints
     private const int MinYear = 2000;
     private const int MaxYear = 2100;
     private const decimal MaxFee = 10_000_000m;
+    private static readonly int[] FeeCycles = [1, 3, 6, 12];
 
     public static void Map(RouteGroupBuilder group)
     {
@@ -205,6 +207,16 @@ internal static class ClassEndpoints
             return Problems.Reject("fee_invalid");
         }
 
+        if (request.FeeCycleMonths is { } cycle && !FeeCycles.Contains(cycle))
+        {
+            return Problems.Reject("fee_cycle_invalid");
+        }
+
+        if (request.PayByDay is { } payBy && payBy is < 1 or > 28)
+        {
+            return Problems.Reject("pay_by_day_invalid");
+        }
+
         if (request.InstituteId is null == (request.VenueId is null))
         {
             return Problems.Reject("place_required");
@@ -248,6 +260,8 @@ internal static class ClassEndpoints
         row.InstituteId = request.InstituteId;
         row.VenueId = request.VenueId;
         row.MonthlyFee = request.MonthlyFee!.Value;
+        row.FeeCycleMonths = request.FeeCycleMonths ?? row.FeeCycleMonths;
+        row.PayByDay = request.PayByDay ?? row.PayByDay;
     }
 
     private static void AddSlots(ClassesDbContext db, TuitionClass row, ClassRequest request)
@@ -264,7 +278,8 @@ internal static class ClassEndpoints
     private static ClassDto ToDto(TuitionClass c, PlaceNames places) =>
         new(c.Id, c.Title, c.SubjectId, c.StreamId, c.ExamYear, c.Medium, PlaceType(c), PlaceId(c), places.Name(c),
             c.InstituteId, c.MonthlyFee, c.Status.ToString(), c.ArchivedAt,
-            [.. c.Slots.OrderBy(s => s.Day).ThenBy(s => s.Start).Select(s => new SlotDto(s.Id, s.Day, s.Start, s.End))]);
+            [.. c.Slots.OrderBy(s => s.Day).ThenBy(s => s.Start).Select(s => new SlotDto(s.Id, s.Day, s.Start, s.End))],
+            c.FeeCycleMonths, c.PayByDay);
 
     /// <summary>Names of the institutes and venues classes point at. An archived class keeps its place even if it is later hidden.</summary>
     private sealed class PlaceNames(Dictionary<Guid, string> names)

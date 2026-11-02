@@ -24,6 +24,8 @@ internal sealed class TuitionClassConfiguration : IEntityTypeConfiguration<Tuiti
         builder.Property(c => c.Title).HasMaxLength(120);
         builder.Property(c => c.Medium).HasMaxLength(20);
         builder.Property(c => c.MonthlyFee).HasPrecision(12, 2);
+        builder.Property(c => c.FeeCycleMonths).HasDefaultValue(1);
+        builder.Property(c => c.PayByDay).HasDefaultValue(10);
         builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(c => new { c.TenantId, c.Status });
         builder.HasMany(c => c.Slots).WithOne().HasForeignKey(s => s.ClassId).OnDelete(DeleteBehavior.Cascade);

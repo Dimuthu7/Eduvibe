@@ -14,13 +14,20 @@ public sealed record RecordPaymentRequest(Guid? EnrolmentId, decimal? Amount, st
 
 public sealed record VoidPaymentRequest(string? Reason);
 
-public sealed record MonthRowDto(Guid EnrolmentId, int IndexNumber, string FullName, string Status, decimal Due, decimal Paid);
+/// <summary>
+/// One student's fee in a class for a month. Month is the first month the fee covers and PeriodMonths how many months it covers
+/// (1 for a monthly class). Timing is Overdue, DueToday, DueSoon or empty; DaysLate counts days past DueDate.
+/// </summary>
+public sealed record MonthRowDto(
+    Guid EnrolmentId, int IndexNumber, string FullName, string Status, decimal Due, decimal Paid,
+    DateOnly DueDate = default, string Timing = "", int DaysLate = 0, string Month = "", int PeriodMonths = 1);
 
-public sealed record MonthTotalsDto(int Paid, int PartlyPaid, int Unpaid, int FreeCard, decimal Due, decimal Collected, decimal Outstanding);
+public sealed record MonthTotalsDto(int Paid, int PartlyPaid, int Unpaid, int FreeCard, decimal Due, decimal Collected, decimal Outstanding, int Overdue = 0);
 
 public sealed record ClassMonthDto(Guid ClassId, string Month, MonthTotalsDto Totals, MonthRowDto[] Rows);
 
-public sealed record DueDto(string Month, decimal Due, decimal Paid, string Status);
+public sealed record DueDto(
+    string Month, decimal Due, decimal Paid, string Status, DateOnly DueDate = default, int PeriodMonths = 1, string Timing = "", int DaysLate = 0);
 
 public sealed record AllocationDto(string Month, decimal Amount);
 
@@ -70,6 +77,7 @@ internal static class FeeEndpoints
         }
 
         var current = FeeMonths.Current(clock);
+        var today = FeeMonths.Today(clock);
         var joined = FeeMonths.Of(basis.JoinedOn);
         var first = string.CompareOrdinal(joined, FeeMonths.Add(current, -MonthsBack)) < 0 ? FeeMonths.Add(current, -MonthsBack) : joined;
         await dues.EnsureForEnrolmentAsync(basis, [.. FeeMonths.Range(first, current)], ct);
@@ -79,7 +87,7 @@ internal static class FeeEndpoints
         var list = rows
             .Where(r => string.CompareOrdinal(r.Month, current) <= 0)
             .OrderByDescending(r => r.Month)
-            .Select(r => new DueDto(r.Month, r.AmountDue, paid.GetValueOrDefault(r.Id), FeeMonths.StatusOf(r.AmountDue, paid.GetValueOrDefault(r.Id)).ToString()))
+            .Select(r => FeeTiming.ToDto(r, paid.GetValueOrDefault(r.Id), today))
             .ToArray();
 
         var payments = await db.Payments.Where(p => p.EnrolmentId == enrolmentId).ToListAsync(ct);
@@ -131,9 +139,10 @@ internal static class FeeEndpoints
         var toEnsure = named.Count > 0 ? named : [.. FeeMonths.Range(string.CompareOrdinal(joined, FeeMonths.Add(current, -MonthsBack)) < 0 ? FeeMonths.Add(current, -MonthsBack) : joined, current)];
         await dues.EnsureForEnrolmentAsync(basis, toEnsure, ct);
 
-        var rows = await db.Dues.Where(d => d.EnrolmentId == basis.EnrolmentId && (named.Count == 0 || named.Contains(d.Month)))
-            .ToListAsync(ct);
-        rows = [.. rows.OrderBy(r => r.Month)];
+        var rows = (await db.Dues.Where(d => d.EnrolmentId == basis.EnrolmentId).ToListAsync(ct))
+            .Where(d => named.Count == 0 || named.Any(d.Covers))
+            .OrderBy(r => r.Month)
+            .ToList();
         var paid = await FeeLedger.PaidByDueAsync(db, [.. rows.Select(r => r.Id)], ct);
 
         var left = amount;

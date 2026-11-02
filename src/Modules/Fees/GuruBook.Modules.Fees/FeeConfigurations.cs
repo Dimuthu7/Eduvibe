@@ -10,6 +10,8 @@ internal sealed class FeeDueConfiguration : IEntityTypeConfiguration<FeeDue>
     {
         builder.ToTable("fee_dues");
         builder.Property(d => d.Month).HasMaxLength(7);
+        builder.Property(d => d.LastMonth).HasMaxLength(7);
+        builder.Property(d => d.PeriodMonths).HasDefaultValue(1);
         builder.Property(d => d.AmountDue).HasPrecision(12, 2);
         builder.HasIndex(d => new { d.EnrolmentId, d.Month }).IsUnique();
         builder.HasIndex(d => new { d.ClassId, d.Month });

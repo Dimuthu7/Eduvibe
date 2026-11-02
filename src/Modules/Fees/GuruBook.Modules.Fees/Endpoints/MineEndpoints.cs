@@ -51,6 +51,7 @@ internal static class MineEndpoints
     private static async Task<List<MyFeesDto>> Load(FeesDbContext db, IReadOnlyList<MyEnrolment> enrolments, TimeProvider clock, CancellationToken ct)
     {
         var current = FeeMonths.Current(clock);
+        var today = FeeMonths.Today(clock);
         var ids = enrolments.Select(e => e.EnrolmentId).ToList();
 
         // The reader is not a teacher, so the teacher filter is lifted and the enrolments handed in are the only way in.
@@ -62,7 +63,7 @@ internal static class MineEndpoints
         {
             var months = dues.Where(d => d.EnrolmentId == e.EnrolmentId && string.CompareOrdinal(d.Month, current) <= 0)
                 .OrderByDescending(d => d.Month)
-                .Select(d => new DueDto(d.Month, d.AmountDue, paid.GetValueOrDefault(d.Id), FeeMonths.StatusOf(d.AmountDue, paid.GetValueOrDefault(d.Id)).ToString()))
+                .Select(d => FeeTiming.ToDto(d, paid.GetValueOrDefault(d.Id), today))
                 .ToList();
             var receipts = payments.Where(p => p.EnrolmentId == e.EnrolmentId)
                 .OrderByDescending(p => p.ReceiptNo).Take(ReceiptsShown)

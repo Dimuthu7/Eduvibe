@@ -23,3 +23,10 @@ internal static class FeeLedger
         return rows.GroupBy(r => r.FeeDueId).ToDictionary(g => g.Key, g => g.Sum(r => r.Amount));
     }
 }
+
+internal static class FeeDueQueries
+{
+    /// <summary>The dues that cover <paramref name="month"/>: a monthly due for that month, or a longer period it falls inside.</summary>
+    public static IQueryable<FeeDue> Covering(this IQueryable<FeeDue> dues, string month) =>
+        dues.Where(d => d.Month.CompareTo(month) <= 0 && d.LastMonth.CompareTo(month) >= 0);
+}
