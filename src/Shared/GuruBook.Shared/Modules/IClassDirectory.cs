@@ -1,7 +1,10 @@
 namespace GuruBook.Shared.Modules;
 
-/// <summary>What other modules may know about a class: enough to enrol into it and to show its name.</summary>
-public sealed record ClassSummary(Guid Id, Guid TenantId, string Title, decimal MonthlyFee, bool IsArchived);
+/// <summary>
+/// What other modules may know about a class: enough to enrol into it and to show its name. MonthlyFee is the fee for one fee cycle
+/// (one month, or 3, 6 or 12 months when FeeCycleMonths says so), and PayByDay (1 to 28) is the day each cycle starts being due.
+/// </summary>
+public sealed record ClassSummary(Guid Id, Guid TenantId, string Title, decimal MonthlyFee, bool IsArchived, int FeeCycleMonths = 1, int PayByDay = 10);
 
 /// <summary>A class that meets on a given weekday, with the time it starts and ends (Asia/Colombo local time).</summary>
 public sealed record ClassMeeting(Guid ClassId, string Title, TimeOnly Start, TimeOnly End);

@@ -9,7 +9,7 @@ import { EnrolmentFees, FeesService, PaymentMethod, PaymentRecord } from '../../
 import { errorCode, inlineError } from '../../core/api/problem';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { applyServerError, fieldErrorKey } from '../../shared/forms';
-import { addMonths, formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/format';
+import { addMonths, formatLkr, formatMonth, formatPeriod, monthOf, todayColombo } from '../../shared/format';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { SubmitButton } from '../../shared/submit-button';
 
@@ -18,10 +18,17 @@ const METHODS: PaymentMethod[] = ['Cash', 'BankTransfer', 'Online'];
 /** How many months ahead of the current one a payment can be put toward. */
 const MONTHS_AHEAD = 3;
 
+const monthsBetween = (first: string, last: string): string[] => {
+  const months: string[] = [];
+  for (let m = first; m <= last; m = addMonths(m, 1)) months.push(m);
+  return months;
+};
+
 /** The months a payment can go toward: every month with something owing, then the next few. */
 export function monthChoices(fees: Pick<EnrolmentFees, 'dues'>, current: string): string[] {
   const owing = fees.dues.filter((d) => d.due - d.paid > 0).map((d) => d.month);
-  const known = new Set(fees.dues.map((d) => d.month));
+  // A fee for several months covers each of them, so none of those is offered again as a month ahead.
+  const known = new Set(fees.dues.flatMap((d) => (d.lastMonth && d.lastMonth > d.month ? monthsBetween(d.month, d.lastMonth) : [d.month])));
   const ahead = Array.from({ length: MONTHS_AHEAD }, (_, i) => addMonths(current, i + 1)).filter((m) => !known.has(m));
   return [...owing.sort(), ...ahead];
 }
@@ -94,7 +101,7 @@ export class PaymentDialog {
   protected readonly error = signal('');
   protected readonly methods = METHODS;
   protected readonly monthOptions = computed<SelectOption[]>(() =>
-    monthChoices(this.data, monthOf(this.today)).map((m) => ({ value: m, label: formatMonth(m) })),
+    monthChoices(this.data, monthOf(this.today)).map((m) => ({ value: m, label: this.periodLabel(m) })),
   );
   private readonly fb = inject(FormBuilder).nonNullable;
   protected readonly form = this.fb.group({
@@ -103,6 +110,12 @@ export class PaymentDialog {
     paidOn: [this.today, [Validators.required]],
     months: [[] as string[]],
   });
+
+  /** "October 2026", or "Oct 2026 – Dec 2026" when the fee covers several months. */
+  private periodLabel(month: string): string {
+    const due = this.data.dues.find((d) => d.month === month);
+    return due && due.lastMonth > due.month ? formatPeriod(due.month, due.lastMonth) : formatMonth(month);
+  }
 
   protected key(name: string): string {
     const control = this.form.get(name);

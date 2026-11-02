@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { AdminService } from '../../core/api/admin.service';
 import { CatalogStore } from '../../core/api/catalog.service';
-import { ClassInput, ClassesService, MEDIUMS, TuitionClass } from '../../core/api/classes.service';
+import { ClassInput, ClassesService, FEE_CYCLES, FeeCycle, MEDIUMS, TuitionClass } from '../../core/api/classes.service';
 import { errorCode, inlineError } from '../../core/api/problem';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
@@ -19,6 +19,8 @@ import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { SubmitButton } from '../../shared/submit-button';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
+/** Days of the month a fee can be due by; 28 so it exists in every month. */
+const PAY_BY_DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
 /** A slot ends after it starts. */
 const slotOrder = (slot: AbstractControl): ValidationErrors | null => {
@@ -86,9 +88,28 @@ const slotsOverlap = (array: AbstractControl): ValidationErrors | null => {
           </mat-form-field>
           <app-search-select class="full" formControlName="place" [label]="'classes.place' | t" [options]="placeOptions()" required />
           <mat-form-field class="full">
+            <mat-label>{{ 'classes.fee_cycle' | t }}</mat-label>
+            <mat-select formControlName="feeCycleMonths" required>
+              @for (cycle of feeCycles; track cycle) {
+                <mat-option [value]="cycle">{{ 'classes.cycle.' + cycle | t }}</mat-option>
+              }
+            </mat-select>
+            <mat-error>{{ key('feeCycleMonths') | t }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
             <mat-label>{{ 'classes.fee' | t }}</mat-label>
             <input matInput type="number" inputmode="decimal" min="0" formControlName="monthlyFee" required />
             <mat-error>{{ key('monthlyFee') | t }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>{{ 'classes.pay_by' | t }}</mat-label>
+            <mat-select formControlName="payByDay" required>
+              @for (day of payByDays; track day) {
+                <mat-option [value]="day">{{ day }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>{{ 'classes.pay_by_hint' | t }}</mat-hint>
+            <mat-error>{{ key('payByDay') | t }}</mat-error>
           </mat-form-field>
         </div>
 
@@ -158,6 +179,8 @@ export class ClassDialog {
 
   protected readonly mediums = MEDIUMS;
   protected readonly days = DAYS;
+  protected readonly feeCycles = FEE_CYCLES;
+  protected readonly payByDays = PAY_BY_DAYS;
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly placesLoaded = signal(false);
@@ -182,6 +205,8 @@ export class ClassDialog {
     medium: [this.existing?.medium ?? '', Validators.required],
     place: [this.existing ? this.placeValue(this.existing.placeType === 'institute' ? 'i' : 'v', this.existing.placeId) : '', Validators.required],
     monthlyFee: this.fb.control<number | null>(this.existing?.monthlyFee ?? null, [Validators.required, Validators.min(0)]),
+    feeCycleMonths: this.fb.control<FeeCycle>(this.existing?.feeCycleMonths ?? 1, Validators.required),
+    payByDay: this.fb.control(this.existing?.payByDay ?? 10, [Validators.required, Validators.min(1), Validators.max(28)]),
     slots: this.slots,
   });
 
@@ -248,6 +273,8 @@ export class ClassDialog {
       instituteId: v.place.startsWith('i:') ? v.place.slice(2) : null,
       venueId: v.place.startsWith('v:') ? v.place.slice(2) : null,
       monthlyFee: v.monthlyFee!,
+      feeCycleMonths: v.feeCycleMonths,
+      payByDay: v.payByDay,
       slots: v.slots.map((s) => ({ day: s.day, start: s.start, end: s.end })),
     };
     const request = this.existing ? this.api.updateClass(this.existing.id, input) : this.api.createClass(input);

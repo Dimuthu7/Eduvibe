@@ -40,12 +40,17 @@ internal static class OverviewEndpoints
 
         var chosen = month ?? current;
         await dues.EnsureForCurrentTeacherAsync([chosen], ct);
-        var rows = await db.Dues.Where(d => d.Month == chosen).ToListAsync(ct);
+        var rows = await db.Dues.Covering(chosen).ToListAsync(ct);
+        var today = FeeMonths.Today(clock);
         var paid = await FeeLedger.PaidByDueAsync(db, [.. rows.Select(r => r.Id)], ct);
         var titles = await classes.FindManyAsync(rows.Select(r => r.ClassId).Distinct(), ct);
 
-        (string Status, decimal Due, decimal Paid) Line(FeeDue d) =>
-            (FeeMonths.StatusOf(d.AmountDue, paid.GetValueOrDefault(d.Id)).ToString(), d.AmountDue, paid.GetValueOrDefault(d.Id));
+        (string Status, decimal Due, decimal Paid, string Timing) Line(FeeDue d)
+        {
+            var got = paid.GetValueOrDefault(d.Id);
+            var status = FeeMonths.StatusOf(d.AmountDue, got);
+            return (status.ToString(), d.AmountDue, got, FeeTiming.Of(status, d.DueDate, today).Timing);
+        }
 
         var perClass = rows
             .Where(r => titles.ContainsKey(r.ClassId))
@@ -92,7 +97,7 @@ internal static class OverviewEndpoints
         }
 
         var ids = attended.Keys.ToList();
-        var due = await db.Dues.Where(d => d.Month == chosen && ids.Contains(d.EnrolmentId) && d.AmountDue > 0m).ToListAsync(ct);
+        var due = await db.Dues.Where(d => ids.Contains(d.EnrolmentId) && d.AmountDue > 0m).Covering(chosen).ToListAsync(ct);
         var paid = await FeeLedger.PaidByDueAsync(db, [.. due.Select(d => d.Id)], ct);
         var owing = due.Where(d => d.AmountDue - paid.GetValueOrDefault(d.Id) > 0m).ToList();
         var people = await roster.FindEnrolmentsAsync(owing.Select(d => d.EnrolmentId), ct);

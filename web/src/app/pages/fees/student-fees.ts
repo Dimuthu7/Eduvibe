@@ -3,15 +3,16 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { EnrolmentFees, FeesService, PaymentRecord } from '../../core/api/fees.service';
+import { EnrolmentFees, FeeDue, FeesService, PaymentRecord } from '../../core/api/fees.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { FeeStatus } from '../../shared/fee-status';
+import { feeDueText } from '../../shared/fee-due-text';
 import { fileNamePart } from '../../shared/download';
-import { formatDate, formatLkr, formatMonth, formatMonthShort } from '../../shared/format';
+import { formatDate, formatLkr, formatMonth, formatMonthShort, formatPeriod } from '../../shared/format';
 import { drawReceipt, shareOrSave } from '../../shared/receipt';
 import { PaymentDialog } from './payment-dialog';
 import { VoidDialog } from './void-dialog';
@@ -56,10 +57,13 @@ import { StudentAvatar } from '../../shared/student-avatar';
             @for (d of f.dues; track d.month) {
               <div class="panel-row">
                 <div class="row-main">
-                  <div class="row-title">{{ monthName(d.month) }}</div>
+                  <div class="row-title">{{ d.lastMonth > d.month ? period(d) : monthName(d.month) }}</div>
                   <div class="row-meta">{{ d.status === 'FreeCard' ? ('fees.free_card' | t) : money(d.paid) + ' / ' + money(d.due) }}</div>
+                  @if (d.status !== 'FreeCard' && d.dueDate) {
+                    <div class="row-meta" [class.late]="d.timing === 'Overdue'">{{ dueText(d) }}</div>
+                  }
                 </div>
-                <app-fee-status [status]="d.status" />
+                <app-fee-status [status]="d.status" [timing]="d.timing" />
               </div>
             } @empty {
               <div class="panel-row muted">{{ 'fees.no_months' | t }}</div>
@@ -119,7 +123,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
     .receipt-no { white-space: nowrap; }
     .voided .amount { text-decoration: line-through; }
     .voided { color: var(--mat-sys-on-surface-variant); }
-    .void-note { color: var(--mat-sys-error); }
+    .void-note, .late { color: var(--mat-sys-error); }
   `,
 })
 export class StudentFees {
@@ -145,6 +149,14 @@ export class StudentFees {
 
   protected load(): void {
     this.record.load(this.api.enrolment(this.enrolmentId()));
+  }
+
+  protected period(d: FeeDue): string {
+    return formatPeriod(d.month, d.lastMonth);
+  }
+
+  protected dueText(d: FeeDue): string {
+    return feeDueText(this.i18n, d);
   }
 
   protected planText(f: EnrolmentFees): string {

@@ -4,6 +4,8 @@ import { AppConfig } from '../config/app-config';
 
 export type MonthStatus = 'Paid' | 'PartlyPaid' | 'Unpaid' | 'FreeCard';
 export type PaymentMethod = 'Cash' | 'BankTransfer' | 'Online';
+/** Where an unpaid fee stands against its due date. Empty when nothing needs saying. */
+export type FeeTiming = '' | 'DueSoon' | 'DueToday' | 'Overdue';
 
 export interface MonthRow {
   enrolmentId: string;
@@ -12,6 +14,13 @@ export interface MonthRow {
   status: MonthStatus;
   due: number;
   paid: number;
+  /** When the fee is due, and how that looks today. */
+  dueDate: string;
+  timing: FeeTiming;
+  daysLate: number;
+  /** First month of the fee's period, and how many months it covers (1, 3, 6 or 12). */
+  month: string;
+  periodMonths: number;
 }
 
 export interface MonthTotals {
@@ -19,6 +28,8 @@ export interface MonthTotals {
   partlyPaid: number;
   unpaid: number;
   freeCard: number;
+  /** Students whose fee is past its due date. */
+  overdue: number;
   due: number;
   collected: number;
   outstanding: number;
@@ -38,6 +49,12 @@ export interface FeeDue {
   due: number;
   paid: number;
   status: MonthStatus;
+  dueDate: string;
+  periodMonths: number;
+  /** The last month the fee covers; the same as `month` for a monthly fee. */
+  lastMonth: string;
+  timing: FeeTiming;
+  daysLate: number;
 }
 
 export interface PaymentRecord {

@@ -10,7 +10,7 @@ import { Fees } from './fees';
 
 const API = 'http://api.test';
 const month = monthOf(todayColombo());
-const totals = { paid: 1, partlyPaid: 0, unpaid: 2, freeCard: 0, due: 4500, collected: 1500, outstanding: 3000 };
+const totals = { paid: 1, partlyPaid: 0, unpaid: 2, freeCard: 0, overdue: 0, due: 4500, collected: 1500, outstanding: 3000 };
 
 describe('Fees', () => {
   let http: HttpTestingController;
@@ -61,6 +61,38 @@ describe('Fees', () => {
     expect(text).toContain('Amara Silva');
     expect(text).toContain('fees.status.Unpaid');
     expect((fixture.nativeElement as HTMLElement).innerHTML).toContain('export.button');
+  });
+
+  it('marks late fees with their due date and can show only the overdue ones', () => {
+    const fixture = setup('c1');
+    const row = (id: string, name: string, timing: string, daysLate: number) => ({
+      enrolmentId: id, indexNumber: 1, fullName: name, status: 'Unpaid', due: 1500, paid: 0, dueDate: '2026-11-10', timing, daysLate, month, periodMonths: 1,
+    });
+    http.expectOne(`${API}/api/fees/classes/c1?month=${month}`).flush({
+      classId: 'c1', month, totals: { ...totals, overdue: 1 },
+      rows: [row('e1', 'Amara Silva', 'Overdue', 3), row('e2', 'Kamal Perera', 'DueSoon', 0), row('e3', 'Nimali Jay', '', 0)],
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('fees.timing.Overdue');
+    expect(root.textContent).toContain('fees.timing.DueSoon');
+    expect(root.textContent).toContain('fees.days_late');
+    expect(root.textContent).toContain('Kamal Perera');
+
+    const toggles = root.querySelectorAll<HTMLButtonElement>('mat-button-toggle button');
+    expect(toggles).toHaveLength(2);
+    toggles[1].click();
+    fixture.detectChanges();
+    expect(root.textContent).toContain('Amara Silva');
+    expect(root.textContent).not.toContain('Kamal Perera');
+    expect(root.textContent).not.toContain('Nimali Jay');
+  });
+
+  it('offers no filter when nothing is overdue', () => {
+    const fixture = setup('c1');
+    http.expectOne(`${API}/api/fees/classes/c1?month=${month}`).flush({ classId: 'c1', month, totals, rows: [] });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('mat-button-toggle-group')).toBeNull();
   });
 
   it('offers WhatsApp reminders for the class and month shown', () => {

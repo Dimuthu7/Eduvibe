@@ -69,7 +69,7 @@ type View = 'active' | 'archived';
                   <div class="row-meta">
                     {{ catalog.subjectName(c.subjectId) }} · {{ catalog.streamName(c.streamId) }} {{ c.examYear }} · {{ 'medium.' + c.medium | t }}
                   </div>
-                  <div class="row-meta">{{ c.placeName }} · {{ money(c.monthlyFee) }}</div>
+                  <div class="row-meta">{{ c.placeName }} · {{ money(c.monthlyFee) }} {{ 'classes.per.' + c.feeCycleMonths | t }}</div>
                   <div class="row-meta schedule">{{ schedule(c) }}</div>
                 </div>
                 <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>

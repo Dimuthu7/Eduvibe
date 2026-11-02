@@ -94,7 +94,8 @@ import { openExtraClass } from './extra-session-dialog';
           <mat-card appearance="outlined">
             <mat-card-content class="facts">
               <div><span class="muted">{{ 'classes.place' | t }}</span><strong>{{ c.placeName }}</strong></div>
-              <div><span class="muted">{{ 'classes.fee' | t }}</span><strong>{{ money(c.monthlyFee) }} {{ 'classes.per_month' | t }}</strong></div>
+              <div><span class="muted">{{ 'classes.fee' | t }}</span><strong>{{ money(c.monthlyFee) }} {{ 'classes.per.' + c.feeCycleMonths | t }}</strong></div>
+              <div><span class="muted">{{ 'classes.pay_by' | t }}</span><strong>{{ payBy(c.payByDay) }}</strong></div>
             </mat-card-content>
           </mat-card>
 
@@ -278,6 +279,7 @@ export class ClassHome {
   protected readonly thisMonth = monthOf(todayColombo());
   protected readonly monthName = formatMonth;
   protected readonly money = formatLkr;
+  protected readonly payBy = (day: number) => this.i18n.format('classes.pay_by_day', { day });
   protected readonly time = formatTime;
   protected readonly date = formatDate;
 

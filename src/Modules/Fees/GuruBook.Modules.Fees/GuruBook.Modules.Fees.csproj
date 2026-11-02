@@ -8,4 +8,8 @@
     <ProjectReference Include="..\..\..\Shared\GuruBook.Shared\GuruBook.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="GuruBook.Api.Tests" />
+  </ItemGroup>
+
 </Project>

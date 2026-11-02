@@ -47,6 +47,10 @@ export const monthStart = (date: string): string => `${date.slice(0, 8)}01`;
 export const formatDate = (date: string): string =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
+/** "yyyy-MM-dd" as "10 Oct", for tight places such as list rows. */
+export const formatDayMonth = (date: string): string =>
+  new Date(`${date}T00:00:00Z`).toLocaleDateString(localeOf(currentLanguage()), { timeZone: 'UTC', day: 'numeric', month: 'short' });
+
 /** An instant as Sri Lanka time, for example "12 Oct 2026, 4:30 pm", whatever the phone's own time zone is. */
 export function formatDateTime(instant: string): string {
   const at = new Date(instant);
@@ -103,3 +107,7 @@ export function colomboNow(now: Date = new Date()): { day: number; minutes: numb
   const day = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(get('weekday')) + 1;
   return { day, minutes: Number(get('hour')) * 60 + Number(get('minute')) };
 }
+
+/** A fee's months: "Oct 2026" for one month, "Oct 2026 – Dec 2026" for a longer period. */
+export const formatPeriod = (month: string, lastMonth: string | undefined): string =>
+  !lastMonth || lastMonth <= month ? formatMonthShort(month) : `${formatMonthShort(month)} – ${formatMonthShort(lastMonth)}`;

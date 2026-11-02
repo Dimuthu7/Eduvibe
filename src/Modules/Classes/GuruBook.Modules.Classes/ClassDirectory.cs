@@ -45,5 +45,5 @@ internal sealed class ClassDirectory(ClassesDbContext db) : IClassDirectory
     }
 
     private static readonly System.Linq.Expressions.Expression<Func<TuitionClass, ClassSummary>> Summary =
-        c => new ClassSummary(c.Id, c.TenantId, c.Title, c.MonthlyFee, c.Status == ClassStatus.Archived);
+        c => new ClassSummary(c.Id, c.TenantId, c.Title, c.MonthlyFee, c.Status == ClassStatus.Archived, c.FeeCycleMonths, c.PayByDay);
 }

@@ -26,7 +26,7 @@ public sealed class FeeReminderService(FeesDbContext db, IClassRoster roster, IC
         }
 
         var ids = bases.Select(b => b.EnrolmentId).ToList();
-        var dues = await db.Dues.IgnoreQueryFilters().Where(d => d.Month == current && d.AmountDue > 0 && ids.Contains(d.EnrolmentId)).ToListAsync(ct);
+        var dues = await db.Dues.IgnoreQueryFilters().Where(d => d.AmountDue > 0 && ids.Contains(d.EnrolmentId)).Covering(current).ToListAsync(ct);
         var paid = await FeeLedger.PaidByDueAsync(db, [.. dues.Select(d => d.Id)], ct);
         var unpaid = dues.Where(d => paid.GetValueOrDefault(d.Id) < d.AmountDue).ToList();
         if (unpaid.Count == 0)

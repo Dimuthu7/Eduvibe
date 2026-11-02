@@ -1,8 +1,14 @@
 import { currentLanguage } from '../core/i18n/language';
-import { addDays, addMonths, colomboNow, formatPercent, formatDate, formatDateTime, formatMonth, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
+import { addDays, addMonths, colomboNow, formatPercent, formatDate, formatDateTime, formatMonth, formatPeriod, formatLkr, formatTime, isMonthRange, minutes, monthEnd, monthOf, monthRange, monthStart, toInputTime, todayColombo } from './format';
 import { slotSummary } from './schedule';
 
 describe('format helpers', () => {
+  it('names a fee period as one month or a range of months', () => {
+    expect(formatPeriod('2026-10', '2026-10')).toBe('Oct 2026');
+    expect(formatPeriod('2026-10', undefined)).toBe('Oct 2026');
+    expect(formatPeriod('2026-10', '2026-12')).toBe('Oct 2026 – Dec 2026');
+  });
+
   it('shows times the way people say them', () => {
     expect(formatTime('16:00:00')).toBe('4:00 PM');
     expect(formatTime('09:05')).toBe('9:05 AM');

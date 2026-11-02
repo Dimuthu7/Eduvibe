@@ -13,7 +13,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
-import { formatDate, formatLkr, formatMonthShort } from '../../shared/format';
+import { feeAlerts, FeesAlert } from '../../shared/fees-alert';
+import { formatDate, formatLkr, formatPeriod } from '../../shared/format';
 import { slotSummary } from '../../shared/schedule';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { short } from '../exams/exam-analysis';
@@ -39,7 +40,7 @@ interface ClassView {
   selector: 'app-family',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FeeStatus, MatButtonModule, MatButtonToggleModule, MatCardModule, MatIconModule, TranslatePipe],
+  imports: [RouterLink, FeeStatus, FeesAlert, MatButtonModule, MatButtonToggleModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -72,6 +73,7 @@ interface ClassView {
             <h2 class="section-title child-name">{{ child.fullName }}</h2>
             @switch (details.status()) {
               @case ('ready') {
+                <app-fees-alert [items]="alerts()" />
                 @for (item of views(); track item.klass.classId) {
                   <mat-card appearance="outlined" class="class-card">
                     <mat-card-content>
@@ -139,8 +141,8 @@ interface ClassView {
                             <div class="months">
                               @for (m of fees.months.slice(0, 4); track m.month) {
                                 <span class="month">
-                                  <span class="muted">{{ monthShort(m.month) }}</span>
-                                  <app-fee-status [status]="m.status" />
+                                  <span class="muted">{{ period(m.month, m.lastMonth) }}</span>
+                                  <app-fee-status [status]="m.status" [timing]="m.timing" />
                                 </span>
                               }
                             </div>
@@ -260,11 +262,16 @@ export class Family {
   protected readonly schedule = (slots: { day: number; start: string; end: string }[]) => slotSummary(slots, (key) => this.i18n.translate(key));
   protected readonly date = formatDate;
   protected readonly money = formatLkr;
-  protected readonly monthShort = formatMonthShort;
+  protected readonly period = formatPeriod;
 
   protected readonly selected = computed(() => {
     const all = this.children.data() ?? [];
     return all.find((c) => c.studentId === this.selectedId()) ?? all[0];
+  });
+
+  protected readonly alerts = computed(() => {
+    const classes = this.selected()?.classes ?? [];
+    return feeAlerts(this.details.data()?.fees ?? [], (classId) => classes.find((c) => c.classId === classId)?.classTitle ?? '');
   });
 
   protected readonly views = computed<ClassView[]>(() => {

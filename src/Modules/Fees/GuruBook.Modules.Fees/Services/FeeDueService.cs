@@ -50,6 +50,9 @@ public sealed class FeeDueService(FeesDbContext db, IClassRoster roster, IClassD
         return await EnsureAsync([basis], months, await classes.FindManyAsync([basis.ClassId], ct), ct);
     }
 
+    /// <summary>A student who joins after a period's pay-by day still gets this many days to pay their first fee.</summary>
+    private const int JoiningGraceDays = 7;
+
     private async Task<int> EnsureAsync(
         IReadOnlyList<FeeBasis> bases, IReadOnlyList<string> months, IReadOnlyDictionary<Guid, ClassSummary> classFees, CancellationToken ct)
     {
@@ -59,14 +62,18 @@ public sealed class FeeDueService(FeesDbContext db, IClassRoster roster, IClassD
         }
 
         // The ids come from the roster, which is already limited to the right teacher(s), so the tenant filter is lifted here.
+        // The window reaches a year either side so a due that merely covers a requested month is found, and so are its neighbours.
         var ids = bases.Select(b => b.EnrolmentId).ToList();
+        var ordered = months.Order(StringComparer.Ordinal).ToList();
+        var windowStart = FeeMonths.Add(ordered[0], -12);
+        var windowEnd = FeeMonths.Add(ordered[^1], 12);
         var existing = await db.Dues.IgnoreQueryFilters()
-            .Where(d => ids.Contains(d.EnrolmentId) && months.Contains(d.Month))
+            .Where(d => ids.Contains(d.EnrolmentId) && d.Month.CompareTo(windowStart) >= 0 && d.Month.CompareTo(windowEnd) <= 0)
             .ToListAsync(ct);
         var current = FeeMonths.Current(clock);
 
-        // A due nobody has paid toward follows the enrolment's present plan and class fee until its month is over.
-        var dueIds = existing.Where(d => string.CompareOrdinal(d.Month, current) >= 0).Select(d => d.Id).ToList();
+        // A due nobody has paid toward follows the enrolment's present plan and class fee until its last month is over.
+        var dueIds = existing.Where(d => string.CompareOrdinal(d.LastMonth, current) >= 0).Select(d => d.Id).ToList();
         var touched = dueIds.Count == 0
             ? []
             : (await db.Allocations.IgnoreQueryFilters()
@@ -84,18 +91,33 @@ public sealed class FeeDueService(FeesDbContext db, IClassRoster roster, IClassD
 
             var amount = AmountFor(basis, cls.MonthlyFee);
             var joined = FeeMonths.Of(basis.JoinedOn);
-            foreach (var month in months.Where(m => string.CompareOrdinal(m, joined) >= 0))
+            var mine = existing.Where(d => d.EnrolmentId == basis.EnrolmentId).ToList();
+
+            foreach (var month in ordered.Where(m => string.CompareOrdinal(m, joined) >= 0))
             {
-                var due = existing.SingleOrDefault(d => d.EnrolmentId == basis.EnrolmentId && d.Month == month);
+                var due = mine.FirstOrDefault(d => d.Covers(month));
                 if (due is null)
                 {
-                    db.Dues.Add(new FeeDue { TenantId = basis.TenantId, EnrolmentId = basis.EnrolmentId, ClassId = basis.ClassId, Month = month, AmountDue = amount });
+                    due = NewDue(basis, cls, month, joined, amount, mine);
+                    mine.Add(due);
+                    existing.Add(due);
+                    db.Dues.Add(due);
                     changes++;
                 }
-                else if (string.CompareOrdinal(month, current) >= 0 && !touched.Contains(due.Id) && due.AmountDue != amount)
+                else if (string.CompareOrdinal(due.LastMonth, current) >= 0)
                 {
-                    due.AmountDue = amount;
-                    changes++;
+                    var dueDate = DueDateFor(due.Month, cls.PayByDay, joined, basis.JoinedOn);
+                    if (due.DueDate != dueDate)
+                    {
+                        due.DueDate = dueDate;
+                        changes++;
+                    }
+
+                    if (!touched.Contains(due.Id) && due.AmountDue != amount)
+                    {
+                        due.AmountDue = amount;
+                        changes++;
+                    }
                 }
             }
         }
@@ -117,5 +139,53 @@ public sealed class FeeDueService(FeesDbContext db, IClassRoster roster, IClassD
         }
 
         return changes;
+    }
+
+    /// <summary>
+    /// A due for the fee period holding <paramref name="month"/>. It starts at the period's first month, but never before the student
+    /// joined or before the end of the enrolment's previous due, and it ends before the next due begins, so changing a class's cycle
+    /// never overlaps what was already billed.
+    /// </summary>
+    private static FeeDue NewDue(FeeBasis basis, ClassSummary cls, string month, string joined, decimal amount, List<FeeDue> mine)
+    {
+        var cycle = Math.Max(1, cls.FeeCycleMonths);
+        var periodStart = FeeMonths.PeriodStart(month, cycle);
+        var start = periodStart;
+        var end = FeeMonths.Add(periodStart, cycle - 1);
+
+        if (string.CompareOrdinal(joined, start) > 0)
+        {
+            start = joined;
+        }
+
+        var before = mine.Where(d => string.CompareOrdinal(d.LastMonth, month) < 0).Select(d => d.LastMonth).DefaultIfEmpty().Max();
+        if (before is { Length: > 0 } && string.CompareOrdinal(FeeMonths.Add(before, 1), start) > 0)
+        {
+            start = FeeMonths.Add(before, 1);
+        }
+
+        var after = mine.Where(d => string.CompareOrdinal(d.Month, month) > 0).Select(d => d.Month).DefaultIfEmpty().Min();
+        if (after is { Length: > 0 } && string.CompareOrdinal(FeeMonths.Add(after, -1), end) < 0)
+        {
+            end = FeeMonths.Add(after, -1);
+        }
+
+        var periodMonths = MonthsBetween(start, end);
+        return new FeeDue
+        {
+            TenantId = basis.TenantId, EnrolmentId = basis.EnrolmentId, ClassId = basis.ClassId, Month = start, LastMonth = end,
+            PeriodMonths = periodMonths, AmountDue = amount, DueDate = DueDateFor(start, cls.PayByDay, joined, basis.JoinedOn),
+        };
+    }
+
+    private static int MonthsBetween(string from, string to) =>
+        (int.Parse(to.AsSpan(0, 4)) - int.Parse(from.AsSpan(0, 4))) * 12 + int.Parse(to.AsSpan(5, 2)) - int.Parse(from.AsSpan(5, 2)) + 1;
+
+    /// <summary>The pay-by day of the due's first month, or a week after joining when the student joined in that month, whichever is later.</summary>
+    private static DateOnly DueDateFor(string firstMonth, int payByDay, string joinedMonth, DateOnly joinedOn)
+    {
+        var date = FeeMonths.DueDateOf(firstMonth, payByDay);
+        var grace = joinedOn.AddDays(JoiningGraceDays);
+        return firstMonth == joinedMonth && grace > date ? grace : date;
     }
 }

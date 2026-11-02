@@ -40,8 +40,14 @@ public sealed class TuitionClass : Entity, ITenantOwned, IAuditable
     public Guid? InstituteId { get; set; }
     public Guid? VenueId { get; set; }
 
-    /// <summary>Monthly fee in LKR.</summary>
+    /// <summary>Fee in LKR for one fee cycle. For a monthly class this is the monthly fee.</summary>
     public decimal MonthlyFee { get; set; }
+
+    /// <summary>How many months one fee covers: 1, 3, 6 or 12.</summary>
+    public int FeeCycleMonths { get; set; } = 1;
+
+    /// <summary>The day of the first month of each cycle the fee is due, 1 to 28.</summary>
+    public int PayByDay { get; set; } = 10;
 
     public ClassStatus Status { get; set; } = ClassStatus.Active;
     public DateTimeOffset? ArchivedAt { get; set; }

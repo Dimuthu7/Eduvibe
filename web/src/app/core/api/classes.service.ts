@@ -22,6 +22,9 @@ export interface Slot {
   end: string;
 }
 
+export const FEE_CYCLES = [1, 3, 6, 12] as const;
+export type FeeCycle = (typeof FEE_CYCLES)[number];
+
 export type PlaceType = 'institute' | 'venue';
 
 export interface TuitionClass {
@@ -35,7 +38,12 @@ export interface TuitionClass {
   placeId: string;
   placeName: string;
   instituteId: string | null;
+  /** The fee for one payment: for a month, or for the whole cycle when the class is paid every 3, 6 or 12 months. */
   monthlyFee: number;
+  /** How often the fee is paid: every 1, 3, 6 or 12 months. */
+  feeCycleMonths: FeeCycle;
+  /** The day of the month the fee is due by, 1 to 28. */
+  payByDay: number;
   status: 'Active' | 'Archived';
   archivedAt: string | null;
   slots: Slot[];
@@ -50,6 +58,8 @@ export interface ClassInput {
   instituteId: string | null;
   venueId: string | null;
   monthlyFee: number;
+  feeCycleMonths: FeeCycle;
+  payByDay: number;
   slots: Slot[];
 }
 
