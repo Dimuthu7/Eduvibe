@@ -21,3 +21,19 @@ internal sealed class NotificationConfiguration : IEntityTypeConfiguration<Notif
         builder.HasIndex(n => new { n.RecipientId, n.GroupKey });
     }
 }
+
+internal sealed class PushDeviceConfiguration : IEntityTypeConfiguration<PushDevice>
+{
+    public void Configure(EntityTypeBuilder<PushDevice> builder)
+    {
+        builder.ToTable("push_devices");
+        builder.Property(d => d.Endpoint).HasMaxLength(1000);
+        builder.Property(d => d.P256dh).HasMaxLength(200);
+        builder.Property(d => d.Auth).HasMaxLength(100);
+        builder.Property(d => d.Language).HasMaxLength(5);
+
+        builder.HasIndex(d => d.Endpoint).IsUnique();
+        builder.HasIndex(d => d.UserId);
+        builder.HasIndex(d => d.TenantId);
+    }
+}

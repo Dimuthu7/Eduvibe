@@ -18,6 +18,7 @@ using GuruBook.Modules.Plans;
 using GuruBook.Modules.Plans.Services;
 using GuruBook.Modules.Students;
 using GuruBook.Modules.WhatsApp;
+using GuruBook.Modules.Notifications.Push;
 using GuruBook.Modules.WhatsApp.Client;
 using GuruBook.Shared.Auditing;
 using GuruBook.Shared.Security;
@@ -117,6 +118,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Stands in for WhatsApp so no test reaches Meta.</summary>
     public FakeWhatsAppClient WhatsApp { get; } = new();
 
+    /// <summary>Stands in for the browsers' push services so no test reaches them.</summary>
+    internal FakePushSender Push { get; } = new();
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -150,6 +154,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<WhatsAppDbContext>(services);
             services.RemoveAll<IWhatsAppClient>();
             services.AddSingleton<IWhatsAppClient>(WhatsApp);
+            services.RemoveAll<IPushSender>();
+            services.AddSingleton<IPushSender>(Push);
             services.RemoveAll<IDriveClient>();
             services.AddSingleton(Drive);
             services.AddSingleton<IDriveClient>(Drive);

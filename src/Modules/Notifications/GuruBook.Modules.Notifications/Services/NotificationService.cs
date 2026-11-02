@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GuruBook.Modules.Notifications.Domain;
+using GuruBook.Modules.Notifications.Push;
 using GuruBook.Shared.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,7 @@ namespace GuruBook.Modules.Notifications.Services;
 /// Stores notifications. Asking for the same once-key again does nothing; a group-key joins the unread notification that already has it.
 /// Whatever goes wrong here is logged and dropped, because telling someone must never undo what they were told about.
 /// </summary>
-internal sealed class NotificationService(NotificationsDbContext db, ILogger<NotificationService> log) : INotifier
+internal sealed class NotificationService(NotificationsDbContext db, PushDelivery push, ILogger<NotificationService> log) : INotifier
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -21,22 +22,30 @@ internal sealed class NotificationService(NotificationsDbContext db, ILogger<Not
             return;
         }
 
+        IReadOnlyCollection<Notification> added;
         try
         {
-            await StoreAsync(requests, cancellationToken);
+            added = await StoreAsync(requests, cancellationToken);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
             // A once-key that two requests added at the same moment, or the database being unavailable: nothing else depends on this.
             log.LogWarning(e, "Could not store {Count} notification(s)", requests.Count);
             db.ChangeTracker.Clear();
+            return;
         }
+
+        // Only new lines go to phones: a repeat of something already sent (same once-key) or one more event joining an unread line does not buzz again.
+        await push.DeliverAsync(added, cancellationToken);
     }
 
-    public async Task ForgetAsync(Guid recipientId, CancellationToken cancellationToken = default) =>
+    public async Task ForgetAsync(Guid recipientId, CancellationToken cancellationToken = default)
+    {
         await db.Notifications.Where(n => n.RecipientId == recipientId).ExecuteDeleteAsync(cancellationToken);
+        await db.PushDevices.Where(d => d.UserId == recipientId || d.TenantId == recipientId).ExecuteDeleteAsync(cancellationToken);
+    }
 
-    private async Task StoreAsync(IReadOnlyCollection<NotifyRequest> requests, CancellationToken ct)
+    private async Task<List<Notification>> StoreAsync(IReadOnlyCollection<NotifyRequest> requests, CancellationToken ct)
     {
         var onceKeys = requests.Where(r => r.OnceKey is not null).Select(r => r.OnceKey!).Distinct().ToList();
         var users = requests.Select(r => r.RecipientId).Distinct().ToList();
@@ -51,6 +60,7 @@ internal sealed class NotificationService(NotificationsDbContext db, ILogger<Not
             ? []
             : await db.Notifications.Where(n => users.Contains(n.RecipientId) && n.ReadAt == null && n.GroupKey != null && groupKeys.Contains(n.GroupKey)).ToListAsync(ct);
 
+        var created = new List<Notification>();
         foreach (var request in requests)
         {
             if (request.OnceKey is { } once)
@@ -74,6 +84,7 @@ internal sealed class NotificationService(NotificationsDbContext db, ILogger<Not
                 OnceKey = request.OnceKey, GroupKey = request.GroupKey,
             };
             db.Notifications.Add(added);
+            created.Add(added);
             if (request.GroupKey is not null)
             {
                 open.Add(added);
@@ -81,6 +92,7 @@ internal sealed class NotificationService(NotificationsDbContext db, ILogger<Not
         }
 
         await db.SaveChangesAsync(ct);
+        return created;
     }
 
     private static string Serialize(object? value) => value is null ? "{}" : JsonSerializer.Serialize(value, Json);

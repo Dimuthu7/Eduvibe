@@ -45,3 +45,34 @@ internal sealed class PaymentAllocationConfiguration : IEntityTypeConfiguration<
         builder.HasIndex(a => a.FeeDueId);
     }
 }
+
+internal sealed class ClassReminderSettingConfiguration : IEntityTypeConfiguration<ClassReminderSetting>
+{
+    public void Configure(EntityTypeBuilder<ClassReminderSetting> builder)
+    {
+        builder.ToTable("class_reminder_settings");
+        builder.HasIndex(s => s.ClassId).IsUnique();
+    }
+}
+
+internal sealed class ReminderSkipConfiguration : IEntityTypeConfiguration<ReminderSkip>
+{
+    public void Configure(EntityTypeBuilder<ReminderSkip> builder)
+    {
+        builder.ToTable("reminder_skips");
+        builder.HasIndex(s => s.EnrolmentId).IsUnique();
+    }
+}
+
+internal sealed class FeeReminderConfiguration : IEntityTypeConfiguration<FeeReminder>
+{
+    public void Configure(EntityTypeBuilder<FeeReminder> builder)
+    {
+        builder.ToTable("fee_reminders");
+        builder.Property(r => r.Step).HasMaxLength(10);
+        builder.Property(r => r.Channel).HasMaxLength(10);
+        // A step goes out once per fee; a second attempt at the same moment cannot add it again.
+        builder.HasIndex(r => new { r.DueId, r.Step, r.Number }).IsUnique();
+        builder.HasIndex(r => r.EnrolmentId);
+    }
+}

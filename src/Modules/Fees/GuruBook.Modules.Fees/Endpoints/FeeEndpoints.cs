@@ -37,7 +37,8 @@ public sealed record PaymentDto(
 
 public sealed record EnrolmentFeesDto(
     Guid EnrolmentId, Guid StudentId, string FullName, int IndexNumber, Guid ClassId, string ClassTitle,
-    string FeePlan, decimal DiscountAmount, bool IsActive, decimal Outstanding, DueDto[] Dues, PaymentDto[] Payments);
+    string FeePlan, decimal DiscountAmount, bool IsActive, decimal Outstanding, DueDto[] Dues, PaymentDto[] Payments,
+    ReminderDto[]? Reminders = null, bool RemindersSkipped = false);
 
 /// <summary>Fees for the teacher: a class's month at a glance, one student's months and payments, recording and voiding payments.</summary>
 internal static class FeeEndpoints
@@ -46,6 +47,7 @@ internal static class FeeEndpoints
     private const int MonthsAhead = 12;
     private const decimal MaxPayment = 10_000_000m;
     private const int MaxReasonLength = 200;
+    private const int RemindersShown = 12;
 
     public static void Map(RouteGroupBuilder group)
     {
@@ -92,10 +94,16 @@ internal static class FeeEndpoints
 
         var payments = await db.Payments.Where(p => p.EnrolmentId == enrolmentId).ToListAsync(ct);
         var cls = await classes.FindAsync(basis.ClassId, ct);
+
+        // The latest reminders that went out for this student, newest first (by id: ids are time ordered, and the database cannot sort offsets everywhere).
+        var sent = await db.Reminders.Where(r => r.EnrolmentId == enrolmentId).OrderByDescending(r => r.Id).Take(RemindersShown).ToListAsync(ct);
+        var months = rows.ToDictionary(r => r.Id, r => r.Month);
+        var reminders = sent.OrderByDescending(r => r.CreatedAt).Select(r => new ReminderDto(r.Step, r.Number, months.GetValueOrDefault(r.DueId, ""), r.CreatedAt, r.Channel)).ToArray();
+        var skipped = await db.ReminderSkips.AnyAsync(s => s.EnrolmentId == enrolmentId, ct);
         return Results.Ok(new EnrolmentFeesDto(
             basis.EnrolmentId, basis.StudentId, basis.FullName, basis.IndexNumber, basis.ClassId, cls?.Title ?? "",
             basis.FeePlan, basis.DiscountAmount, basis.IsActive, list.Where(d => d.Status != nameof(MonthStatus.FreeCard)).Sum(d => d.Due - d.Paid), list,
-            await ToDtosAsync(db, [.. payments.OrderByDescending(p => p.ReceiptNo)], ct)));
+            await ToDtosAsync(db, [.. payments.OrderByDescending(p => p.ReceiptNo)], ct), reminders, skipped));
     }
 
     // The amount goes to the months asked for, oldest first, or to the oldest unpaid months when none are named.
