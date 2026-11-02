@@ -177,11 +177,38 @@ describe('AuthService', () => {
     http.expectOne(`${API}/api/identity/login`).flush(session());
 
     const done = auth.logout();
+    await new Promise((resolve) => setTimeout(resolve));
     http.expectOne(`${API}/api/identity/logout`).flush(null, { status: 204, statusText: 'No Content' });
     await done;
 
     expect(auth.user()).toBeNull();
     expect(auth.accessToken).toBeNull();
+  });
+
+  it('stops notifications to this phone for the person signing out, before the session is cleared', async () => {
+    const auth = setup();
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    auth.login('0771234567', 'pw').subscribe();
+    http.expectOne(`${API}/api/identity/login`).flush(session());
+
+    const registration = { pushManager: { getSubscription: () => Promise.resolve({ endpoint: 'https://push.example/abc' }) } };
+    vi.stubGlobal('PushManager', function () {});
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { getRegistration: () => Promise.resolve(registration) } });
+    try {
+      const done = auth.logout();
+      await new Promise((resolve) => setTimeout(resolve));
+      const unsubscribe = http.expectOne(`${API}/api/notifications/push/unsubscribe`);
+      expect(unsubscribe.request.body).toEqual({ endpoint: 'https://push.example/abc' });
+      expect(unsubscribe.request.headers.get('Authorization')).toBe('Bearer access-1');
+      unsubscribe.flush(null);
+      await new Promise((resolve) => setTimeout(resolve));
+      http.expectOne(`${API}/api/identity/logout`).flush(null, { status: 204, statusText: 'No Content' });
+      await done;
+      expect(auth.user()).toBeNull();
+    } finally {
+      Reflect.deleteProperty(navigator, 'serviceWorker');
+      vi.unstubAllGlobals();
+    }
   });
 
   describe('language', () => {

@@ -21,6 +21,7 @@ import { ExportService } from '../../shared/export.service';
 import { formatDate, formatLkr, formatMonth, formatTime, monthOf, todayColombo } from '../../shared/format';
 import { InviteLinks } from '../students/invite-links';
 import { openExamDialog } from '../exams/exam-dialog';
+import { openReminders } from '../fees/reminders-dialog';
 import { ClassDialog } from './class-dialog';
 import { openExtraClass } from './extra-session-dialog';
 
@@ -72,6 +73,10 @@ import { openExtraClass } from './extra-session-dialog';
                   <button mat-menu-item type="button" (click)="printCards(c)">
                     <mat-icon>badge</mat-icon>
                     <span>{{ 'cards.title' | t }}</span>
+                  </button>
+                  <button mat-menu-item type="button" (click)="editReminders(c)">
+                    <mat-icon>notifications_active</mat-icon>
+                    <span>{{ 'reminders.menu' | t }}</span>
                   </button>
                   <button mat-menu-item type="button" (click)="archive(c)">
                     <mat-icon>archive</mat-icon>
@@ -320,6 +325,12 @@ export class ClassHome {
 
   protected printCards(c: TuitionClass): void {
     void this.cardActions.open({ classId: c.id, classTitle: c.title, fileName: fileNamePart(`${this.i18n.translate('cards.title')} ${c.title}`) });
+  }
+
+  protected editReminders(c: TuitionClass): void {
+    openReminders(this.dialog, { classId: c.id, classTitle: c.title }).subscribe((saved) => {
+      if (saved) this.toast.success('reminders.saved');
+    });
   }
 
   protected addExtra(c: TuitionClass): void {

@@ -3,7 +3,8 @@ import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { EnrolmentFees, FeeDue, FeesService, PaymentRecord } from '../../core/api/fees.service';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { EnrolmentFees, FeeDue, FeesService, PaymentRecord, ReminderRecord } from '../../core/api/fees.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { AuthService } from '../../core/auth/auth.service';
@@ -12,7 +13,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { FeeStatus } from '../../shared/fee-status';
 import { feeDueText } from '../../shared/fee-due-text';
 import { fileNamePart } from '../../shared/download';
-import { formatDate, formatLkr, formatMonth, formatMonthShort, formatPeriod } from '../../shared/format';
+import { formatDateTime, formatDate, formatLkr, formatMonth, formatMonthShort, formatPeriod } from '../../shared/format';
 import { drawReceipt, shareOrSave } from '../../shared/receipt';
 import { PaymentDialog } from './payment-dialog';
 import { VoidDialog } from './void-dialog';
@@ -23,7 +24,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
   selector: 'app-student-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, RouterLink, FeeStatus, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, RouterLink, FeeStatus, MatButtonModule, MatIconModule, MatSlideToggleModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/fees" [queryParams]="{ classId: fees()?.classId, month: month() || null }" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -67,6 +68,28 @@ import { StudentAvatar } from '../../shared/student-avatar';
               </div>
             } @empty {
               <div class="panel-row muted">{{ 'fees.no_months' | t }}</div>
+            }
+          </div>
+
+          <h2 class="section-title">{{ 'reminders.log_title' | t }}</h2>
+          <div class="panel">
+            <div class="panel-row">
+              <div class="row-main">
+                <div class="row-title">{{ 'reminders.skip' | t }}</div>
+                <div class="row-meta">{{ 'reminders.skip_hint' | t }}</div>
+              </div>
+              <mat-slide-toggle [checked]="!f.remindersSkipped" (change)="setReminders($event.checked)" [aria-label]="'reminders.skip' | t" />
+            </div>
+            @for (r of f.reminders; track $index) {
+              <div class="panel-row">
+                <mat-icon class="lead" aria-hidden="true">notifications</mat-icon>
+                <div class="row-main">
+                  <div class="row-title">{{ reminderText(r) }}</div>
+                  <div class="row-meta">{{ reminderWhen(r) }}</div>
+                </div>
+              </div>
+            } @empty {
+              <div class="panel-row muted">{{ 'reminders.none' | t }}</div>
             }
           </div>
 
@@ -157,6 +180,25 @@ export class StudentFees {
 
   protected dueText(d: FeeDue): string {
     return feeDueText(this.i18n, d);
+  }
+
+  protected reminderText(r: ReminderRecord): string {
+    const when = formatMonthShort(r.month);
+    if (r.step === 'before') return this.i18n.format('reminders.step_before', { period: when });
+    if (r.step === 'due') return this.i18n.format('reminders.step_due', { period: when });
+    return this.i18n.format('reminders.step_late', { period: when, count: r.number });
+  }
+
+  protected reminderWhen(r: ReminderRecord): string {
+    return `${formatDateTime(r.at)} · ${this.i18n.translate(`reminders.channel.${r.channel}`)}`;
+  }
+
+  /** Turns automatic reminders on or off for this student. */
+  protected setReminders(on: boolean): void {
+    this.api.skipReminders(this.enrolmentId(), !on).subscribe(() => {
+      this.record.update((f) => ({ ...f, remindersSkipped: !on }));
+      this.toast.success(on ? 'reminders.turned_on' : 'reminders.turned_off');
+    });
   }
 
   protected planText(f: EnrolmentFees): string {

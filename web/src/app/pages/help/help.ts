@@ -15,7 +15,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   { id: 'classes', icon: 'menu_book', steps: 3 },
   { id: 'students', icon: 'groups', steps: 4 },
   { id: 'attendance', icon: 'fact_check', steps: 4 },
-  { id: 'fees', icon: 'payments', steps: 6 },
+  { id: 'fees', icon: 'payments', steps: 8 },
   { id: 'exams', icon: 'quiz', steps: 4 },
   { id: 'whatsapp', icon: 'chat', steps: 3 },
   { id: 'parents', icon: 'family_restroom', steps: 4 },

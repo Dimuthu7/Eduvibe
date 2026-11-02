@@ -83,6 +83,28 @@ export interface EnrolmentFees {
   outstanding: number;
   dues: FeeDue[];
   payments: PaymentRecord[];
+  /** Reminders the app has sent this student in this class, newest first (the latest 12). */
+  reminders: ReminderRecord[];
+  /** True when the teacher has turned reminders off for this student. */
+  remindersSkipped: boolean;
+}
+
+export type ReminderStep = 'before' | 'due' | 'late';
+
+/** One automatic fee reminder that was sent. `number` counts the weekly ones (1, 2, 3...). */
+export interface ReminderRecord {
+  step: ReminderStep;
+  number: number;
+  month: string;
+  at: string;
+  channel: string;
+}
+
+/** A class's reminder settings. `weeklyLimit` null means reminders continue weekly until the fee is paid. */
+export interface ReminderSettings {
+  enabled: boolean;
+  weeklyLimit: number | null;
+  skippedEnrolments: string[];
 }
 
 export interface PaymentInput {
@@ -168,6 +190,19 @@ export class FeesService {
 
   mine() {
     return this.http.get<MyFees[]>(`${this.base}/mine`);
+  }
+
+  reminderSettings(classId: string) {
+    return this.http.get<ReminderSettings>(`${this.base}/classes/${classId}/reminders`);
+  }
+
+  saveReminderSettings(classId: string, settings: { enabled: boolean; weeklyLimit: number | null }) {
+    return this.http.put<ReminderSettings>(`${this.base}/classes/${classId}/reminders`, settings);
+  }
+
+  /** Turns automatic reminders off (or back on) for one student. */
+  skipReminders(enrolmentId: string, skip: boolean) {
+    return this.http.put<void>(`${this.base}/enrolments/${enrolmentId}/reminders`, { skip });
   }
 
   /** One child's fees in each class, for a parent. */

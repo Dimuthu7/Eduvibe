@@ -8,6 +8,7 @@ import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { UnreadNotifications } from '../../core/state/unread-notifications';
 import { formatDateTime } from '../../shared/format';
+import { PushPrompt } from '../../shared/push-prompt';
 import { describe } from './describe';
 
 /** Swiping a row this far (a share of its width) closes it; less than that and it springs back. */
@@ -23,7 +24,7 @@ const SLOP = 10;
   selector: 'app-notifications',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [MatButtonModule, MatIconModule, PushPrompt, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -37,6 +38,8 @@ const SLOP = 10;
         </button>
       }
     </header>
+
+    <app-push-prompt [status]="true" />
 
     @switch (list.status()) {
       @case ('ready') {

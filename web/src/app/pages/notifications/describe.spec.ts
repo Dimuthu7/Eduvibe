@@ -11,6 +11,14 @@ const t = (key: string) =>
     'notifications.results_published.hint': 'See marks',
     'notifications.fee_due.title': '{month} fee is due',
     'notifications.fee_due.body': '{class} · {amount} to pay',
+    'notifications.fee_before.title': '{period} fee starts tomorrow',
+    'notifications.fee_before.body': '{class} · {amount} to pay by {date}',
+    'notifications.fee_due_today.title': '{amount} fee is due today',
+    'notifications.fee_due_today.body': '{class} · {period}',
+    'notifications.fee_overdue.title': '{amount} fee is overdue',
+    'notifications.fee_overdue.body': '{class} · {period}',
+    'fees.days_late': '{count} days late (due {date})',
+    'fees.days_late_one': '1 day late (due {date})',
     'notifications.payment_received.title': 'Payment received',
     'notifications.payment_received.body': '{amount} · Receipt {receipt} · {class}',
     'notifications.extra_class.title': 'Extra class today',
@@ -48,6 +56,18 @@ describe('describe', () => {
     expect(due.title).toBe('October 2026 fee is due');
     expect(plain(due.lines)).toEqual(['Maths · LKR 2,500 to pay']);
     expect(plain(view(note('payment_received', { amount: 1000, receiptNo: 'R-000007', classTitle: 'Maths' }), t).lines)).toEqual(['LKR 1,000 · Receipt R-000007 · Maths']);
+  });
+
+  it('says when a reminder fee starts, is due, or is late', () => {
+    const plain = (text: string) => text.replace(/\u00a0/g, ' ');
+    const before = view(note('fee_before', { month: '2026-12', lastMonth: '2026-12', classTitle: 'Maths', amount: 2500, dueDate: '2026-12-10' }), t);
+    expect(plain(before.title)).toBe('December 2026 fee starts tomorrow');
+    expect(plain(before.lines[0])).toBe('Maths · LKR 2,500 to pay by 10 Dec');
+    const today = view(note('fee_due_today', { month: '2026-11', lastMonth: '2026-11', classTitle: 'Maths', amount: 2500, dueDate: '2026-11-10', daysLate: 0 }), t);
+    expect(plain(today.title)).toBe('LKR 2,500 fee is due today');
+    const late = view(note('fee_overdue', { month: '2026-10', lastMonth: '2026-12', classTitle: 'Maths', amount: 7500, dueDate: '2026-10-10', daysLate: 14 }), t);
+    expect(late.lines.map(plain)).toEqual(['Maths · Oct 2026 – Dec 2026', '14 days late (due 10 Oct)']);
+    expect(view(note('fee_overdue', { month: '2026-11', classTitle: 'Maths', amount: 1, dueDate: '2026-11-10', daysLate: 1 }), t).lines[1]).toBe('1 day late (due 10 Nov)');
   });
 
   it('shows the times of an extra class and its note', () => {
