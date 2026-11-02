@@ -20,6 +20,20 @@ export interface NotificationList {
   items: AppNotification[];
 }
 
+/** Whether the server can send phone notifications, and the public key a phone needs to subscribe. */
+export interface PushSettings {
+  enabled: boolean;
+  publicKey: string;
+}
+
+/** A phone's address and keys as the browser gives them. */
+export interface PushDevice {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  language: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
   private readonly http = inject(HttpClient);
@@ -45,5 +59,19 @@ export class NotificationsService {
   /** Closes one for good: it no longer shows in the person's list. Says how many are still unread. */
   dismiss(id: string) {
     return this.http.delete<{ unread: number }>(`${this.base}/${id}`);
+  }
+
+  /** Asked quietly: it runs in the background, and a failure just means the turn-on step is not offered. */
+  pushSettings() {
+    return this.http.get<PushSettings>(`${this.base}/push`, { context: quiet() });
+  }
+
+  /** Registers this phone for the signed-in person, or updates it (for example after the language changed). */
+  savePushDevice(device: PushDevice, background = false) {
+    return this.http.put<void>(`${this.base}/push/device`, device, background ? { context: quiet() } : {});
+  }
+
+  removePushDevice(endpoint: string) {
+    return this.http.post<void>(`${this.base}/push/unsubscribe`, { endpoint }, { context: quiet() });
   }
 }

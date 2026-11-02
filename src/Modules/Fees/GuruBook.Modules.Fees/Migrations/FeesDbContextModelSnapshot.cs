@@ -23,6 +23,50 @@ namespace GuruBook.Modules.Fees.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("GuruBook.Modules.Fees.Domain.ClassReminderSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("class_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int?>("WeeklyLimit")
+                        .HasColumnType("integer")
+                        .HasColumnName("weekly_limit");
+
+                    b.HasKey("Id")
+                        .HasName("pk_class_reminder_settings");
+
+                    b.HasIndex("ClassId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_class_reminder_settings_class_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_class_reminder_settings_tenant_id");
+
+                    b.ToTable("class_reminder_settings", "fees");
+                });
+
             modelBuilder.Entity("GuruBook.Modules.Fees.Domain.FeeDue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -91,6 +135,69 @@ namespace GuruBook.Modules.Fees.Migrations
                         .HasDatabaseName("ix_fee_dues_enrolment_id_month");
 
                     b.ToTable("fee_dues", "fees");
+                });
+
+            modelBuilder.Entity("GuruBook.Modules.Fees.Domain.FeeReminder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid>("ClassId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("class_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("due_id");
+
+                    b.Property<Guid>("EnrolmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("enrolment_id");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<string>("Step")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("step");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_fee_reminders");
+
+                    b.HasIndex("EnrolmentId")
+                        .HasDatabaseName("ix_fee_reminders_enrolment_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_fee_reminders_tenant_id");
+
+                    b.HasIndex("DueId", "Step", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_fee_reminders_due_id_step_number");
+
+                    b.ToTable("fee_reminders", "fees");
                 });
 
             modelBuilder.Entity("GuruBook.Modules.Fees.Domain.Payment", b =>
@@ -211,6 +318,42 @@ namespace GuruBook.Modules.Fees.Migrations
                         .HasDatabaseName("ix_payment_allocations_tenant_id");
 
                     b.ToTable("payment_allocations", "fees");
+                });
+
+            modelBuilder.Entity("GuruBook.Modules.Fees.Domain.ReminderSkip", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("EnrolmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("enrolment_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reminder_skips");
+
+                    b.HasIndex("EnrolmentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reminder_skips_enrolment_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_reminder_skips_tenant_id");
+
+                    b.ToTable("reminder_skips", "fees");
                 });
 
             modelBuilder.Entity("GuruBook.Shared.Auditing.AuditLogEntry", b =>

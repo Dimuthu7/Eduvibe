@@ -294,27 +294,21 @@ public class NotificationsApiTests(ApiFactory factory) : IClassFixture<ApiFactor
     private static string FeeMonths(TimeProvider clock) => clock.GetUtcNow().ToOffset(TimeSpan.FromMinutes(330)).ToString("yyyy-MM");
 
     [Fact]
-    public async Task A_student_hears_when_a_fee_they_owe_is_made_and_a_teacher_gets_one_monthly_reminder_from_the_tenth()
+    public async Task A_teacher_gets_one_monthly_reminder_of_unpaid_fees_from_the_tenth()
     {
         var teacher = await factory.NewTeacherAsync();
         var classId = await NewClass(teacher.Client, "Economics");
-        var amara = await NewStudent(teacher.Client, classId, "Amara");
+        await NewStudent(teacher.Client, classId, "Amara");
         var bimal = await NewStudent(teacher.Client, classId, "Bimal");
-        var amaraClient = await SignInStudent(amara.Phone, amara.Otp);
         await teacher.Client.PostAsJsonAsync("/api/fees/payments", new { enrolmentId = bimal.Enrolment, amount = 2500m, method = "Cash" });
 
-        // Before the 10th the student hears, the teacher does not. The student hears only about a due made in the last few days, and the dues
-        // were made just now by the real clock, so on the 1st or 2nd of a month the job runs today rather than on the 5th.
-        await RunFeeJob(ColomboDay(Math.Min(DateTime.UtcNow.AddMinutes(330).Day, 5)));
-        var due = Of(await Notifications(amaraClient), "fee_due").Single();
-        Assert.Equal(2500m, due.GetProperty("params").GetProperty("amount").GetDecimal());
-        Assert.Equal("Economics", due.GetProperty("params").GetProperty("classTitle").GetString());
+        // Before the 10th the teacher does not hear.
+        await RunFeeJob(ColomboDay(5));
         Assert.Empty(Of(await Notifications(teacher.Client), "fees_unpaid"));
 
         // From the 10th the teacher hears once, however often the job runs, and only about students who have not paid.
         await RunFeeJob(ColomboDay(12));
         await RunFeeJob(ColomboDay(13));
-        Assert.Single(Of(await Notifications(amaraClient), "fee_due"));
         var reminder = Of(await Notifications(teacher.Client), "fees_unpaid").Single();
         var classes = reminder.GetProperty("params").GetProperty("classes").EnumerateArray().ToArray();
         Assert.Equal("Economics", classes.Single().GetProperty("title").GetString());

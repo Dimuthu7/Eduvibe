@@ -13,6 +13,9 @@ public sealed class FeesDbContext(DbContextOptions<FeesDbContext> options, ITena
     public DbSet<FeeDue> Dues => Set<FeeDue>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<PaymentAllocation> Allocations => Set<PaymentAllocation>();
+    public DbSet<ClassReminderSetting> ReminderSettings => Set<ClassReminderSetting>();
+    public DbSet<ReminderSkip> ReminderSkips => Set<ReminderSkip>();
+    public DbSet<FeeReminder> Reminders => Set<FeeReminder>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

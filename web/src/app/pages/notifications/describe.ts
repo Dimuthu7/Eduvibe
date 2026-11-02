@@ -1,6 +1,6 @@
 import { fill } from '../../core/i18n/fill';
 import { AppNotification } from '../../core/api/notifications.service';
-import { formatLkr, formatMonth, formatTime } from '../../shared/format';
+import { formatDayMonth, formatLkr, formatMonth, formatPeriod, formatTime } from '../../shared/format';
 
 /** What a notification looks like on the list: an icon, a heading and a few lines, already in the person's language. */
 export interface NotificationView {
@@ -13,6 +13,18 @@ type Translate = (key: string) => string;
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '');
 const number = (value: unknown): number => (typeof value === 'number' ? value : Number(value) || 0);
+
+/** The words for one fee's months: "December 2030" for one month, "Oct 2026 – Dec 2026" for a longer fee. */
+const period = (p: Record<string, unknown>): string => {
+  const month = text(p['month']);
+  const last = text(p['lastMonth']);
+  return last > month ? formatPeriod(month, last) : formatMonth(month);
+};
+
+const daysLate = (p: Record<string, unknown>, t: Translate): string => {
+  const days = number(p['daysLate']);
+  return fill(t(days === 1 ? 'fees.days_late_one' : 'fees.days_late'), { count: days, date: formatDayMonth(text(p['dueDate'])) });
+};
 
 /**
  * Turns a notification into words. Each kind the server sends has its own text in the translation files, so a new kind is a new case
@@ -42,6 +54,24 @@ export function describe(n: AppNotification, t: Translate): NotificationView {
         icon: 'payments',
         title: fill(t('notifications.fee_due.title'), { month: formatMonth(text(p['month'])) }),
         lines: [fill(t('notifications.fee_due.body'), { class: classTitle, amount: formatLkr(number(p['amount'])) })],
+      };
+    case 'fee_before':
+      return {
+        icon: 'event',
+        title: fill(t('notifications.fee_before.title'), { period: period(p) }),
+        lines: [fill(t('notifications.fee_before.body'), { class: classTitle, amount: formatLkr(number(p['amount'])), date: formatDayMonth(text(p['dueDate'])) })],
+      };
+    case 'fee_due_today':
+      return {
+        icon: 'payments',
+        title: fill(t('notifications.fee_due_today.title'), { amount: formatLkr(number(p['amount'])) }),
+        lines: [fill(t('notifications.fee_due_today.body'), { class: classTitle, period: period(p) })],
+      };
+    case 'fee_overdue':
+      return {
+        icon: 'schedule',
+        title: fill(t('notifications.fee_overdue.title'), { amount: formatLkr(number(p['amount'])) }),
+        lines: [fill(t('notifications.fee_overdue.body'), { class: classTitle, period: period(p) }), daysLate(p, t)],
       };
     case 'payment_received':
       return {

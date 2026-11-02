@@ -8,6 +8,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { formatDate, todayColombo } from '../../shared/format';
+import { PushPrompt } from '../../shared/push-prompt';
 import { Customise } from './customise';
 import { isDefaultLayout, resolveLayout } from './layout';
 import { AttendanceWidget } from './widgets/attendance-widget';
@@ -26,7 +27,7 @@ import { TodayWidget } from './widgets/today-widget';
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatButtonModule, MatIconModule, TranslatePipe, Customise,
+    MatButtonModule, MatIconModule, TranslatePipe, Customise, PushPrompt,
     TodayWidget, JoinsWidget, FeesWidget, AttendanceWidget, ExamsWidget, InstitutesWidget,
   ],
   template: `
@@ -43,6 +44,8 @@ import { TodayWidget } from './widgets/today-widget';
           {{ 'dashboard.customise.button' | t }}
         </button>
       </div>
+
+      <app-push-prompt />
 
       @if (layout.status() === 'idle' || layout.status() === 'loading') {
         <div class="skeleton"></div>

@@ -7,6 +7,8 @@
     { "route": "/config.json", "headers": { "cache-control": "no-cache" } },
     { "route": "/ngsw.json", "headers": { "cache-control": "no-cache" } },
     { "route": "/ngsw-worker.js", "headers": { "cache-control": "no-cache" } },
-    { "route": "/safety-worker.js", "headers": { "cache-control": "no-cache" } }
+    { "route": "/safety-worker.js", "headers": { "cache-control": "no-cache" } },
+    { "route": "/gurubook-sw.js", "headers": { "cache-control": "no-cache" } },
+    { "route": "/push-text.js", "headers": { "cache-control": "no-cache" } }
   ]
 }

@@ -2,9 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom, tap } from 'rxjs';
+import { quiet } from '../api/quiet';
 import { AppConfig } from '../config/app-config';
 import { asLanguage, Language } from '../i18n/language';
 import { TranslateService } from '../i18n/translate.service';
+import { currentPushEndpoint } from '../notifications/push-endpoint';
 import { ProfileInput, Role, Session, User } from './auth.models';
 
 const STORAGE_KEY = 'gurubook.session';
@@ -115,6 +117,12 @@ export class AuthService {
 
   async logout(): Promise<void> {
     const refreshToken = this.tokens?.refreshToken;
+    // While still signed in, stop notifications to this phone for the person who is leaving, so the next person on it is not sent theirs.
+    const endpoint = await currentPushEndpoint();
+    if (endpoint) {
+      await firstValueFrom(this.http.post(this.url('/api/notifications/push/unsubscribe'), { endpoint }, { context: quiet() })).catch(() => undefined);
+    }
+
     this.clear();
     if (refreshToken) {
       // Best effort: the local session is already gone even if the server cannot be reached.

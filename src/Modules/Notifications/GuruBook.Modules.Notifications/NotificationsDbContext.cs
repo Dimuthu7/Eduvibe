@@ -11,6 +11,7 @@ public sealed class NotificationsDbContext(DbContextOptions<NotificationsDbConte
     public override string Schema => NotificationsModule.ModuleName;
 
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<PushDevice> PushDevices => Set<PushDevice>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

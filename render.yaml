@@ -51,3 +51,8 @@ services:
         sync: false
       - key: WhatsApp__AppSecret
         sync: false
+      # Phone notifications (see docs/push-setup.md). Optional: without the two keys the app does not offer them.
+      - key: Push__PublicKey
+        sync: false
+      - key: Push__PrivateKey
+        sync: false

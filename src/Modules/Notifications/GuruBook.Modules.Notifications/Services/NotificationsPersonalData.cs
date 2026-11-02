@@ -18,6 +18,9 @@ internal sealed class NotificationsPersonalData(NotificationsDbContext db) : IPe
         return rows.Count == 0 ? PersonalData.Empty : new PersonalData { ["notifications"] = [.. rows.Select(r => (object)ModuleData.Project(type, r))] };
     }
 
-    public async Task EraseTeacherAsync(Guid teacherId, CancellationToken ct) =>
+    public async Task EraseTeacherAsync(Guid teacherId, CancellationToken ct)
+    {
         await db.Notifications.Where(n => n.RecipientId == teacherId).ExecuteDeleteAsync(ct);
+        await db.PushDevices.Where(d => d.TenantId == teacherId).ExecuteDeleteAsync(ct);
+    }
 }

@@ -22,7 +22,7 @@ export const appConfig: ApplicationConfig = {
     { provide: MAT_DIALOG_DEFAULT_OPTIONS, useValue: { autoFocus: 'first-tabbable', restoreFocus: true } },
     provideAppConfig(),
     provideTranslations(),
-    provideServiceWorker('ngsw-worker.js', {
+    provideServiceWorker('gurubook-sw.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),

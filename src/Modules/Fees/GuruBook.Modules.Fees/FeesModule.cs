@@ -32,6 +32,7 @@ public sealed class FeesModule : IModule
     {
         var group = endpoints.MapGroup($"/api/{ModuleName}").WithTags("Fees");
         FeeEndpoints.Map(group);
+        ReminderEndpoints.Map(group);
         WhatsAppEndpoints.Map(group);
         OverviewEndpoints.Map(group);
         MineEndpoints.Map(group);

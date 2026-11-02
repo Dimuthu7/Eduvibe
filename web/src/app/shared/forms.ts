@@ -92,6 +92,7 @@ const FIELD_FOR_CODE: Record<string, string> = {
   date_in_future: 'date',
   outside_edit_window: 'date',
   time_range_invalid: 'end',
+  weekly_limit_invalid: 'weeklyLimit',
   session_exists: 'start',
   note_too_long: 'note',
   class_not_found: 'classId',

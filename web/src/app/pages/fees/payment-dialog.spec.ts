@@ -30,6 +30,8 @@ const fees = (over: Partial<EnrolmentFees> = {}): EnrolmentFees => ({
     due('2026-08', 1500, 1500, 'Paid'),
   ],
   payments: [],
+  reminders: [],
+  remindersSkipped: false,
   ...over,
 });
 

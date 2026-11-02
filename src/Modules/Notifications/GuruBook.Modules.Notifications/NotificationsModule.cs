@@ -1,4 +1,5 @@
 using GuruBook.Modules.Notifications.Endpoints;
+using GuruBook.Modules.Notifications.Push;
 using GuruBook.Modules.Notifications.Services;
 using GuruBook.Shared.Modules;
 using GuruBook.Shared.Persistence;
@@ -24,6 +25,9 @@ public sealed class NotificationsModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<NotificationsDbContext>(configuration, ModuleName);
+        services.Configure<PushOptions>(configuration.GetSection("Push"));
+        services.AddHttpClient<IPushSender, WebPushSender>();
+        services.AddScoped<PushDelivery>();
         services.AddScoped<INotifier, NotificationService>();
         services.AddScoped<IPersonalDataSource, NotificationsPersonalData>();
         services.AddHostedService<NotificationCleanupJob>();
