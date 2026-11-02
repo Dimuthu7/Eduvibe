@@ -32,6 +32,6 @@ internal static class FeeTiming
     {
         var status = FeeMonths.StatusOf(due.AmountDue, paid);
         var (timing, late) = Of(status, due.DueDate, today);
-        return new DueDto(due.Month, due.AmountDue, paid, status.ToString(), due.DueDate, due.PeriodMonths, timing, late);
+        return new DueDto(due.Month, due.AmountDue, paid, status.ToString(), due.DueDate, due.PeriodMonths, timing, late, due.LastMonth);
     }
 }

@@ -45,7 +45,7 @@ describe('dashboard widgets', () => {
   const text = (fixture: { nativeElement: HTMLElement }) => fixture.nativeElement.textContent?.replace(/\s+/g, ' ') ?? '';
 
   describe('fees', () => {
-    const totals = (over: Partial<Record<string, number>>) => ({ paid: 0, partlyPaid: 0, unpaid: 0, freeCard: 0, due: 0, collected: 0, outstanding: 0, ...over });
+    const totals = (over: Partial<Record<string, number>>) => ({ paid: 0, partlyPaid: 0, unpaid: 0, freeCard: 0, overdue: 0, due: 0, collected: 0, outstanding: 0, ...over });
     const cls = (title: string, outstanding: number, archived = false) => ({ classId: title, title, isArchived: archived, totals: totals({ outstanding, unpaid: 2, due: 5000, collected: 5000 - outstanding }) });
 
     it('lists only classes that still owe, the biggest first, and leaves archived ones out', () => {
@@ -73,6 +73,14 @@ describe('dashboard widgets', () => {
       expect(shown).not.toContain('Paid up');
       expect(fixture.nativeElement.querySelector('[role=progressbar]').getAttribute('aria-valuenow')).toBe('20');
       expect(fixture.nativeElement.querySelectorAll('a.link')).toHaveLength(2);
+    });
+
+    it('points out how many fees are past their due date, and says nothing when none are', () => {
+      const late = mount(FeesWidget);
+      http.expectOne((r) => r.url === `${API}/api/fees/overview`).flush({ month: 'm', totals: totals({ due: 5000, collected: 1000, outstanding: 4000, overdue: 3 }), classes: [cls('Maths', 4000)] });
+      late.detectChanges();
+      expect(text(late)).toContain('dashboard.fees.overdue');
+      expect(late.nativeElement.querySelector('a.late')).not.toBeNull();
     });
 
     it('says everyone has paid, and says so plainly when there is nothing to collect yet', () => {

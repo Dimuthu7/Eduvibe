@@ -65,6 +65,8 @@ const FIELD_FOR_CODE: Record<string, string> = {
   exam_year_invalid: 'examYear',
   medium_invalid: 'medium',
   fee_invalid: 'monthlyFee',
+  fee_cycle_invalid: 'feeCycleMonths',
+  pay_by_day_invalid: 'payByDay',
   place_required: 'place',
   place_invalid: 'place',
   username_required: 'username',

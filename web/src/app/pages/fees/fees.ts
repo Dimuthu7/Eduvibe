@@ -4,10 +4,11 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { catchError, combineLatest, EMPTY, Observable, switchMap, tap } from 'rxjs';
 import { ClassesService } from '../../core/api/classes.service';
-import { ClassMonth, FeeOverview, FeesService } from '../../core/api/fees.service';
+import { ClassMonth, FeeOverview, FeeTiming, FeesService } from '../../core/api/fees.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
@@ -15,6 +16,7 @@ import { FeeStatus } from '../../shared/fee-status';
 import { fileNamePart } from '../../shared/download';
 import { ExportService } from '../../shared/export.service';
 import { WhatsAppActions } from '../../shared/whatsapp-actions';
+import { feeDueText } from '../../shared/fee-due-text';
 import { formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/format';
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
@@ -28,7 +30,7 @@ export const ALL_CLASSES = 'all';
   selector: 'app-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [StudentAvatar, NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatButtonToggleModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -64,8 +66,9 @@ export const ALL_CLASSES = 'all';
         @case ('ready') {
           @if (all.data(); as data) {
             <ng-container *ngTemplateOutlet="totals; context: { $implicit: data.totals }" />
+            <ng-container *ngTemplateOutlet="filter; context: { $implicit: data.totals.overdue }" />
             <div class="panel">
-              @for (c of data.classes; track c.classId) {
+              @for (c of shownClasses(data.classes); track c.classId) {
                 <button class="panel-row link" type="button" (click)="open(c.classId)">
                   <span class="avatar" aria-hidden="true"><mat-icon>menu_book</mat-icon></span>
                   <div class="row-main">
@@ -74,11 +77,14 @@ export const ALL_CLASSES = 'all';
                     <div class="row-meta">
                       {{ 'fees.status.Paid' | t }} {{ c.totals.paid }} · {{ 'fees.status.PartlyPaid' | t }} {{ c.totals.partlyPaid }} · {{ 'fees.status.Unpaid' | t }} {{ c.totals.unpaid }}
                     </div>
+                    @if (c.totals.overdue > 0) {
+                      <div class="row-meta late">{{ 'fees.overdue_count' | t }} {{ c.totals.overdue }}</div>
+                    }
                   </div>
                   <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
                 </button>
               } @empty {
-                <div class="panel-row muted">{{ 'fees.no_classes' | t }}</div>
+                <div class="panel-row muted">{{ (overdueOnly() ? 'fees.no_overdue' : 'fees.no_classes') | t }}</div>
               }
             </div>
           }
@@ -99,9 +105,10 @@ export const ALL_CLASSES = 'all';
         @case ('ready') {
           @if (classMonth.data(); as data) {
             <ng-container *ngTemplateOutlet="totals; context: { $implicit: data.totals }" />
+            <ng-container *ngTemplateOutlet="filter; context: { $implicit: data.totals.overdue }" />
 
             <div class="panel">
-              @for (row of data.rows; track row.enrolmentId) {
+              @for (row of shownRows(data.rows); track row.enrolmentId) {
                 <a class="panel-row link" [routerLink]="['/fees', row.enrolmentId]" [queryParams]="{ month: isCurrent() ? null : chosenMonth() }">
                   <app-student-avatar [name]="row.fullName" [of]="row.enrolmentId" [badge]="row.indexNumber" />
                   <div class="row-main">
@@ -113,12 +120,15 @@ export const ALL_CLASSES = 'all';
                         {{ money(row.paid) }} / {{ money(row.due) }}
                       }
                     </div>
+                    @if (row.status !== 'FreeCard' && row.dueDate) {
+                      <div class="row-meta" [class.late]="row.timing === 'Overdue'">{{ dueText(row) }}</div>
+                    }
                   </div>
-                  <app-fee-status [status]="row.status" />
+                  <app-fee-status [status]="row.status" [timing]="row.timing" />
                   <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
                 </a>
               } @empty {
-                <div class="panel-row muted">{{ 'fees.no_students' | t }}</div>
+                <div class="panel-row muted">{{ (overdueOnly() ? 'fees.no_overdue' : 'fees.no_students') | t }}</div>
               }
             </div>
           }
@@ -154,6 +164,15 @@ export const ALL_CLASSES = 'all';
         </div>
       </div>
     </ng-template>
+
+    <ng-template #filter let-overdue>
+      @if (overdue > 0 || overdueOnly()) {
+        <mat-button-toggle-group class="filter" hideSingleSelectionIndicator [value]="overdueOnly()" (change)="overdueOnly.set($event.value)" [attr.aria-label]="'fees.filter' | t">
+          <mat-button-toggle [value]="false">{{ 'fees.show_all' | t }}</mat-button-toggle>
+          <mat-button-toggle [value]="true">{{ 'fees.overdue_count' | t }} {{ overdue }}</mat-button-toggle>
+        </mat-button-toggle-group>
+      }
+    </ng-template>
   `,
   styles: `
     .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1rem; margin-bottom: 1rem; padding: 1rem; border-radius: var(--mat-sys-corner-medium); background: var(--mat-sys-surface-container); }
@@ -161,6 +180,9 @@ export const ALL_CLASSES = 'all';
     .total strong { font: var(--mat-sys-title-large); overflow-wrap: anywhere; }
     .total strong.owing { color: var(--mat-sys-error); }
     .counts { grid-column: 1 / -1; font: var(--mat-sys-body-small); }
+    .filter { display: flex; margin-bottom: 1rem; }
+    .filter mat-button-toggle { flex: 1; }
+    .late { color: var(--mat-sys-error); }
     a.link, button.link { color: inherit; text-decoration: none; }
     button.link { width: 100%; border-width: 0; background: none; font: inherit; text-align: start; cursor: pointer; }
     a.link:hover, button.link:hover { background: var(--mat-sys-surface-container); }
@@ -194,6 +216,8 @@ export class Fees {
     month: this.isCurrent() ? null : this.chosenMonth(),
     classId: this.isClass() ? this.chosen() : null,
   }));
+  /** Show only the students (or classes) whose fee is past its due date. */
+  protected readonly overdueOnly = signal(false);
   private readonly refresh = signal(0);
 
   constructor() {
@@ -230,6 +254,18 @@ export class Fees {
         takeUntilDestroyed(destroyed),
       )
       .subscribe();
+  }
+
+  protected shownRows(rows: ClassMonth['rows']): ClassMonth['rows'] {
+    return this.overdueOnly() ? rows.filter((r) => r.timing === 'Overdue') : rows;
+  }
+
+  protected shownClasses(classes: FeeOverview['classes']): FeeOverview['classes'] {
+    return this.overdueOnly() ? classes.filter((c) => c.totals.overdue > 0) : classes;
+  }
+
+  protected dueText(row: { dueDate: string; timing: FeeTiming; daysLate: number }): string {
+    return feeDueText(this.i18n, row);
   }
 
   protected goTo(month: string): void {

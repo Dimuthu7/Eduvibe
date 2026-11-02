@@ -27,7 +27,7 @@ public sealed record MonthTotalsDto(int Paid, int PartlyPaid, int Unpaid, int Fr
 public sealed record ClassMonthDto(Guid ClassId, string Month, MonthTotalsDto Totals, MonthRowDto[] Rows);
 
 public sealed record DueDto(
-    string Month, decimal Due, decimal Paid, string Status, DateOnly DueDate = default, int PeriodMonths = 1, string Timing = "", int DaysLate = 0);
+    string Month, decimal Due, decimal Paid, string Status, DateOnly DueDate = default, int PeriodMonths = 1, string Timing = "", int DaysLate = 0, string LastMonth = "");
 
 public sealed record AllocationDto(string Month, decimal Amount);
 

@@ -13,7 +13,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { FeeStatus } from '../../shared/fee-status';
-import { formatDate, formatLkr, formatMonthShort } from '../../shared/format';
+import { feeAlerts, FeesAlert } from '../../shared/fees-alert';
+import { formatDate, formatLkr, formatPeriod } from '../../shared/format';
 import { slotSummary } from '../../shared/schedule';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { short } from '../exams/exam-analysis';
@@ -33,11 +34,15 @@ interface MyClassView {
   selector: 'app-welcome',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FeeStatus, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
+  imports: [RouterLink, FeeStatus, FeesAlert, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
     @if (auth.hasRole('Parent')) {
       <a mat-button routerLink="/family" class="switch"><mat-icon>family_restroom</mat-icon> {{ 'welcome.parent_view' | t }}</a>
+    }
+
+    @if (data.status() === 'ready') {
+      <app-fees-alert [items]="alerts()" />
     }
     <h2 class="section-title first">{{ 'welcome.my_classes' | t }}</h2>
 
@@ -128,8 +133,8 @@ interface MyClassView {
                   <div class="months">
                     @for (m of fees.months.slice(0, 3); track m.month) {
                       <span class="month">
-                        <span class="muted">{{ monthShort(m.month) }}</span>
-                        <app-fee-status [status]="m.status" />
+                        <span class="muted">{{ period(m.month, m.lastMonth) }}</span>
+                        <app-fee-status [status]="m.status" [timing]="m.timing" />
                       </span>
                     }
                   </div>
@@ -207,7 +212,11 @@ export class Welcome {
   protected readonly schedule = (slots: { day: number; start: string; end: string }[]) => slotSummary(slots, (key) => this.i18n.translate(key));
   protected readonly date = formatDate;
   protected readonly money = formatLkr;
-  protected readonly monthShort = formatMonthShort;
+  protected readonly period = formatPeriod;
+  protected readonly alerts = computed(() => {
+    const value = this.data.data();
+    return feeAlerts(value?.fees ?? [], (classId) => value?.classes.find((c) => c.classId === classId)?.classTitle ?? '');
+  });
   protected readonly views = computed<MyClassView[]>(() => {
     const value = this.data.data();
     return (value?.classes ?? []).map((klass) => ({

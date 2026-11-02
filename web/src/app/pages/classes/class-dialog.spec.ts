@@ -93,10 +93,26 @@ describe('ClassDialog', () => {
     const request = http.expectOne(`${API}/api/classes/classes`);
     expect(request.request.body).toEqual({
       title: '2027 A/L Maths', subjectId: 'm1', streamId: 's1', examYear: 2027, medium: 'English',
-      instituteId: 'i1', venueId: null, monthlyFee: 2500, slots: [{ day: 3, start: '16:00', end: '18:00' }],
+      instituteId: 'i1', venueId: null, monthlyFee: 2500, feeCycleMonths: 1, payByDay: 10, slots: [{ day: 3, start: '16:00', end: '18:00' }],
     });
     request.flush({ id: 'c1' });
     expect(close).toHaveBeenCalledWith({ id: 'c1' });
+  });
+
+  it('sends how often the fee is paid and the day it is due by', () => {
+    const { form, submit, fill, slot } = setup();
+    fill('v:v1');
+    slot(1, '09:00', '10:00');
+    form.patchValue({ feeCycleMonths: 3, payByDay: 5 });
+    submit();
+    const request = http.expectOne(`${API}/api/classes/classes`);
+    expect(request.request.body).toMatchObject({ feeCycleMonths: 3, payByDay: 5, monthlyFee: 2500 });
+    request.flush({ id: 'c3' });
+  });
+
+  it('starts every new class on a monthly fee due by the 10th', () => {
+    const { form } = setup();
+    expect(form.getRawValue()).toMatchObject({ feeCycleMonths: 1, payByDay: 10 });
   });
 
   it('sends a venue class with the venue id', () => {

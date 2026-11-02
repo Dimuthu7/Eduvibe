@@ -51,6 +51,12 @@ export const collectedPercent = (o: FeeOverview): number => (o.totals.due > 0 ? 
                 <div class="fill" [style.width.%]="percent(o)"></div>
               </div>
               <span class="row-meta">{{ collectedText(o) }}</span>
+              @if (o.totals.overdue > 0) {
+                <a class="late" routerLink="/fees" [queryParams]="{ classId: 'all' }">
+                  <mat-icon aria-hidden="true">event_busy</mat-icon>
+                  {{ overdueText(o) }}
+                </a>
+              }
             </div>
             @for (c of owing(o).slice(0, shown); track c.classId) {
               <a class="panel-row link" routerLink="/fees" [queryParams]="{ classId: c.classId }">
@@ -85,6 +91,8 @@ export const collectedPercent = (o: FeeOverview): number => (o.totals.due > 0 ? 
     .owed .settled { display: flex; align-items: center; gap: 0.5rem; color: var(--mat-sys-primary); }
     .pct { flex: none; padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); font: var(--mat-sys-label-large); }
     .pct.settled { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
+    .late { display: flex; align-items: center; gap: 0.375rem; color: var(--mat-sys-error); font: var(--mat-sys-label-large); text-decoration: none; }
+    .late mat-icon { font-size: 1.125rem; width: 1.125rem; height: 1.125rem; }
     .bar { height: 0.625rem; border-radius: 999px; background: var(--mat-sys-surface-container-highest); overflow: hidden; }
     .fill { height: 100%; min-width: 0.625rem; border-radius: 999px; background: var(--mat-sys-tertiary); }
     a.link { color: inherit; text-decoration: none; border-top: 1px solid var(--mat-sys-outline-variant); }
@@ -121,6 +129,10 @@ export class FeesWidget {
 
   protected collectedText(o: FeeOverview): string {
     return this.i18n.format('dashboard.fees.collected', { collected: formatLkr(o.totals.collected), due: formatLkr(o.totals.due), percent: collectedPercent(o) });
+  }
+
+  protected overdueText(o: FeeOverview): string {
+    return this.i18n.format('dashboard.fees.overdue', { count: o.totals.overdue });
   }
 
   protected unpaidText(c: ClassOverview): string {

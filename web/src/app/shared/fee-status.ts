@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MonthStatus } from '../core/api/fees.service';
+import { FeeTiming, MonthStatus } from '../core/api/fees.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 
 const ICONS: Record<MonthStatus, string> = {
@@ -10,15 +10,21 @@ const ICONS: Record<MonthStatus, string> = {
   FreeCard: 'card_giftcard',
 };
 
-/** A small pill saying whether a month is paid, partly paid, unpaid or free. Colour is never the only signal: the words and an icon say it too. */
+const TIMING_ICONS: Record<Exclude<FeeTiming, ''>, string> = {
+  Overdue: 'event_busy',
+  DueToday: 'today',
+  DueSoon: 'schedule',
+};
+
+/** A small pill saying whether a month is paid, partly paid, unpaid or free. When a due date needs attention (soon, today or past) it says that instead. Colour is never the only signal: the words and an icon say it too. */
 @Component({
   selector: 'app-fee-status',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatIconModule, TranslatePipe],
   template: `
-    <span class="chip {{ status().toLowerCase() }}">
+    <span class="chip {{ look() }}">
       <mat-icon aria-hidden="true">{{ icon() }}</mat-icon>
-      {{ 'fees.status.' + status() | t }}
+      {{ label() | t }}
     </span>
   `,
   styles: `
@@ -27,10 +33,15 @@ const ICONS: Record<MonthStatus, string> = {
     mat-icon { width: 1rem; height: 1rem; font-size: 1rem; }
     .paid { background: var(--mat-sys-primary-container); color: var(--mat-sys-on-primary-container); }
     .partlypaid { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
-    .unpaid { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    .unpaid, .overdue { background: var(--mat-sys-error-container); color: var(--mat-sys-on-error-container); }
+    .duetoday, .duesoon { background: var(--mat-sys-tertiary-container); color: var(--mat-sys-on-tertiary-container); }
   `,
 })
 export class FeeStatus {
   readonly status = input.required<MonthStatus>();
-  protected readonly icon = computed(() => ICONS[this.status()]);
+  /** How the due date looks today; empty (the default) shows the plain status. */
+  readonly timing = input<FeeTiming>('');
+  protected readonly look = computed(() => (this.timing() || this.status()).toLowerCase());
+  protected readonly icon = computed(() => (this.timing() ? TIMING_ICONS[this.timing() as Exclude<FeeTiming, ''>] : ICONS[this.status()]));
+  protected readonly label = computed(() => (this.timing() ? `fees.timing.${this.timing()}` : `fees.status.${this.status()}`));
 }

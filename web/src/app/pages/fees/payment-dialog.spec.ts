@@ -2,12 +2,16 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { EnrolmentFees } from '../../core/api/fees.service';
+import { EnrolmentFees, FeeDue } from '../../core/api/fees.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { monthChoices, PaymentDialog } from './payment-dialog';
 
 const API = 'http://api.test';
+
+const due = (month: string, amount: number, paid: number, status: FeeDue['status']): FeeDue => ({
+  month, due: amount, paid, status, dueDate: `${month}-10`, periodMonths: 1, lastMonth: month, timing: '', daysLate: 0,
+});
 
 const fees = (over: Partial<EnrolmentFees> = {}): EnrolmentFees => ({
   enrolmentId: 'e1',
@@ -21,21 +25,26 @@ const fees = (over: Partial<EnrolmentFees> = {}): EnrolmentFees => ({
   isActive: true,
   outstanding: 3000,
   dues: [
-    { month: '2026-10', due: 1500, paid: 0, status: 'Unpaid' },
-    { month: '2026-09', due: 1500, paid: 0, status: 'Unpaid' },
-    { month: '2026-08', due: 1500, paid: 1500, status: 'Paid' },
+    due('2026-10', 1500, 0, 'Unpaid'),
+    due('2026-09', 1500, 0, 'Unpaid'),
+    due('2026-08', 1500, 1500, 'Paid'),
   ],
   payments: [],
   ...over,
 });
 
 describe('monthChoices', () => {
+  it('does not offer the months a longer fee already covers as months ahead', () => {
+    const quarter = fees({ dues: [{ ...due('2026-10', 4500, 0, 'Unpaid'), periodMonths: 3, lastMonth: '2026-12' }] });
+    expect(monthChoices(quarter, '2026-10')).toEqual(['2026-10', '2027-01']);
+  });
+
   it('offers months that still owe, oldest first, then the next three months', () => {
     expect(monthChoices(fees(), '2026-10')).toEqual(['2026-09', '2026-10', '2026-11', '2026-12', '2027-01']);
   });
 
   it('does not offer a month twice when it is already on the record', () => {
-    const withNext = fees({ dues: [...fees().dues, { month: '2026-11', due: 1500, paid: 500, status: 'PartlyPaid' }] });
+    const withNext = fees({ dues: [...fees().dues, due('2026-11', 1500, 500, 'PartlyPaid')] });
     expect(monthChoices(withNext, '2026-10')).toEqual(['2026-09', '2026-10', '2026-11', '2026-12', '2027-01']);
   });
 });
