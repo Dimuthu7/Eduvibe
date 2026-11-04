@@ -23,6 +23,45 @@ namespace GuruBook.Modules.Notifications.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("GuruBook.Modules.Notifications.Domain.AlertMute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("student_id");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("topic");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_alert_mutes");
+
+                    b.HasIndex("UserId", "StudentId", "Topic")
+                        .IsUnique()
+                        .HasDatabaseName("ix_alert_mutes_user_id_student_id_topic");
+
+                    b.ToTable("alert_mutes", "notifications");
+                });
+
             modelBuilder.Entity("GuruBook.Modules.Notifications.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -95,6 +134,40 @@ namespace GuruBook.Modules.Notifications.Migrations
                         .HasDatabaseName("ix_notifications_recipient_id_updated_at");
 
                     b.ToTable("notifications", "notifications");
+                });
+
+            modelBuilder.Entity("GuruBook.Modules.Notifications.Domain.ParentAlertSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AttendanceAlerts")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("attendance_alerts");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_parent_alert_settings");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_parent_alert_settings_tenant_id");
+
+                    b.ToTable("parent_alert_settings", "notifications");
                 });
 
             modelBuilder.Entity("GuruBook.Modules.Notifications.Domain.PushDevice", b =>

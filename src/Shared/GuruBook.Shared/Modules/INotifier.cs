@@ -9,8 +9,14 @@ namespace GuruBook.Shared.Modules;
 /// <param name="RecipientId">Who to tell: a student's sign-in account id, or a teacher's id (the tenant id). Teachers and accounts have different ids, so the two never clash.</param>
 /// <param name="Link">Where the app goes when the notification is tapped, for example "/results". Null for none.</param>
 /// <param name="GroupedLink">The link to use once the notification stands for more than one event.</param>
+/// <param name="Topic">
+/// One of <see cref="AlertTopics"/> when the person may switch this kind of news off. With <see cref="AboutStudentId"/> it says what the
+/// news is about, so a parent who muted attendance for one child still hears about the other.
+/// </param>
+/// <param name="AboutStudentId">The student the news is about, for a message to their parent.</param>
 public sealed record NotifyRequest(
-    Guid RecipientId, string Kind, object? Params = null, string? Link = null, string? OnceKey = null, string? GroupKey = null, string? GroupedLink = null);
+    Guid RecipientId, string Kind, object? Params = null, string? Link = null, string? OnceKey = null, string? GroupKey = null, string? GroupedLink = null,
+    string? Topic = null, Guid? AboutStudentId = null);
 
 /// <summary>
 /// Lets a module tell a person something without knowing how notifications are stored. The Notifications module implements it.

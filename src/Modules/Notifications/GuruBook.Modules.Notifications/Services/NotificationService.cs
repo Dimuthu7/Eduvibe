@@ -25,7 +25,13 @@ internal sealed class NotificationService(NotificationsDbContext db, PushDeliver
         IReadOnlyCollection<Notification> added;
         try
         {
-            added = await StoreAsync(requests, cancellationToken);
+            var wanted = await WithoutMutedAsync(requests, cancellationToken);
+            if (wanted.Count == 0)
+            {
+                return;
+            }
+
+            added = await StoreAsync(wanted, cancellationToken);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -43,6 +49,30 @@ internal sealed class NotificationService(NotificationsDbContext db, PushDeliver
     {
         await db.Notifications.Where(n => n.RecipientId == recipientId).ExecuteDeleteAsync(cancellationToken);
         await db.PushDevices.Where(d => d.UserId == recipientId || d.TenantId == recipientId).ExecuteDeleteAsync(cancellationToken);
+        await db.AlertMutes.Where(m => m.UserId == recipientId).ExecuteDeleteAsync(cancellationToken);
+    }
+
+    /// <summary>Drops what the person has switched off: one topic about one child. Anything with no topic always goes.</summary>
+    private async Task<IReadOnlyCollection<NotifyRequest>> WithoutMutedAsync(IReadOnlyCollection<NotifyRequest> requests, CancellationToken ct)
+    {
+        var topical = requests.Where(r => r.Topic is not null && r.AboutStudentId is not null).ToList();
+        if (topical.Count == 0)
+        {
+            return requests;
+        }
+
+        var people = topical.Select(r => r.RecipientId).Distinct().ToList();
+        var children = topical.Select(r => r.AboutStudentId!.Value).Distinct().ToList();
+        var muted = (await db.AlertMutes.AsNoTracking()
+                .Where(m => people.Contains(m.UserId) && children.Contains(m.StudentId))
+                .Select(m => new { m.UserId, m.StudentId, m.Topic })
+                .ToListAsync(ct))
+            .Select(m => (m.UserId, m.StudentId, m.Topic))
+            .ToHashSet();
+
+        return muted.Count == 0
+            ? requests
+            : [.. requests.Where(r => r.Topic is null || r.AboutStudentId is not { } child || !muted.Contains((r.RecipientId, child, r.Topic)))];
     }
 
     private async Task<List<Notification>> StoreAsync(IReadOnlyCollection<NotifyRequest> requests, CancellationToken ct)

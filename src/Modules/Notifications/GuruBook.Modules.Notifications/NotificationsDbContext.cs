@@ -12,6 +12,8 @@ public sealed class NotificationsDbContext(DbContextOptions<NotificationsDbConte
 
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PushDevice> PushDevices => Set<PushDevice>();
+    public DbSet<AlertMute> AlertMutes => Set<AlertMute>();
+    public DbSet<ParentAlertSetting> ParentAlertSettings => Set<ParentAlertSetting>();
 
     protected override void ConfigureModule(ModelBuilder modelBuilder)
     {

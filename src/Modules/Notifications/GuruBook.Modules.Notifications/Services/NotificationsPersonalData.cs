@@ -22,5 +22,6 @@ internal sealed class NotificationsPersonalData(NotificationsDbContext db) : IPe
     {
         await db.Notifications.Where(n => n.RecipientId == teacherId).ExecuteDeleteAsync(ct);
         await db.PushDevices.Where(d => d.TenantId == teacherId).ExecuteDeleteAsync(ct);
+        await db.ParentAlertSettings.IgnoreQueryFilters().Where(s => s.TenantId == teacherId).ExecuteDeleteAsync(ct);
     }
 }

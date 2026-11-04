@@ -205,8 +205,11 @@ export class AttendanceMark {
   protected readonly session = computed(() => this.detail.data()?.session);
   protected readonly students = computed(() => this.detail.data()?.students ?? []);
   protected readonly marks = signal<ReadonlyMap<string, AttendanceStatus>>(new Map());
-  /** Enrolments whose cards were scanned. Scanning marks a student present; the rest stay as they were until the teacher says otherwise. */
-  protected readonly scanned = signal<ReadonlySet<string>>(new Set());
+  /**
+   * Enrolments whose cards were scanned, and when. Scanning marks a student present; the rest stay as they were until the teacher says
+   * otherwise. The time is saved with the mark, so a parent hears what time their child arrived.
+   */
+  protected readonly scanned = signal<ReadonlyMap<string, string>>(new Map());
   protected readonly scannedText = computed(() => this.i18n.format('scan.summary', { scanned: this.scanned().size, total: this.students().length }));
   protected readonly busy = signal(false);
   protected readonly options: AttendanceStatus[] = ['Present', 'Late', 'Absent'];
@@ -295,7 +298,7 @@ export class AttendanceMark {
     if (!session) return;
     this.dialog
       .open<ScanDialog, { sessionId: string; arrived: string[] }, string[]>(ScanDialog, {
-        data: { sessionId: session.id, arrived: [...this.scanned()] },
+        data: { sessionId: session.id, arrived: [...this.scanned().keys()] },
         width: '100vw',
         maxWidth: '100vw',
         height: '100dvh',
@@ -306,7 +309,9 @@ export class AttendanceMark {
       .afterClosed()
       .subscribe((arrived) => {
         if (!arrived) return;
-        this.scanned.set(new Set(arrived));
+        const at = new Date().toISOString();
+        const was = this.scanned();
+        this.scanned.set(new Map(arrived.map((id) => [id, was.get(id) ?? at])));
         this.marks.update((m) => {
           const next = new Map(m);
           for (const id of arrived) next.set(id, 'Present');
@@ -334,9 +339,10 @@ export class AttendanceMark {
     const session = this.session();
     if (!session || this.busy()) return;
     this.busy.set(true);
+    // Anyone not present is sent, and so is anyone scanned, because their arrival time goes with the mark.
     const marks = this.students()
-      .map((s) => ({ enrolmentId: s.enrolmentId, status: this.status(s) }))
-      .filter((m) => m.status !== 'Present');
+      .map((s) => ({ enrolmentId: s.enrolmentId, status: this.status(s), scannedAt: this.scanned().get(s.enrolmentId) }))
+      .filter((m) => m.status !== 'Present' || m.scannedAt !== undefined);
     this.api.save(session.id, marks).subscribe({
       next: () => {
         this.toast.success('attendance.saved');

@@ -42,7 +42,7 @@ export const routes: Routes = [
       { path: 'help', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/help/help').then((m) => m.Help) },
       {
         path: 'notifications',
-        canActivate: [anyRoleGuard('Teacher', 'Student')],
+        canActivate: [anyRoleGuard('Teacher', 'Student', 'Parent')],
         loadComponent: () => import('./pages/notifications/notifications').then((m) => m.Notifications),
       },
       { path: 'profile', loadComponent: () => import('./pages/profile/profile').then((m) => m.Profile) },

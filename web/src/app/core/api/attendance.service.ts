@@ -130,7 +130,7 @@ export class AttendanceService {
   }
 
   /** Saves the class's attendance. Only the students who are not present need listing. */
-  save(id: string, marks: { enrolmentId: string; status: AttendanceStatus }[]) {
+  save(id: string, marks: { enrolmentId: string; status: AttendanceStatus; scannedAt?: string }[]) {
     return this.http.put<ClassSession>(`${this.base}/sessions/${id}/marks`, { marks });
   }
 

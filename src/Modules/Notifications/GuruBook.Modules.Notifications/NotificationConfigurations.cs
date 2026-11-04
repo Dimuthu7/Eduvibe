@@ -37,3 +37,24 @@ internal sealed class PushDeviceConfiguration : IEntityTypeConfiguration<PushDev
         builder.HasIndex(d => d.TenantId);
     }
 }
+
+internal sealed class AlertMuteConfiguration : IEntityTypeConfiguration<AlertMute>
+{
+    public void Configure(EntityTypeBuilder<AlertMute> builder)
+    {
+        builder.ToTable("alert_mutes");
+        builder.Property(m => m.Topic).HasMaxLength(20);
+
+        // One row stands for one silence, so setting the same one twice cannot make two.
+        builder.HasIndex(m => new { m.UserId, m.StudentId, m.Topic }).IsUnique();
+    }
+}
+
+internal sealed class ParentAlertSettingConfiguration : IEntityTypeConfiguration<ParentAlertSetting>
+{
+    public void Configure(EntityTypeBuilder<ParentAlertSetting> builder)
+    {
+        builder.ToTable("parent_alert_settings");
+        builder.Property(s => s.AttendanceAlerts).HasMaxLength(20);
+    }
+}

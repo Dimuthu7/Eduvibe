@@ -166,6 +166,24 @@ describe('AttendanceMark', () => {
       expect(root.querySelector('.count.absent')!.textContent).toContain('2');
     });
 
+    it('saves a scanned student with the time their card was read, so their parent hears when they arrived', async () => {
+      const { root } = await open();
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      scanWith(['e1']);
+      click(root, 'scan.button');
+      fixture.detectChanges();
+      click(root, 'attendance.save');
+      const saved = http.expectOne(`${API}/api/attendance/sessions/s1/marks`);
+      const marks = saved.request.body.marks as { enrolmentId: string; status: string; scannedAt?: string }[];
+      const scanned = marks.find((m) => m.enrolmentId === 'e1')!;
+      expect(scanned.status).toBe('Present');
+      expect(Date.parse(scanned.scannedAt!)).toBeGreaterThan(0);
+      // Someone absent is still sent, with no time; someone untouched and present is left out.
+      expect(marks.find((m) => m.enrolmentId === 'e3')).toMatchObject({ status: 'Absent', scannedAt: undefined });
+      expect(marks.find((m) => m.enrolmentId === 'e2')).toBeUndefined();
+      saved.flush(detail().session);
+    });
+
     it('offers no scanning once the days to correct have passed', async () => {
       const { root } = await open(false);
       expect(root.textContent).not.toContain('scan.button');

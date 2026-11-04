@@ -60,7 +60,7 @@ export class PushService {
   start(): void {
     effect(() => {
       const user = this.auth.user();
-      const listens = !!user && !needsSetup(user) && (user.roles.includes('Teacher') || user.roles.includes('Student'));
+      const listens = !!user && !needsSetup(user) && (user.roles.includes('Teacher') || user.roles.includes('Student') || user.roles.includes('Parent'));
       untracked(() => (listens ? void this.refresh() : this.state.set('checking')));
     });
 

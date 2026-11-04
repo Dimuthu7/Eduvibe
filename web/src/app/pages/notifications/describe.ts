@@ -73,6 +73,59 @@ export function describe(n: AppNotification, t: Translate): NotificationView {
         title: fill(t('notifications.fee_overdue.title'), { amount: formatLkr(number(p['amount'])) }),
         lines: [fill(t('notifications.fee_overdue.body'), { class: classTitle, period: period(p) }), daysLate(p, t)],
       };
+    case 'child_payment':
+      return {
+        icon: 'receipt_long',
+        title: fill(t('notifications.child_payment.title'), { student: text(p['student']) }),
+        lines: [fill(t('notifications.payment_received.body'), { amount: formatLkr(number(p['amount'])), receipt: text(p['receiptNo']), class: classTitle })],
+      };
+    case 'payment_voided':
+      return {
+        icon: 'money_off',
+        title: t('notifications.payment_voided.title'),
+        lines: [fill(t('notifications.payment_received.body'), { amount: formatLkr(number(p['amount'])), receipt: text(p['receiptNo']), class: classTitle })],
+      };
+    case 'child_payment_voided':
+      return {
+        icon: 'money_off',
+        title: fill(t('notifications.child_payment_voided.title'), { student: text(p['student']) }),
+        lines: [fill(t('notifications.payment_received.body'), { amount: formatLkr(number(p['amount'])), receipt: text(p['receiptNo']), class: classTitle })],
+      };
+    case 'child_attended': {
+      const at = text(p['at']);
+      return {
+        icon: 'how_to_reg',
+        title: fill(t(p['late'] === true ? 'notifications.child_attended.late' : 'notifications.child_attended.title'), { student: text(p['student']) }),
+        lines: [
+          fill(t('notifications.child_attended.body'), { class: classTitle, date: formatDayMonth(text(p['date'])) }),
+          ...(at ? [fill(t('notifications.child_attended.scanned'), { time: formatTime(at) })] : []),
+        ],
+      };
+    }
+    case 'child_absent':
+      return {
+        icon: 'person_off',
+        title: fill(t('notifications.child_absent.title'), { student: text(p['student']) }),
+        lines: [fill(t('notifications.child_attended.body'), { class: classTitle, date: formatDayMonth(text(p['date'])) })],
+      };
+    case 'child_results':
+      return {
+        icon: 'quiz',
+        title: fill(t('notifications.results_published.title'), { exam: text(p['exam']) }),
+        lines: [fill(t('notifications.about_child'), { student: text(p['student']), class: classTitle })],
+      };
+    case 'result_changed':
+      return {
+        icon: 'edit_note',
+        title: fill(t('notifications.result_changed.title'), { exam: text(p['exam']) }),
+        lines: [classTitle, t('notifications.results_published.hint')].filter(Boolean),
+      };
+    case 'child_result_changed':
+      return {
+        icon: 'edit_note',
+        title: fill(t('notifications.result_changed.title'), { exam: text(p['exam']) }),
+        lines: [fill(t('notifications.about_child'), { student: text(p['student']), class: classTitle })],
+      };
     case 'payment_received':
       return {
         icon: 'receipt_long',

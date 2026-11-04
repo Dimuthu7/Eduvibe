@@ -34,6 +34,22 @@ export interface PushDevice {
   language: string;
 }
 
+/** One topic a person has switched off about one child. */
+export interface MutedTopic {
+  studentId: string;
+  topic: AlertTopic;
+}
+
+/** The topics a parent can switch off, one child at a time. */
+export type AlertTopic = 'payments' | 'attendance' | 'results';
+
+export const ALERT_TOPICS: readonly AlertTopic[] = ['payments', 'attendance', 'results'];
+
+/** How much of attendance a teacher's parents are told about. */
+export type AttendanceAlerts = 'all' | 'absences' | 'off';
+
+export const ATTENDANCE_ALERTS: readonly AttendanceAlerts[] = ['all', 'absences', 'off'];
+
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
   private readonly http = inject(HttpClient);
@@ -73,5 +89,23 @@ export class NotificationsService {
 
   removePushDevice(endpoint: string) {
     return this.http.post<void>(`${this.base}/push/unsubscribe`, { endpoint }, { context: quiet() });
+  }
+
+  /** What the signed-in person has switched off, a topic at a time for one child. */
+  myAlerts() {
+    return this.http.get<{ muted: MutedTopic[] }>(`${this.base}/alerts`);
+  }
+
+  muteAlerts(studentId: string, topic: AlertTopic, on: boolean) {
+    return this.http.put<{ muted: MutedTopic[] }>(`${this.base}/alerts`, { studentId, topic, on });
+  }
+
+  /** How much of attendance this teacher's parents are told about. */
+  parentAlerts() {
+    return this.http.get<{ attendanceAlerts: AttendanceAlerts }>(`${this.base}/parent-alerts`);
+  }
+
+  saveParentAlerts(attendanceAlerts: AttendanceAlerts) {
+    return this.http.put<{ attendanceAlerts: AttendanceAlerts }>(`${this.base}/parent-alerts`, { attendanceAlerts });
   }
 }

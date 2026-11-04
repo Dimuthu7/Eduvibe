@@ -29,6 +29,7 @@ public sealed class NotificationsModule : IModule
         services.AddHttpClient<IPushSender, WebPushSender>();
         services.AddScoped<PushDelivery>();
         services.AddScoped<INotifier, NotificationService>();
+        services.AddScoped<IParentAlertSettings, ParentAlertSettings>();
         services.AddScoped<IPersonalDataSource, NotificationsPersonalData>();
         services.AddHostedService<NotificationCleanupJob>();
     }

@@ -33,6 +33,7 @@ internal static class NotificationEndpoints
         mine.MapPost("/read-all", ReadAll);
         mine.MapDelete("/{id:guid}", Dismiss);
         PushEndpoints.Map(group);
+        AlertEndpoints.Map(group);
     }
 
     private static async Task<IResult> List(NotificationsDbContext db, ITenantContext user, CancellationToken ct)
