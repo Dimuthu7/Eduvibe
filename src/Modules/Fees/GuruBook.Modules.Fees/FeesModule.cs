@@ -22,6 +22,8 @@ public sealed class FeesModule : IModule
         services.AddModuleDbContext<FeesDbContext>(configuration, ModuleName);
         services.AddScoped<IPersonalDataSource, FeesPersonalData>();
         services.AddScoped<FeeDueService>();
+        services.AddScoped<PaymentRecorder>();
+        services.AddScoped<IFeeCollection, FeeCollection>();
         services.AddScoped<ClassMonthService>();
         services.AddScoped<FeeReminderService>();
         services.AddScoped<IReportSource, FeeStatusReport>();

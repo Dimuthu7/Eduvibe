@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AttendanceService, MyAttendance } from '../../core/api/attendance.service';
 import { ExamsService, MyExam } from '../../core/api/exams.service';
 import { FeesService, MyFees } from '../../core/api/fees.service';
+import { PaymentsApi } from '../../core/api/payments.service';
 import { Child, ChildClass, StudentsService } from '../../core/api/students.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -23,6 +24,8 @@ interface ChildData {
   attendance: MyAttendance[];
   fees: MyFees[];
   results: MyExam[];
+  /** The enrolments of this child whose teacher takes bank transfers. */
+  payable: string[];
 }
 
 interface ClassView {
@@ -73,7 +76,7 @@ interface ClassView {
             <h2 class="section-title child-name">{{ child.fullName }}</h2>
             @switch (details.status()) {
               @case ('ready') {
-                <app-fees-alert [items]="alerts()" />
+                <app-fees-alert [items]="alerts()" [payable]="payable()" [studentId]="selected().studentId" (claimed)="loadDetails()" />
                 @for (item of views(); track item.klass.classId) {
                   <mat-card appearance="outlined" class="class-card">
                     <mat-card-content>
@@ -253,6 +256,7 @@ export class Family {
   private readonly attendance = inject(AttendanceService);
   private readonly fees = inject(FeesService);
   private readonly exams = inject(ExamsService);
+  private readonly payments = inject(PaymentsApi);
 
   protected readonly children = new Loadable<Child[]>();
   protected readonly details = new Loadable<ChildData>();
@@ -273,6 +277,8 @@ export class Family {
     const classes = this.selected()?.classes ?? [];
     return feeAlerts(this.details.data()?.fees ?? [], (classId) => classes.find((c) => c.classId === classId)?.classTitle ?? '');
   });
+
+  protected readonly payable = computed(() => this.details.data()?.payable ?? []);
 
   protected readonly views = computed<ClassView[]>(() => {
     const child = this.selected();
@@ -311,6 +317,8 @@ export class Family {
         attendance: this.attendance.child(child.studentId),
         fees: this.fees.child(child.studentId),
         results: this.exams.child(child.studentId),
+        // Only decides whether a Pay button is offered, so a failure simply leaves it off.
+        payable: this.payments.payable(child.studentId).pipe(catchError(() => of<string[]>([]))),
       }),
     );
   }

@@ -108,8 +108,8 @@ internal static class FeeEndpoints
 
     // The amount goes to the months asked for, oldest first, or to the oldest unpaid months when none are named.
     private static async Task<IResult> RecordPayment(
-        RecordPaymentRequest request, FeesDbContext db, FeeDueService dues, IClassRoster roster, IClassDirectory classes, INotifier notifier,
-        IParentLinks parents, ITenantContext user, TimeProvider clock, CancellationToken ct)
+        RecordPaymentRequest request, FeesDbContext db, PaymentRecorder recorder, IClassRoster roster, ITenantContext user,
+        TimeProvider clock, CancellationToken ct)
     {
         var today = Problems.Today(clock);
         var current = FeeMonths.Current(clock);
@@ -143,98 +143,16 @@ internal static class FeeEndpoints
             return Problems.Reject("month_invalid");
         }
 
-        // Months being paid ahead get their due now, so the money has somewhere to go.
-        var toEnsure = named.Count > 0 ? named : [.. FeeMonths.Range(string.CompareOrdinal(joined, FeeMonths.Add(current, -MonthsBack)) < 0 ? FeeMonths.Add(current, -MonthsBack) : joined, current)];
-        await dues.EnsureForEnrolmentAsync(basis, toEnsure, ct);
-
-        var rows = (await db.Dues.Where(d => d.EnrolmentId == basis.EnrolmentId).ToListAsync(ct))
-            .Where(d => named.Count == 0 || named.Any(d.Covers))
-            .OrderBy(r => r.Month)
-            .ToList();
-        var paid = await FeeLedger.PaidByDueAsync(db, [.. rows.Select(r => r.Id)], ct);
-
-        var left = amount;
-        var shares = new List<(FeeDue Due, decimal Amount)>();
-        foreach (var due in rows)
-        {
-            var owed = due.AmountDue - paid.GetValueOrDefault(due.Id);
-            if (owed <= 0 || left <= 0)
-            {
-                continue;
-            }
-
-            var share = Math.Min(owed, left);
-            shares.Add((due, share));
-            left -= share;
-        }
-
-        if (shares.Count == 0)
-        {
-            return Problems.Reject("nothing_due");
-        }
-
-        if (left > 0)
-        {
-            return Problems.Reject("amount_exceeds_outstanding");
-        }
-
-        var dueIds = shares.Select(s => s.Due.Id).ToList();
-
-        // Receipt numbers count up per teacher. If two payments race for the same number the unique index stops one, which tries again.
-        for (var attempt = 0; ; attempt++)
-        {
-            var last = await db.Payments.OrderByDescending(p => p.ReceiptNo).Select(p => p.ReceiptNo).FirstOrDefaultAsync(ct);
-            var next = last is not null && int.TryParse(last.AsSpan(2), out var n) ? n + 1 : 1;
-            var payment = new Payment
-            {
-                TenantId = basis.TenantId, EnrolmentId = basis.EnrolmentId, ReceiptNo = $"R-{next:D6}", Amount = amount,
-                Method = method, PaidOn = paidOn, ReceivedBy = user.UserId,
-            };
-            db.Payments.Add(payment);
-            foreach (var (due, share) in shares)
-            {
-                db.Allocations.Add(new PaymentAllocation { TenantId = basis.TenantId, PaymentId = payment.Id, FeeDueId = due.Id, Amount = share });
-            }
-
-            try
-            {
-                await db.SaveChangesAsync(ct);
-                var title = (await classes.FindAsync(basis.ClassId, ct))?.Title ?? "";
-                var told = new List<NotifyRequest>();
-                if (basis.UserId is { } studentUser)
-                {
-                    told.Add(new NotifyRequest(
-                        studentUser, "payment_received", new { amount, receiptNo = payment.ReceiptNo, classTitle = title },
-                        Link: "/welcome", OnceKey: $"payment:{payment.Id}"));
-                }
-
-                // The parents a teacher linked hear it too, with the child named, so a parent of two knows which one it is about.
-                foreach (var parent in await ParentsOfAsync(parents, basis.StudentId, ct))
-                {
-                    told.Add(new NotifyRequest(
-                        parent, "child_payment",
-                        new { student = basis.FullName, amount, receiptNo = payment.ReceiptNo, classTitle = title },
-                        Link: "/family", OnceKey: $"payment:{payment.Id}", Topic: AlertTopics.Payments, AboutStudentId: basis.StudentId));
-                }
-
-                await notifier.NotifyAsync(told, ct);
-
-                return Results.Created($"/api/fees/enrolments/{basis.EnrolmentId}", (await ToDtosAsync(db, [payment], ct))[0]);
-            }
-            catch (DbUpdateException) when (attempt < 3)
-            {
-                // The failed save left the new rows tracked; start clean and look up the same dues again.
-                db.ChangeTracker.Clear();
-                var again = await db.Dues.Where(d => dueIds.Contains(d.Id)).ToDictionaryAsync(d => d.Id, ct);
-                shares = [.. shares.Select(s => (again[s.Due.Id], s.Amount))];
-            }
-        }
+        var (payment, error) = await recorder.RecordAsync(basis, amount, method, paidOn, named, user.UserId, ct);
+        return payment is null
+            ? Problems.Reject(error!)
+            : Results.Created($"/api/fees/enrolments/{basis.EnrolmentId}", (await ToDtosAsync(db, [payment], ct))[0]);
     }
 
     // A payment is never deleted. Voiding keeps it on record, with why, and gives its months back as owing.
     private static async Task<IResult> VoidPayment(
-        Guid id, VoidPaymentRequest request, FeesDbContext db, IClassRoster roster, IClassDirectory classes, IParentLinks parents,
-        INotifier notifier, TimeProvider clock, CancellationToken ct)
+        Guid id, VoidPaymentRequest request, FeesDbContext db, PaymentRecorder recorder, IClassRoster roster,
+        TimeProvider clock, CancellationToken ct)
     {
         var payment = await db.Payments.FindAsync([id], ct);
         if (payment is null)
@@ -261,41 +179,13 @@ internal static class FeeEndpoints
         payment.VoidedAt = clock.GetUtcNow();
         payment.VoidReason = reason;
         await db.SaveChangesAsync(ct);
-        await TellAboutVoidAsync(payment, roster, classes, parents, notifier, ct);
+        if (await roster.FindFeeBasisAsync(payment.EnrolmentId, ct) is { } basis)
+        {
+            await recorder.TellAboutVoidAsync(basis, payment, ct);
+        }
+
         return Results.Ok((await ToDtosAsync(db, [payment], ct))[0]);
     }
-
-    /// <summary>A payment taken back is a correction: whoever was told it came in is told it was undone, once per payment.</summary>
-    private static async Task TellAboutVoidAsync(
-        Payment payment, IClassRoster roster, IClassDirectory classes, IParentLinks parents, INotifier notifier, CancellationToken ct)
-    {
-        if (await roster.FindFeeBasisAsync(payment.EnrolmentId, ct) is not { } basis)
-        {
-            return;
-        }
-
-        var title = (await classes.FindAsync(basis.ClassId, ct))?.Title ?? "";
-        var told = new List<NotifyRequest>();
-        if (basis.UserId is { } studentUser)
-        {
-            told.Add(new NotifyRequest(
-                studentUser, "payment_voided", new { amount = payment.Amount, receiptNo = payment.ReceiptNo, classTitle = title },
-                Link: "/welcome", OnceKey: $"void:{payment.Id}"));
-        }
-
-        foreach (var parent in await ParentsOfAsync(parents, basis.StudentId, ct))
-        {
-            told.Add(new NotifyRequest(
-                parent, "child_payment_voided",
-                new { student = basis.FullName, amount = payment.Amount, receiptNo = payment.ReceiptNo, classTitle = title },
-                Link: "/family", OnceKey: $"void:{payment.Id}", Topic: AlertTopics.Payments, AboutStudentId: basis.StudentId));
-        }
-
-        await notifier.NotifyAsync(told, ct);
-    }
-
-    private static async Task<IReadOnlyList<Guid>> ParentsOfAsync(IParentLinks parents, Guid studentId, CancellationToken ct) =>
-        (await parents.ParentsOfAsync([studentId], ct)).TryGetValue(studentId, out var linked) ? linked : [];
 
     private static async Task<PaymentDto[]> ToDtosAsync(FeesDbContext db, List<Payment> payments, CancellationToken ct)
     {

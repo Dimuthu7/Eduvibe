@@ -10,6 +10,7 @@ using GuruBook.Modules.Notifications;
 using GuruBook.Modules.Plans;
 using GuruBook.Modules.Privacy;
 using GuruBook.Modules.Reports;
+using GuruBook.Modules.Payments;
 using GuruBook.Modules.Sms;
 using GuruBook.Modules.Students;
 using GuruBook.Modules.WhatsApp;
@@ -36,6 +37,7 @@ public static class ModuleCatalog
         new MaterialsModule(),
         new WhatsAppModule(),
         new SmsModule(),
+        new PaymentsModule(),
         new PrivacyModule(),
     ];
 }

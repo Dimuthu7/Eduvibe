@@ -6,7 +6,7 @@ A teacher or a student can ask for the data GuruBook holds about them, or for it
 
 In the app: **Teachers**, the menu on the teacher's row.
 
-- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, WhatsApp message log, dashboard layout and plan history, the students' profile photos (as base64 text under `student_photos`), and the class materials list and the connected Google account's email. Passwords, sign-in tokens, invite tokens and the Google Drive token are never included.
+- **Download data** saves a JSON file with the teacher's account, profile, classes, venues, students, enrolments, attendance, fees, exams, notifications, WhatsApp message log, text message log, bank payment details and claims, dashboard layout and plan history, the students' profile photos (as base64 text under `student_photos`), and the class materials list and the connected Google account's email. Passwords, sign-in tokens, invite tokens and the Google Drive token are never included.
 - **Delete data** appears only for a teacher who has been switched off (**Deactivate** first). It asks for the teacher's full name. Then it deletes the teacher, everything they own, and the students nobody else teaches (with their sign-in accounts).
 
 Students who also study with another teacher stay, with that other teacher's records.
@@ -29,6 +29,12 @@ A student's photo is one small JPEG (about 320 px square, 15 to 40 kB) in `stude
 ## WhatsApp messages
 
 `whatsapp.messages` is a log of every message a teacher sent: the student's name, the parent's phone number (guardian's number when there is one), the words sent (first name, class, month, amount owed, or marks, grade and rank), the status, and a key that stops repeats. `whatsapp.opt_outs` holds the numbers whose owners replied STOP. Both are tenant-owned, so they are part of the teacher's export and are erased with the teacher. They also hold a student's personal data, so a student's export includes their messages, and erasing a student deletes those rows and any opt-out for numbers that have no other messages left. The teacher's WhatsApp screen shows only the last four digits of a number. Meta, as the carrier, keeps its own records under its terms.
+
+## Bank payments and slip photos
+
+`payments.bank_details` (the bank, account name, account number, branch and a note) and `payments.qr_codes` (the LankaQR image) are a teacher's own details, tenant-owned, part of their export and erased with them. Only that teacher's students and the parents they linked can read them; the API checks the enrolment against the roster on every request.
+
+`payments.payment_claims` is one row per "I've paid": the enrolment, the month, the amount claimed, the reference, any note the payer typed, the teacher's decision and, once confirmed, the payment and receipt it became. A row may also hold a photo of the payer's bank slip. The slip image is **cleared 120 days after the decision** by a twice-daily job, which leaves the claim and its decision in place; the image is also kept out of the audit log on purpose, so the log records the decision without copies of bank documents. Claims are tenant-owned (teacher export, erased with the teacher) and hold a student's personal data, so a student's export includes their claims and erasing a student deletes them, image and all. No bank detail or slip is ever sent to another service: GuruBook carries no money. See [Bank payments](bank-payments.md).
 
 ## Parent accounts
 

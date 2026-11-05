@@ -57,7 +57,7 @@ describe('Tamil text', () => {
   it('has no empty text and is written in Tamil', () => {
     expect(Object.keys(tamil).filter((key) => tamil[key].trim() === '')).toEqual([]);
     // A line that is only Latin letters is almost certainly left in English; the few brand names and file types are listed.
-    const untranslated = Object.keys(tamil).filter((key) => /\p{L}/u.test(tamil[key].replace(/\{\w+\}/g, '')) && !/[\u0B80-\u0BFF]/.test(tamil[key]) && !/^(app\.name|attendance\.pdf|nav\.whatsapp|students\.share_whatsapp|attendance\.of|exams\.of)$/.test(key));
+    const untranslated = Object.keys(tamil).filter((key) => /\p{L}/u.test(tamil[key].replace(/\{\w+\}/g, '')) && !/[\u0B80-\u0BFF]/.test(tamil[key]) && !/^(app\.name|attendance\.pdf|nav\.whatsapp|students\.share_whatsapp|attendance\.of|exams\.of|pay\.lankaqr)$/.test(key));
     expect(untranslated).toEqual([]);
   });
 

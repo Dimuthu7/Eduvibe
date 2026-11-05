@@ -11,7 +11,8 @@ namespace GuruBook.Modules.Fees.Endpoints;
 
 public sealed record MyReceiptDto(string ReceiptNo, decimal Amount, string Method, DateOnly PaidOn);
 
-public sealed record MyFeesDto(Guid ClassId, decimal Outstanding, DueDto[] Months, MyReceiptDto[] Receipts);
+/// <summary>EnrolmentId is the student's own place in the class; the pay screen names the fee being paid by it.</summary>
+public sealed record MyFeesDto(Guid ClassId, decimal Outstanding, DueDto[] Months, MyReceiptDto[] Receipts, Guid EnrolmentId = default);
 
 /// <summary>
 /// A student's own fee status in each class they are in: the last few months and their latest receipts. A parent gets the same for one
@@ -68,7 +69,7 @@ internal static class MineEndpoints
             var receipts = payments.Where(p => p.EnrolmentId == e.EnrolmentId)
                 .OrderByDescending(p => p.ReceiptNo).Take(ReceiptsShown)
                 .Select(p => new MyReceiptDto(p.ReceiptNo, p.Amount, p.Method.ToString(), p.PaidOn));
-            return new MyFeesDto(e.ClassId, months.Sum(m => m.Due - m.Paid), [.. months.Take(MonthsShown)], [.. receipts]);
+            return new MyFeesDto(e.ClassId, months.Sum(m => m.Due - m.Paid), [.. months.Take(MonthsShown)], [.. receipts], e.EnrolmentId);
         }).ToList();
         return result;
     }
