@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
+import { SmsStatus } from '../core/api/sms.service';
 import { WhatsAppPreview, WhatsAppStatus } from '../core/api/whatsapp.service';
 import { AppConfig } from '../core/config/app-config';
 import { TranslateService } from '../core/i18n/translate.service';
@@ -17,14 +18,19 @@ const status = (over: Partial<WhatsAppStatus> = {}): WhatsAppStatus => ({
 });
 
 const preview = (over: Partial<WhatsAppPreview> = {}): WhatsAppPreview => ({
-  configured: true, total: 6, ready: 3, noNumber: 1, optedOut: 1, alreadySent: 1, overAllowance: 0, limit: 500, used: 12, noNumberNames: ['Nimal Perera'], ...over,
+  channel: 'whatsapp_then_sms', configured: true, total: 6, ready: 3, noNumber: 1, optedOut: 1, alreadySent: 1, overAllowance: 0, limit: 500, used: 12,
+  noNumberNames: ['Nimal Perera'], ...over,
+});
+
+const smsStatus = (over: Partial<SmsStatus> = {}): SmsStatus => ({
+  enabled: true, configured: true, simulated: false, limit: 300, used: 20, remaining: 280, channel: 'whatsapp_then_sms', ...over,
 });
 
 describe('WhatsAppDialog', () => {
   let http: HttpTestingController;
   const close = vi.fn();
 
-  const setup = (first: WhatsAppStatus) => {
+  const setup = (first: WhatsAppStatus, sms: SmsStatus = smsStatus()) => {
     const data: WhatsAppSpec = { path: PATH, title: 'whatsapp.fees_title', intro: 'whatsapp.fees_intro' };
     TestBed.configureTestingModule({
       imports: [WhatsAppDialog],
@@ -40,6 +46,7 @@ describe('WhatsAppDialog', () => {
     const fixture = TestBed.createComponent(WhatsAppDialog);
     fixture.detectChanges();
     http.expectOne(`${API}/api/whatsapp/status`).flush(first);
+    http.expectOne(`${API}/api/sms/status`).flush(sms);
     fixture.detectChanges();
     return { fixture, el: fixture.nativeElement as HTMLElement };
   };
@@ -112,9 +119,38 @@ describe('WhatsAppDialog', () => {
     expect(el.querySelector('[role=alert]')!.textContent).toContain('error.month_invalid');
     Array.from(el.querySelectorAll('button')).find((b) => b.textContent!.includes('status.retry'))!.click();
     http.expectOne(`${API}/api/whatsapp/status`).flush(status());
+    http.expectOne(`${API}/api/sms/status`).flush(smsStatus());
     http.expectOne(`${API}${PATH}`).flush(preview());
     fixture.detectChanges();
     expect(el.querySelector('.main dd')!.textContent).toBe('3');
+  });
+
+  it('speaks about texts, and uses the SMS allowance, for a teacher who chose SMS alone', () => {
+    const { fixture, el } = setup(status({ enabled: false, limit: 0, remaining: 0 }), smsStatus({ channel: 'sms_only' }));
+    http.expectOne(`${API}${PATH}`).flush(preview({ channel: 'sms_only', limit: 300, used: 20 }));
+    fixture.detectChanges();
+
+    expect(el.textContent).toContain('sms.these_go_by_sms');
+    expect(el.textContent).toContain('"used":20,"limit":300');
+    expect(el.querySelector('.log-link')!.getAttribute('href')).toBe('/sms');
+
+    const toast = vi.spyOn(TestBed.inject(ToastService), 'success');
+    const send = Array.from(el.querySelectorAll('button')).find((b) => b.textContent!.includes('sms.send'))!;
+    send.click();
+    http.expectOne({ method: 'POST', url: `${API}${PATH}` })
+      .flush({ configured: true, queued: 3, noNumber: 1, optedOut: 1, alreadySent: 1, overAllowance: 0, channel: 'sms_only' });
+    expect(toast).toHaveBeenCalledWith('sms.queued');
+    expect(close).toHaveBeenCalledWith(true);
+  });
+
+  it('shows a teacher who chose SMS alone that SMS is locked, not WhatsApp', () => {
+    const { fixture, el } = setup(status(), smsStatus({ enabled: false, limit: 0, remaining: 0, channel: 'sms_only' }));
+    http.expectOne(`${API}/api/plans/mine`).flush({
+      planName: 'Free', endsOn: null, limits: [], features: [{ key: 'sms', enabled: false, availableOn: 'Pro' }],
+    });
+    fixture.detectChanges();
+    expect(el.textContent).toContain('sms.locked_title');
+    expect(el.textContent).toContain('Pro');
   });
 
   it('goes back to "not set up" when the server turns out not to be configured at send time', () => {

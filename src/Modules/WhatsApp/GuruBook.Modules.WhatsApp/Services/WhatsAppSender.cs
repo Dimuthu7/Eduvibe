@@ -13,11 +13,20 @@ namespace GuruBook.Modules.WhatsApp.Services;
 /// does the actual sending, so the teacher's request returns at once. Preview and send share one decision, so the preview is what send does.
 /// </summary>
 internal sealed class WhatsAppSender(
-    WhatsAppDbContext db, IStudentContacts contacts, IPlanGate plans, IWhatsAppClient client,
+    WhatsAppDbContext db, IStudentContacts contacts, IPlanGate plans, IWhatsAppClient client, ISmsSender sms,
     WhatsAppSignal signal, WhatsAppDispatchRunner runner, TimeProvider clock) : IWhatsAppSender
 {
     public async Task<WhatsAppPreview> PreviewAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken ct)
     {
+        // A teacher who chose SMS for everything gets the SMS answer here, so every screen that offers a send needs to know nothing about channels.
+        if (await sms.ChannelAsync(ct) == MessageChannels.SmsOnly)
+        {
+            var text = await sms.PreviewAsync(AsSms(drafts), ct);
+            return new WhatsAppPreview(
+                text.Configured, text.Total, text.Ready, text.NoNumber, text.OptedOut, text.AlreadySent, text.OverAllowance,
+                text.Limit, text.Used, text.NoNumberStudentIds, MessageChannels.SmsOnly);
+        }
+
         var plan = await DecideAsync(drafts, ct);
         return new WhatsAppPreview(
             client.IsConfigured, drafts.Count, plan.Ready.Count, plan.NoNumber.Count, plan.OptedOut, plan.AlreadySent, plan.Over,
@@ -26,6 +35,13 @@ internal sealed class WhatsAppSender(
 
     public async Task<WhatsAppSendResult> SendAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken ct)
     {
+        if (await sms.ChannelAsync(ct) == MessageChannels.SmsOnly)
+        {
+            var text = await sms.SendAsync(AsSms(drafts), ct);
+            return new WhatsAppSendResult(
+                text.Configured, text.Queued, text.NoNumber, text.OptedOut, text.AlreadySent, text.OverAllowance, MessageChannels.SmsOnly);
+        }
+
         if (!client.IsConfigured)
         {
             return new WhatsAppSendResult(false, 0, 0, 0, 0, 0);
@@ -59,6 +75,10 @@ internal sealed class WhatsAppSender(
         return new WhatsAppSendResult(true, plan.Ready.Count, plan.NoNumber.Count, plan.OptedOut, plan.AlreadySent, plan.Over);
     }
 
+    /// <summary>The same facts, for the SMS module to put into words.</summary>
+    private static List<SmsDraft> AsSms(IReadOnlyList<WhatsAppDraft> drafts) =>
+        [.. drafts.Select(d => new SmsDraft(d.StudentId, d.Kind, d.Params, d.DedupKey, d.Window))];
+
     private string Month() => clock.GetUtcNow().ToOffset(TimeSpan.FromMinutes(330)).ToString("yyyy-MM");
 
     private sealed record Ready(WhatsAppDraft Draft, string Name, string Phone);
@@ -69,7 +89,7 @@ internal sealed class WhatsAppSender(
     {
         foreach (var draft in drafts)
         {
-            if (!WhatsAppTemplates.IsKnown(draft.Kind) || draft.Params.Count != WhatsAppTemplates.ParamCount(draft.Kind))
+            if (!WhatsAppKinds.IsKnown(draft.Kind) || draft.Params.Count != WhatsAppKinds.ParamCount(draft.Kind))
             {
                 throw new ArgumentException($"A '{draft.Kind}' message needs the values its template takes.", nameof(drafts));
             }

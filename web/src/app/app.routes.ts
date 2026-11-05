@@ -33,6 +33,7 @@ export const routes: Routes = [
       { path: 'exams/:id', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/exams/exam').then((m) => m.ExamScreen) },
       { path: 'materials', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/materials/materials').then((m) => m.Materials) },
       { path: 'whatsapp', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/whatsapp/messages').then((m) => m.WhatsAppMessages) },
+      { path: 'sms', canActivate: [roleGuard('Teacher')], loadComponent: () => import('./pages/sms/texts').then((m) => m.SmsTextsPage) },
       { path: 'my-materials', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/materials/my-materials').then((m) => m.MyMaterials) },
       { path: 'results', canActivate: [roleGuard('Student')], loadComponent: () => import('./pages/results/my-results').then((m) => m.MyResults) },
       { path: 'family', canActivate: [roleGuard('Parent')], loadComponent: () => import('./pages/family/family').then((m) => m.Family) },

@@ -27,7 +27,7 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.NotNull(info);
         Assert.Equal("GuruBook", info.Name);
         Assert.Equal(
-            ["identity", "catalog", "classes", "students", "fees", "attendance", "reports", "exams", "notifications", "dashboard", "plans", "materials", "whatsapp", "privacy"],
+            ["identity", "catalog", "classes", "students", "fees", "attendance", "reports", "exams", "notifications", "dashboard", "plans", "materials", "whatsapp", "sms", "privacy"],
             info.Modules);
     }
 }

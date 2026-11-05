@@ -6,6 +6,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { errorCode, inlineError } from '../core/api/problem';
+import { SmsApi, SmsStatus } from '../core/api/sms.service';
 import { WhatsAppApi, WhatsAppPreview, WhatsAppStatus } from '../core/api/whatsapp.service';
 import { PlansService } from '../core/api/plans.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
@@ -43,9 +44,9 @@ type Stage = 'loading' | 'locked' | 'unconfigured' | 'error' | 'ready';
           <div class="notice">
             <mat-icon>lock</mat-icon>
             <div>
-              <strong>{{ 'whatsapp.locked_title' | t }}</strong>
+              <strong>{{ (bySms() ? 'sms.locked_title' : 'whatsapp.locked_title') | t }}</strong>
               <p>
-                {{ 'whatsapp.locked_message' | t }}
+                {{ (bySms() ? 'sms.locked_message' : 'whatsapp.locked_message') | t }}
                 @if (availableOn()) {
                   {{ 'my_plan.available_on' | t }} <strong>{{ availableOn() }}</strong>.
                 }
@@ -55,10 +56,10 @@ type Stage = 'loading' | 'locked' | 'unconfigured' | 'error' | 'ready';
         }
         @case ('unconfigured') {
           <div class="notice">
-            <mat-icon>chat_bubble_outline</mat-icon>
+            <mat-icon>{{ bySms() ? 'sms' : 'chat_bubble_outline' }}</mat-icon>
             <div>
-              <strong>{{ 'whatsapp.unconfigured_title' | t }}</strong>
-              <p>{{ 'whatsapp.unconfigured_message' | t }}</p>
+              <strong>{{ (bySms() ? 'sms.unconfigured_title' : 'whatsapp.unconfigured_title') | t }}</strong>
+              <p>{{ (bySms() ? 'sms.unconfigured_message' : 'whatsapp.unconfigured_message') | t }}</p>
             </div>
           </div>
         }
@@ -72,10 +73,13 @@ type Stage = 'loading' | 'locked' | 'unconfigured' | 'error' | 'ready';
           </div>
         }
         @case ('ready') {
-          @if (status()?.simulated) {
-            <p class="test-mode"><mat-icon>science</mat-icon> {{ 'whatsapp.test_mode' | t }}</p>
+          @if (simulated()) {
+            <p class="test-mode"><mat-icon>science</mat-icon> {{ (bySms() ? 'sms.test_mode' : 'whatsapp.test_mode') | t }}</p>
           }
           <p class="intro">{{ data.intro | t }}</p>
+          @if (bySms()) {
+            <p class="by-sms"><mat-icon>sms</mat-icon> {{ 'sms.these_go_by_sms' | t }}</p>
+          }
           @if (preview(); as p) {
             <dl class="counts">
               <div class="main"><dt>{{ 'whatsapp.will_send' | t }}</dt><dd>{{ p.ready }}</dd></div>
@@ -96,7 +100,9 @@ type Stage = 'loading' | 'locked' | 'unconfigured' | 'error' | 'ready';
               <p class="names">{{ p.noNumberNames.join(', ') }}</p>
             }
             <p class="allowance">{{ allowance() }}</p>
-            <a class="log-link" mat-button routerLink="/whatsapp" mat-dialog-close>{{ 'whatsapp.see_sent' | t }}</a>
+            <a class="log-link" mat-button [routerLink]="bySms() ? '/sms' : '/whatsapp'" mat-dialog-close>
+              {{ (bySms() ? 'sms.see_sent' : 'whatsapp.see_sent') | t }}
+            </a>
           }
         }
       }
@@ -105,7 +111,7 @@ type Stage = 'loading' | 'locked' | 'unconfigured' | 'error' | 'ready';
       <button mat-button type="button" mat-dialog-close>{{ (stage() === 'ready' ? 'common.cancel' : 'common.close') | t }}</button>
       @if (stage() === 'ready') {
         <app-submit-button
-          label="whatsapp.send"
+          [label]="bySms() ? 'sms.send' : 'whatsapp.send'"
           [busy]="sending()"
           [disabled]="(preview()?.ready ?? 0) === 0"
           (click)="send()"
@@ -132,6 +138,8 @@ type Stage = 'loading' | 'locked' | 'unconfigured' | 'error' | 'ready';
     .counts .warn dd, .counts .warn dt { color: var(--mat-sys-error); }
     .names { margin: 0.5rem 0 0; font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); overflow-wrap: anywhere; }
     .allowance { margin: 1rem 0 0; font: var(--mat-sys-body-small); color: var(--mat-sys-on-surface-variant); }
+    .by-sms { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 1rem; font: var(--mat-sys-body-medium); color: var(--mat-sys-on-surface-variant); }
+    .by-sms mat-icon { font-size: 20px; width: 20px; height: 20px; flex: none; }
     .log-link { margin-left: -0.75rem; }
   `,
 })
@@ -139,23 +147,32 @@ export class WhatsAppDialog implements OnInit {
   protected readonly data = inject<WhatsAppSpec>(MAT_DIALOG_DATA);
   private readonly ref = inject<MatDialogRef<WhatsAppDialog>>(MatDialogRef);
   private readonly api = inject(WhatsAppApi);
+  private readonly sms = inject(SmsApi);
   private readonly plans = inject(PlansService);
   private readonly toast = inject(ToastService);
   private readonly i18n = inject(TranslateService);
 
   protected readonly stage = signal<Stage>('loading');
   protected readonly status = signal<WhatsAppStatus | null>(null);
+  protected readonly smsStatus = signal<SmsStatus | null>(null);
   protected readonly preview = signal<WhatsAppPreview | null>(null);
   protected readonly availableOn = signal<string | null>(null);
   protected readonly failure = signal('');
   protected readonly sending = signal(false);
 
+  /** True when this teacher chose SMS for everything, so every word in the dialog is about texts instead of WhatsApp. */
+  protected readonly bySms = computed(() => this.smsStatus()?.channel === 'sms_only');
+
+  /** A simulated server is only worth saying while the channel in use is the one that is pretending. */
+  protected readonly simulated = computed(() => (this.bySms() ? this.smsStatus()?.simulated : this.status()?.simulated) ?? false);
+
   protected readonly allowance = computed(() => {
     const p = this.preview();
     if (!p) return '';
+    const prefix = this.bySms() ? 'sms' : 'whatsapp';
     return p.limit === null
-      ? this.i18n.format('whatsapp.allowance_unlimited', { used: p.used })
-      : this.i18n.format('whatsapp.allowance', { used: p.used, limit: p.limit });
+      ? this.i18n.format(`${prefix}.allowance_unlimited`, { used: p.used })
+      : this.i18n.format(`${prefix}.allowance`, { used: p.used, limit: p.limit });
   });
 
   ngOnInit(): void {
@@ -164,12 +181,15 @@ export class WhatsAppDialog implements OnInit {
 
   protected load(): void {
     this.stage.set('loading');
-    this.api.status().subscribe({
-      next: (status) => {
-        this.status.set(status);
-        if (!status.enabled) {
+    // Both channels are asked about at once: which one this send uses is the teacher's own choice, which comes back with the SMS status.
+    forkJoin({ whatsapp: this.api.status(), sms: this.sms.status() }).subscribe({
+      next: ({ whatsapp, sms }) => {
+        this.status.set(whatsapp);
+        this.smsStatus.set(sms);
+        const using = sms.channel === 'sms_only' ? sms : whatsapp;
+        if (!using.enabled) {
           this.showLocked();
-        } else if (!status.configured) {
+        } else if (!using.configured) {
           this.stage.set('unconfigured');
         } else {
           this.loadPreview();
@@ -184,9 +204,10 @@ export class WhatsAppDialog implements OnInit {
 
   private showLocked(): void {
     this.stage.set('locked');
+    const key = this.bySms() ? 'sms' : 'whatsapp';
     // Which plan has it is nice to know, but the dialog is complete without it.
     this.plans.mine().subscribe({
-      next: (plan) => this.availableOn.set(plan.features.find((f) => f.key === 'whatsapp')?.availableOn ?? null),
+      next: (plan) => this.availableOn.set(plan.features.find((f) => f.key === key)?.availableOn ?? null),
       error: () => undefined,
     });
   }
@@ -213,7 +234,7 @@ export class WhatsAppDialog implements OnInit {
     this.sending.set(true);
     this.api.send(this.data.path).subscribe({
       next: () => {
-        this.toast.success('whatsapp.queued');
+        this.toast.success(this.bySms() ? 'sms.queued' : 'whatsapp.queued');
         this.ref.close(true);
       },
       error: (e) => {

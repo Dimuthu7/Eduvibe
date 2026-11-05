@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { AppConfig } from '../config/app-config';
 import { quiet } from './quiet';
+import type { MessageChannel } from './sms.service';
 
 /** Whether WhatsApp is open to this teacher and this server, and the month's allowance (limit null = no cap). */
 export interface WhatsAppStatus {
@@ -16,6 +17,8 @@ export interface WhatsAppStatus {
 
 /** What sending would do, from the screen that offers the send. */
 export interface WhatsAppPreview {
+  /** Which way these would go: a teacher who chose SMS alone sees SMS wording and the SMS allowance. */
+  channel: MessageChannel;
   configured: boolean;
   total: number;
   ready: number;
@@ -46,6 +49,8 @@ export interface WhatsAppMessage {
   status: WhatsAppMessageStatus;
   error: string | null;
   phone: string;
+  /** True when WhatsApp could not deliver it and a text was sent instead. */
+  handedToSms: boolean;
   createdAt: string;
 }
 

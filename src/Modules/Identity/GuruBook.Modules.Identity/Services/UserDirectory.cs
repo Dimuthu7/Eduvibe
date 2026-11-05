@@ -11,6 +11,9 @@ internal sealed class UserDirectory(IdentityDbContext db) : IUserDirectory
         var users = await db.Users.Where(u => ids.Contains(u.Id)).Select(u => new { u.Id, u.FirstName, u.LastName }).ToListAsync(cancellationToken);
         return users.ToDictionary(u => u.Id, u => $"{u.FirstName} {u.LastName}".Trim());
     }
+
+    public Task<string?> PhoneAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        db.Users.Where(u => u.Id == userId).Select(u => (string?)u.Phone).SingleOrDefaultAsync(cancellationToken);
 }
 
 /// <summary>Teachers for the Super Admin dashboard.</summary>

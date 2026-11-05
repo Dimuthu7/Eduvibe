@@ -5,4 +5,7 @@ public interface IUserDirectory
 {
     /// <summary>Full names by user id, for the ids that belong to a user.</summary>
     Task<IReadOnlyDictionary<Guid, string>> NamesAsync(IEnumerable<Guid> userIds, CancellationToken cancellationToken = default);
+
+    /// <summary>The user's phone number in international form, or null when there is no such user. It is what a text to them goes to.</summary>
+    Task<string?> PhoneAsync(Guid userId, CancellationToken cancellationToken = default);
 }

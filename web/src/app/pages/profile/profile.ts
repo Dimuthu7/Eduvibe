@@ -17,6 +17,7 @@ import { StudentPhotos } from '../../shared/student-photos';
 import { SubmitButton } from '../../shared/submit-button';
 import { AlertsCard } from './alerts-card';
 import { MyPlanCard } from './my-plan';
+import { TextsCard } from './texts-card';
 
 @Component({
   selector: 'app-profile',
@@ -34,6 +35,7 @@ import { MyPlanCard } from './my-plan';
     SearchSelect,
     MyPlanCard,
     AlertsCard,
+    TextsCard,
     TranslatePipe,
   ],
   template: `
@@ -87,6 +89,7 @@ import { MyPlanCard } from './my-plan';
       </mat-card-content>
     </mat-card>
     <app-alerts-card />
+    <app-texts-card />
     @if (auth.user()?.teacherId) {
       <app-my-plan />
     }

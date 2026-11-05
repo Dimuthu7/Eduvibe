@@ -14,6 +14,20 @@ public static class WhatsAppKinds
 
     /// <summary>Params: student first name, exam name, class title, marks ("78 / 100"), grade, rank ("3 of 24" or "-"), teacher name.</summary>
     public const string Results = "results";
+
+    public static readonly IReadOnlyList<string> All = [FeeReminder, Absence, Results];
+
+    private static readonly Dictionary<string, int> Counts = new()
+    {
+        [FeeReminder] = 5,
+        [Absence] = 4,
+        [Results] = 7,
+    };
+
+    public static bool IsKnown(string kind) => Counts.ContainsKey(kind);
+
+    /// <summary>How many values this kind takes. The same facts go out by WhatsApp and by SMS, so both channels count on this.</summary>
+    public static int ParamCount(string kind) => Counts[kind];
 }
 
 /// <summary>
@@ -25,13 +39,16 @@ public sealed record WhatsAppDraft(Guid StudentId, string Kind, IReadOnlyList<st
 /// <summary>
 /// What sending a batch would do. Ready is how many would go; the rest of Total is why the others would not.
 /// Limit is the plan's messages per month (null for no cap), Used is how many this month already counted.
+/// Channel says which way they would go, because a teacher who chose SMS sees different wording and a different allowance.
 /// </summary>
 public sealed record WhatsAppPreview(
     bool Configured, int Total, int Ready, int NoNumber, int OptedOut, int AlreadySent, int OverAllowance,
-    int? Limit, int Used, IReadOnlyList<Guid> NoNumberStudentIds);
+    int? Limit, int Used, IReadOnlyList<Guid> NoNumberStudentIds, string Channel = MessageChannels.WhatsAppThenSms);
 
 /// <summary>Configured is false when WhatsApp is not set up on this server; then nothing was queued.</summary>
-public sealed record WhatsAppSendResult(bool Configured, int Queued, int NoNumber, int OptedOut, int AlreadySent, int OverAllowance);
+public sealed record WhatsAppSendResult(
+    bool Configured, int Queued, int NoNumber, int OptedOut, int AlreadySent, int OverAllowance,
+    string Channel = MessageChannels.WhatsAppThenSms);
 
 /// <summary>
 /// Sends WhatsApp messages for the current teacher. The WhatsApp module implements it; the modules that know who should be told (fees, attendance,
@@ -49,10 +66,12 @@ public interface IWhatsAppSender
 /// Every module that offers a WhatsApp send returns this, so the web app has one preview dialog.
 /// </summary>
 public sealed record WhatsAppPreviewDto(
-    bool Configured, int Total, int Ready, int NoNumber, int OptedOut, int AlreadySent, int OverAllowance, int? Limit, int Used, string[] NoNumberNames)
+    bool Configured, int Total, int Ready, int NoNumber, int OptedOut, int AlreadySent, int OverAllowance, int? Limit, int Used, string[] NoNumberNames,
+    string Channel = MessageChannels.WhatsAppThenSms)
 {
     public static WhatsAppPreviewDto From(WhatsAppPreview preview, IReadOnlyDictionary<Guid, string> namesByStudent) => new(
         preview.Configured, preview.Total, preview.Ready, preview.NoNumber, preview.OptedOut, preview.AlreadySent, preview.OverAllowance,
         preview.Limit, preview.Used,
-        [.. preview.NoNumberStudentIds.Select(id => namesByStudent.TryGetValue(id, out var name) ? name : "").Where(n => n != "")]);
+        [.. preview.NoNumberStudentIds.Select(id => namesByStudent.TryGetValue(id, out var name) ? name : "").Where(n => n != "")],
+        preview.Channel);
 }

@@ -24,6 +24,15 @@ internal sealed class TeacherDirectory(IdentityDbContext db) : ITeacherDirectory
         return user is null ? null : $"{user.FirstName} {user.LastName}".Trim();
     }
 
+    public async Task<string> LanguageAsync(Guid teacherId, CancellationToken cancellationToken = default)
+    {
+        var language = await db.Users
+            .Where(u => db.Teachers.Any(t => t.Id == teacherId && t.UserId == u.Id))
+            .Select(u => u.Language)
+            .SingleOrDefaultAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(language) ? "en" : language;
+    }
+
     public Task<int> CountActiveAsync(CancellationToken cancellationToken = default) =>
         db.Teachers.CountAsync(t => db.Users.Any(u => u.Id == t.UserId && u.IsActive), cancellationToken);
 

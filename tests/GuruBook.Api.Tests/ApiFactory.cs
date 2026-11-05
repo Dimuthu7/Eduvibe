@@ -17,6 +17,8 @@ using GuruBook.Modules.Notifications;
 using GuruBook.Modules.Plans;
 using GuruBook.Modules.Plans.Services;
 using GuruBook.Modules.Students;
+using GuruBook.Modules.Sms;
+using GuruBook.Modules.Sms.Client;
 using GuruBook.Modules.WhatsApp;
 using GuruBook.Modules.Notifications.Push;
 using GuruBook.Modules.WhatsApp.Client;
@@ -118,6 +120,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Stands in for WhatsApp so no test reaches Meta.</summary>
     public FakeWhatsAppClient WhatsApp { get; } = new();
 
+    /// <summary>Stands in for the SMS provider so no test reaches text.lk and no test spends money.</summary>
+    public FakeSmsClient Sms { get; } = new();
+
     /// <summary>Stands in for the browsers' push services so no test reaches them.</summary>
     internal FakePushSender Push { get; } = new();
 
@@ -135,6 +140,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Plans:SeedOnStartup", "false");
         builder.UseSetting("Notifications:CleanupJob", "false");
         builder.UseSetting("WhatsApp:DispatchJob", "false");
+        builder.UseSetting("Sms:DispatchJob", "false");
         builder.UseSetting("WhatsApp:AppSecret", WhatsAppAppSecret);
         builder.UseSetting("WhatsApp:VerifyToken", WhatsAppVerifyToken);
 
@@ -152,8 +158,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<PlansDbContext>(services);
             UseSqlite<MaterialsDbContext>(services);
             UseSqlite<WhatsAppDbContext>(services);
+            UseSqlite<SmsDbContext>(services);
             services.RemoveAll<IWhatsAppClient>();
             services.AddSingleton<IWhatsAppClient>(WhatsApp);
+            services.RemoveAll<ISmsClient>();
+            services.AddSingleton<ISmsClient>(Sms);
             services.RemoveAll<IPushSender>();
             services.AddSingleton<IPushSender>(Push);
             services.RemoveAll<IDriveClient>();
@@ -183,6 +192,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<PlansDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<MaterialsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<WhatsAppDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<SmsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();

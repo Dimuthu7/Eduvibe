@@ -49,6 +49,10 @@ namespace GuruBook.Modules.WhatsApp.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("error");
 
+                    b.Property<bool>("HandedToSms")
+                        .HasColumnType("boolean")
+                        .HasColumnName("handed_to_sms");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
