@@ -103,8 +103,10 @@ export class App {
     return !!user && !needsSetup(user);
   });
 
-  /** Teachers and students are told things; the Super Admin has no notifications. */
-  protected readonly showsNotifications = computed(() => this.menuVisible() && (this.auth.hasRole('Teacher') || this.auth.hasRole('Student')));
+  /** Teachers, students and parents are told things; the Super Admin has no notifications. */
+  protected readonly showsNotifications = computed(
+    () => this.menuVisible() && (this.auth.hasRole('Teacher') || this.auth.hasRole('Student') || this.auth.hasRole('Parent')),
+  );
 
   /** The number on the profile icon: nothing when there is nothing new, and "9+" so it never grows wide. */
   protected readonly badge = computed(() => {

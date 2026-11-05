@@ -40,12 +40,12 @@ internal static class PushEndpoints
 
         if (!sender.Enabled)
         {
-            return Reject("push_unavailable", StatusCodes.Status409Conflict);
+            return Problems.Reject("push_unavailable", StatusCodes.Status409Conflict);
         }
 
         if (!ValidEndpoint(request.Endpoint) || !Key(request.P256dh, 65, 0x04) || !Key(request.Auth, 16))
         {
-            return Reject("push_device_invalid");
+            return Problems.Reject("push_device_invalid");
         }
 
         var language = Languages.Contains(request.Language) ? request.Language! : "en";
@@ -121,6 +121,4 @@ internal static class PushEndpoints
         }
     }
 
-    private static IResult Reject(string code, int status = StatusCodes.Status400BadRequest) =>
-        Results.Problem(statusCode: status, title: code, extensions: new Dictionary<string, object?> { ["code"] = code });
 }

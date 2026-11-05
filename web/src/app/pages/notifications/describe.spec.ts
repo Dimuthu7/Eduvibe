@@ -25,6 +25,16 @@ const t = (key: string) =>
     'notifications.extra_class.body': '{class} · {start} – {end}',
     'notifications.fees_unpaid.title': 'Unpaid fees for {month}',
     'notifications.fees_unpaid.line': '{class}: {count} not paid yet',
+    'notifications.child_payment.title': 'Payment received for {student}',
+    'notifications.payment_voided.title': 'Payment taken back',
+    'notifications.child_payment_voided.title': 'Payment taken back for {student}',
+    'notifications.child_attended.title': '{student} arrived',
+    'notifications.child_attended.late': '{student} arrived late',
+    'notifications.child_attended.body': '{class} · {date}',
+    'notifications.child_attended.scanned': 'Card scanned at {time}',
+    'notifications.child_absent.title': '{student} was not in class',
+    'notifications.result_changed.title': 'A mark was corrected: {exam}',
+    'notifications.about_child': '{student} · {class}',
     'notifications.unknown': 'New update',
   })[key] ?? key;
 
@@ -68,6 +78,25 @@ describe('describe', () => {
     const late = view(note('fee_overdue', { month: '2026-10', lastMonth: '2026-12', classTitle: 'Maths', amount: 7500, dueDate: '2026-10-10', daysLate: 14 }), t);
     expect(late.lines.map(plain)).toEqual(['Maths · Oct 2026 – Dec 2026', '14 days late (due 10 Oct)']);
     expect(view(note('fee_overdue', { month: '2026-11', classTitle: 'Maths', amount: 1, dueDate: '2026-11-10', daysLate: 1 }), t).lines[1]).toBe('1 day late (due 10 Nov)');
+  });
+
+  it('names the child in what a parent is told, with the scan time when there is one', () => {
+    const plain = (text: string) => text.replace(/\u00a0/g, ' ');
+    const arrived = view(note('child_attended', { student: 'Amara Silva', classTitle: 'Maths', date: '2026-11-04', at: '15:58', late: false }), t);
+    expect(arrived.title).toBe('Amara Silva arrived');
+    expect(arrived.lines).toEqual(['Maths · 4 Nov', 'Card scanned at 3:58 PM']);
+
+    const late = view(note('child_attended', { student: 'Amara Silva', classTitle: 'Maths', date: '2026-11-04', at: null, late: true }), t);
+    expect(late.title).toBe('Amara Silva arrived late');
+    expect(late.lines).toEqual(['Maths · 4 Nov']);
+
+    expect(view(note('child_absent', { student: 'Amara Silva', classTitle: 'Maths', date: '2026-11-04' }), t).title).toBe('Amara Silva was not in class');
+    expect(plain(view(note('child_payment', { student: 'Amara Silva', amount: 2500, receiptNo: 'R-8', classTitle: 'Maths' }), t).lines[0]))
+      .toBe('LKR 2,500 · Receipt R-8 · Maths');
+    expect(view(note('child_payment_voided', { student: 'Amara Silva', amount: 2500, receiptNo: 'R-8', classTitle: 'Maths' }), t).title)
+      .toBe('Payment taken back for Amara Silva');
+    expect(view(note('child_results', { student: 'Amara Silva', exam: 'Term 1', classTitle: 'Maths' }), t).lines).toEqual(['Amara Silva · Maths']);
+    expect(view(note('child_result_changed', { student: 'Amara Silva', exam: 'Term 1', classTitle: 'Maths' }), t).title).toBe('A mark was corrected: Term 1');
   });
 
   it('shows the times of an extra class and its note', () => {

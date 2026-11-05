@@ -10,7 +10,8 @@ namespace GuruBook.Modules.Attendance.Endpoints;
 
 public sealed record AddSessionRequest(Guid? ClassId, DateOnly? Date, string? Start, string? End, string? Note);
 
-public sealed record MarkRequest(Guid? EnrolmentId, string? Status);
+/// <summary>ScannedAt is sent when the student's card was scanned, so a parent hears the time their child arrived.</summary>
+public sealed record MarkRequest(Guid? EnrolmentId, string? Status, DateTimeOffset? ScannedAt = null);
 
 public sealed record SaveMarksRequest(MarkRequest[]? Marks);
 
@@ -190,7 +191,7 @@ internal static class SessionEndpoints
     // The request lists the students who are not present; anyone not listed is present. Saving again replaces the earlier marks.
     private static async Task<IResult> SaveMarks(
         Guid id, SaveMarksRequest request, AttendanceDbContext db, IClassDirectory classes, IClassRoster roster,
-        TimeProvider clock, CancellationToken ct)
+        IParentLinks parents, IParentAlertSettings alerts, INotifier notifier, TimeProvider clock, CancellationToken ct)
     {
         var session = await db.Sessions.FindAsync([id], ct);
         if (session is null)
@@ -205,6 +206,7 @@ internal static class SessionEndpoints
         }
 
         var wanted = new Dictionary<Guid, AttendanceStatus>();
+        var scans = new Dictionary<Guid, DateTimeOffset>();
         foreach (var mark in request.Marks ?? [])
         {
             if (mark.EnrolmentId is not { } enrolmentId || !Enum.TryParse<AttendanceStatus>(mark.Status, ignoreCase: true, out var status))
@@ -213,9 +215,14 @@ internal static class SessionEndpoints
             }
 
             wanted[enrolmentId] = status;
+            if (mark.ScannedAt is { } at)
+            {
+                scans[enrolmentId] = at;
+            }
         }
 
-        var students = (await roster.ActiveRosterAsync(session.ClassId, ct)).Select(r => r.EnrolmentId).ToHashSet();
+        var roll = await roster.ActiveRosterAsync(session.ClassId, ct);
+        var students = roll.Select(r => r.EnrolmentId).ToHashSet();
         var existing = await db.Marks.Where(m => m.SessionId == id).ToDictionaryAsync(m => m.EnrolmentId, ct);
         if (wanted.Keys.Any(k => !students.Contains(k) && !existing.ContainsKey(k)))
         {
@@ -226,13 +233,15 @@ internal static class SessionEndpoints
         foreach (var enrolmentId in students)
         {
             var status = wanted.TryGetValue(enrolmentId, out var chosen) ? chosen : AttendanceStatus.Present;
+            var scannedAt = scans.TryGetValue(enrolmentId, out var at) ? at : null as DateTimeOffset?;
             if (existing.TryGetValue(enrolmentId, out var mark))
             {
                 mark.Status = status;
+                mark.ScannedAt = scannedAt ?? mark.ScannedAt;
             }
             else
             {
-                db.Marks.Add(new AttendanceMark { SessionId = id, EnrolmentId = enrolmentId, Status = status });
+                db.Marks.Add(new AttendanceMark { SessionId = id, EnrolmentId = enrolmentId, Status = status, ScannedAt = scannedAt });
             }
         }
 
@@ -244,7 +253,60 @@ internal static class SessionEndpoints
         session.TakenAt ??= clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
         var dto = (await ToDtosAsync([session], db, classes, today, ct))[0];
+        await TellParentsAsync(session, dto.ClassTitle, roll, db, parents, alerts, notifier, ct);
         return Results.Ok(dto);
+    }
+
+    /// <summary>
+    /// One line to each linked parent once a session is saved: their child arrived (with the time the card was scanned, when it was)
+    /// or was not there. The key holds the status, so saving the same marks again says nothing and only a correction goes out.
+    /// Late counts as arrived, as it does everywhere else.
+    /// </summary>
+    private static async Task TellParentsAsync(
+        ClassSession session, string classTitle, IReadOnlyList<RosterEntry> roll, AttendanceDbContext db, IParentLinks parents,
+        IParentAlertSettings alerts, INotifier notifier, CancellationToken ct)
+    {
+        var scope = await alerts.AttendanceAlertsAsync(ct);
+        if (scope == AttendanceAlerts.Off || roll.Count == 0)
+        {
+            return;
+        }
+
+        var linked = await parents.ParentsOfAsync(roll.Select(r => r.StudentId), ct);
+        if (linked.Count == 0)
+        {
+            return;
+        }
+
+        var marks = await db.Marks.AsNoTracking().Where(m => m.SessionId == session.Id).ToListAsync(ct);
+        var byEnrolment = marks.ToDictionary(m => m.EnrolmentId);
+        var told = new List<NotifyRequest>();
+        foreach (var student in roll)
+        {
+            if (!linked.TryGetValue(student.StudentId, out var people) || !byEnrolment.TryGetValue(student.EnrolmentId, out var mark))
+            {
+                continue;
+            }
+
+            var absent = mark.Status == AttendanceStatus.Absent;
+            if (!absent && scope == AttendanceAlerts.Absences)
+            {
+                continue;
+            }
+
+            var when = mark.ScannedAt?.ToOffset(TimeSpan.FromMinutes(330));
+            var details = new
+            {
+                student = student.FullName, classTitle, date = session.Date.ToString("yyyy-MM-dd"),
+                start = session.Start.ToString("HH:mm"), at = when?.ToString("HH:mm"), late = mark.Status == AttendanceStatus.Late,
+            };
+            told.AddRange(people.Select(parent => new NotifyRequest(
+                parent, absent ? "child_absent" : "child_attended", details, Link: "/family",
+                OnceKey: $"attend:{session.Id}:{student.EnrolmentId}:{mark.Status}",
+                Topic: AlertTopics.Attendance, AboutStudentId: student.StudentId)));
+        }
+
+        await notifier.NotifyAsync(told, ct);
     }
 
     // Looks up a scanned student card. Nothing is saved: the screen collects who has arrived, and the teacher saves the marks as usual.

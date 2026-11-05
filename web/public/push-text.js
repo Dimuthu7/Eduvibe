@@ -123,6 +123,53 @@
           title: fill(t('notifications.fee_overdue.title'), { amount: lkr(lang, number(p.amount)) }),
           lines: [fill(t('notifications.fee_overdue.body'), { class: classTitle, period: period(lang, p) }), lateText(lang, t, p)],
         };
+      case 'child_payment':
+        return {
+          title: fill(t('notifications.child_payment.title'), { student: text(p.student) }),
+          lines: [fill(t('notifications.payment_received.body'), { amount: lkr(lang, number(p.amount)), receipt: text(p.receiptNo), class: classTitle })],
+        };
+      case 'payment_voided':
+        return {
+          title: t('notifications.payment_voided.title'),
+          lines: [fill(t('notifications.payment_received.body'), { amount: lkr(lang, number(p.amount)), receipt: text(p.receiptNo), class: classTitle })],
+        };
+      case 'child_payment_voided':
+        return {
+          title: fill(t('notifications.child_payment_voided.title'), { student: text(p.student) }),
+          lines: [fill(t('notifications.payment_received.body'), { amount: lkr(lang, number(p.amount)), receipt: text(p.receiptNo), class: classTitle })],
+        };
+      case 'child_attended': {
+        var at = text(p.at);
+        var arrival = [fill(t('notifications.child_attended.body'), { class: classTitle, date: formatDayMonth(lang, text(p.date)) })];
+        if (at) {
+          arrival.push(fill(t('notifications.child_attended.scanned'), { time: formatTime(lang, at) }));
+        }
+
+        return {
+          title: fill(t(p.late === true ? 'notifications.child_attended.late' : 'notifications.child_attended.title'), { student: text(p.student) }),
+          lines: arrival,
+        };
+      }
+      case 'child_absent':
+        return {
+          title: fill(t('notifications.child_absent.title'), { student: text(p.student) }),
+          lines: [fill(t('notifications.child_attended.body'), { class: classTitle, date: formatDayMonth(lang, text(p.date)) })],
+        };
+      case 'child_results':
+        return {
+          title: fill(t('notifications.results_published.title'), { exam: text(p.exam) }),
+          lines: [fill(t('notifications.about_child'), { student: text(p.student), class: classTitle })],
+        };
+      case 'result_changed':
+        return {
+          title: fill(t('notifications.result_changed.title'), { exam: text(p.exam) }),
+          lines: [classTitle, t('notifications.results_published.hint')].filter(Boolean),
+        };
+      case 'child_result_changed':
+        return {
+          title: fill(t('notifications.result_changed.title'), { exam: text(p.exam) }),
+          lines: [fill(t('notifications.about_child'), { student: text(p.student), class: classTitle })],
+        };
       case 'payment_received':
         return {
           title: t('notifications.payment_received.title'),

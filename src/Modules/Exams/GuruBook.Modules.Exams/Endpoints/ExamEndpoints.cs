@@ -179,14 +179,16 @@ internal static class ExamEndpoints
     // Shares the results: each student in the class then sees their own marks, grade and rank. Marks can still be changed
     // after this, and students see the change. Publishing again keeps the first date.
     private static async Task<IResult> Publish(
-        Guid id, ExamsDbContext db, ExamReader reader, IClassRoster roster, IClassDirectory classes, INotifier notifier, TimeProvider clock, CancellationToken ct) =>
-        await SetPublished(id, db, reader, clock.GetUtcNow(), (roster, classes, notifier), ct);
+        Guid id, ExamsDbContext db, ExamReader reader, IClassRoster roster, IClassDirectory classes, IParentLinks parents, INotifier notifier,
+        TimeProvider clock, CancellationToken ct) =>
+        await SetPublished(id, db, reader, clock.GetUtcNow(), (roster, classes, parents, notifier), ct);
 
     private static async Task<IResult> Unpublish(Guid id, ExamsDbContext db, ExamReader reader, CancellationToken ct) =>
         await SetPublished(id, db, reader, null, null, ct);
 
     private static async Task<IResult> SetPublished(
-        Guid id, ExamsDbContext db, ExamReader reader, DateTimeOffset? at, (IClassRoster Roster, IClassDirectory Classes, INotifier Notifier)? tell, CancellationToken ct)
+        Guid id, ExamsDbContext db, ExamReader reader, DateTimeOffset? at,
+        (IClassRoster Roster, IClassDirectory Classes, IParentLinks Parents, INotifier Notifier)? tell, CancellationToken ct)
     {
         var exam = await db.Exams.SingleOrDefaultAsync(e => e.Id == id, ct);
         if (exam is null)
@@ -203,10 +205,15 @@ internal static class ExamEndpoints
                 // Students are told when results first go out. The key is the exam, so publishing again after taking it back tells nobody twice.
                 var title = (await who.Classes.FindAsync(exam.ClassId, ct))?.Title ?? "";
                 var roster = await who.Roster.ActiveRosterAsync(exam.ClassId, ct);
-                await who.Notifier.NotifyAsync(
-                    [.. roster.Where(r => r.UserId is not null).Select(r => new NotifyRequest(
-                        r.UserId!.Value, "results_published", new { exam = exam.Name, classTitle = title }, Link: "/results", OnceKey: $"results:{exam.Id}"))],
-                    ct);
+                var told = roster.Where(r => r.UserId is not null).Select(r => new NotifyRequest(
+                    r.UserId!.Value, "results_published", new { exam = exam.Name, classTitle = title }, Link: "/results", OnceKey: $"results:{exam.Id}")).ToList();
+
+                // Parents hear it as well, with the child named: a parent of two sees whose results these are.
+                var linked = await who.Parents.ParentsOfAsync(roster.Select(r => r.StudentId), ct);
+                told.AddRange(roster.SelectMany(r => (linked.GetValueOrDefault(r.StudentId) ?? []).Select(parent => new NotifyRequest(
+                    parent, "child_results", new { student = r.FullName, exam = exam.Name, classTitle = title }, Link: "/family",
+                    OnceKey: $"results:{exam.Id}:{r.StudentId}", Topic: AlertTopics.Results, AboutStudentId: r.StudentId))));
+                await who.Notifier.NotifyAsync(told, ct);
             }
         }
 
@@ -216,7 +223,8 @@ internal static class ExamEndpoints
     // Saves the rows sent and nothing else. A row replaces that student's marks: parts left out or null are not entered.
     // A student who is absent has no marks; a row with no marks and not absent clears the student.
     private static async Task<IResult> SaveMarks(
-        Guid id, SaveMarksRequest request, ExamsDbContext db, IClassRoster roster, ExamReader reader, CancellationToken ct)
+        Guid id, SaveMarksRequest request, ExamsDbContext db, IClassRoster roster, ExamReader reader, IClassDirectory classes,
+        IParentLinks parents, INotifier notifier, CancellationToken ct)
     {
         var rows = request.Rows ?? [];
         if (rows.Length == 0 || rows.Length > MaxRows || rows.Any(r => r.EnrolmentId is null) || rows.Select(r => r.EnrolmentId).Distinct().Count() != rows.Length)
@@ -258,6 +266,9 @@ internal static class ExamEndpoints
             }
         }
 
+        // What each student had before, so a save that changes nothing tells nobody.
+        var before = book.Rows.ToDictionary(r => r.Key, r => (r.Value.Result.IsAbsent, r.Value.Result.Total));
+
         foreach (var row in rows)
         {
             Apply(db, book, row);
@@ -265,7 +276,53 @@ internal static class ExamEndpoints
 
         book.Recalculate();
         await db.SaveChangesAsync(ct);
+        await TellAboutChangesAsync(book, before, known, classes, parents, notifier, ct);
         return Results.Ok(await reader.DetailAsync(book, ct));
+    }
+
+    /// <summary>
+    /// A mark corrected after the results went out: the student and their parents are told once per save, and repeats stay one line while
+    /// it is unread. Nothing goes out before the results are published, because nobody has seen the first number yet.
+    /// </summary>
+    private static async Task TellAboutChangesAsync(
+        ExamBook book, Dictionary<Guid, (bool Absent, decimal Total)> before, IReadOnlyDictionary<Guid, RosterEntry> known,
+        IClassDirectory classes, IParentLinks parents, INotifier notifier, CancellationToken ct)
+    {
+        if (book.Exam.PublishedAt is null)
+        {
+            return;
+        }
+
+        var changed = book.Rows
+            .Where(r => before.TryGetValue(r.Key, out var was) && (was.Absent != r.Value.Result.IsAbsent || was.Total != r.Value.Result.Total))
+            .Select(r => r.Key)
+            .Where(known.ContainsKey)
+            .ToList();
+        if (changed.Count == 0)
+        {
+            return;
+        }
+
+        var title = (await classes.FindAsync(book.Exam.ClassId, ct))?.Title ?? "";
+        var people = changed.Select(e => known[e]).ToList();
+        var linked = await parents.ParentsOfAsync(people.Select(p => p.StudentId), ct);
+        var told = new List<NotifyRequest>();
+        foreach (var person in people)
+        {
+            if (person.UserId is { } student)
+            {
+                told.Add(new NotifyRequest(
+                    student, "result_changed", new { exam = book.Exam.Name, classTitle = title }, Link: "/results",
+                    GroupKey: $"changed:{book.Exam.Id}"));
+            }
+
+            told.AddRange((linked.GetValueOrDefault(person.StudentId) ?? []).Select(parent => new NotifyRequest(
+                parent, "child_result_changed", new { student = person.FullName, exam = book.Exam.Name, classTitle = title },
+                Link: "/family", GroupKey: $"changed:{book.Exam.Id}:{person.StudentId}",
+                Topic: AlertTopics.Results, AboutStudentId: person.StudentId)));
+        }
+
+        await notifier.NotifyAsync(told, ct);
     }
 
     private static void Apply(ExamsDbContext db, ExamBook book, MarkRowRequest request)

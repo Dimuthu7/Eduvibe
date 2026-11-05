@@ -41,4 +41,7 @@ public sealed class AttendanceMark : Entity, ITenantOwned, IAuditable
     public Guid SessionId { get; set; }
     public Guid EnrolmentId { get; set; }
     public AttendanceStatus Status { get; set; }
+
+    /// <summary>When the student's card was scanned, if it was. It is what a parent is told the child arrived at.</summary>
+    public DateTimeOffset? ScannedAt { get; set; }
 }

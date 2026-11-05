@@ -38,6 +38,10 @@ namespace GuruBook.Modules.Attendance.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("enrolment_id");
 
+                    b.Property<DateTimeOffset?>("ScannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("scanned_at");
+
                     b.Property<Guid>("SessionId")
                         .HasColumnType("uuid")
                         .HasColumnName("session_id");

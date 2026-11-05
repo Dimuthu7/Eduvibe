@@ -23,6 +23,7 @@ public sealed class StudentsModule : IModule
         services.AddScoped<IClassRoster, ClassRoster>();
         services.AddScoped<IStudentCards, StudentCards>();
         services.AddScoped<IStudentContacts, StudentContacts>();
+        services.AddScoped<IParentLinks, ParentLinkDirectory>();
         services.AddScoped<IReportSource, ClassListReport>();
         services.AddScoped<IStatsSource, StudentsStats>();
     }

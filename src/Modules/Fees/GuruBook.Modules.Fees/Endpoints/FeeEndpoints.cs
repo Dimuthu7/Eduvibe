@@ -109,7 +109,7 @@ internal static class FeeEndpoints
     // The amount goes to the months asked for, oldest first, or to the oldest unpaid months when none are named.
     private static async Task<IResult> RecordPayment(
         RecordPaymentRequest request, FeesDbContext db, FeeDueService dues, IClassRoster roster, IClassDirectory classes, INotifier notifier,
-        ITenantContext user, TimeProvider clock, CancellationToken ct)
+        IParentLinks parents, ITenantContext user, TimeProvider clock, CancellationToken ct)
     {
         var today = Problems.Today(clock);
         var current = FeeMonths.Current(clock);
@@ -199,16 +199,25 @@ internal static class FeeEndpoints
             try
             {
                 await db.SaveChangesAsync(ct);
+                var title = (await classes.FindAsync(basis.ClassId, ct))?.Title ?? "";
+                var told = new List<NotifyRequest>();
                 if (basis.UserId is { } studentUser)
                 {
-                    var title = (await classes.FindAsync(basis.ClassId, ct))?.Title ?? "";
-                    await notifier.NotifyAsync(
-                    [
-                        new NotifyRequest(
-                            studentUser, "payment_received", new { amount, receiptNo = payment.ReceiptNo, classTitle = title },
-                            Link: "/welcome", OnceKey: $"payment:{payment.Id}"),
-                    ], ct);
+                    told.Add(new NotifyRequest(
+                        studentUser, "payment_received", new { amount, receiptNo = payment.ReceiptNo, classTitle = title },
+                        Link: "/welcome", OnceKey: $"payment:{payment.Id}"));
                 }
+
+                // The parents a teacher linked hear it too, with the child named, so a parent of two knows which one it is about.
+                foreach (var parent in await ParentsOfAsync(parents, basis.StudentId, ct))
+                {
+                    told.Add(new NotifyRequest(
+                        parent, "child_payment",
+                        new { student = basis.FullName, amount, receiptNo = payment.ReceiptNo, classTitle = title },
+                        Link: "/family", OnceKey: $"payment:{payment.Id}", Topic: AlertTopics.Payments, AboutStudentId: basis.StudentId));
+                }
+
+                await notifier.NotifyAsync(told, ct);
 
                 return Results.Created($"/api/fees/enrolments/{basis.EnrolmentId}", (await ToDtosAsync(db, [payment], ct))[0]);
             }
@@ -224,7 +233,8 @@ internal static class FeeEndpoints
 
     // A payment is never deleted. Voiding keeps it on record, with why, and gives its months back as owing.
     private static async Task<IResult> VoidPayment(
-        Guid id, VoidPaymentRequest request, FeesDbContext db, TimeProvider clock, CancellationToken ct)
+        Guid id, VoidPaymentRequest request, FeesDbContext db, IClassRoster roster, IClassDirectory classes, IParentLinks parents,
+        INotifier notifier, TimeProvider clock, CancellationToken ct)
     {
         var payment = await db.Payments.FindAsync([id], ct);
         if (payment is null)
@@ -251,8 +261,41 @@ internal static class FeeEndpoints
         payment.VoidedAt = clock.GetUtcNow();
         payment.VoidReason = reason;
         await db.SaveChangesAsync(ct);
+        await TellAboutVoidAsync(payment, roster, classes, parents, notifier, ct);
         return Results.Ok((await ToDtosAsync(db, [payment], ct))[0]);
     }
+
+    /// <summary>A payment taken back is a correction: whoever was told it came in is told it was undone, once per payment.</summary>
+    private static async Task TellAboutVoidAsync(
+        Payment payment, IClassRoster roster, IClassDirectory classes, IParentLinks parents, INotifier notifier, CancellationToken ct)
+    {
+        if (await roster.FindFeeBasisAsync(payment.EnrolmentId, ct) is not { } basis)
+        {
+            return;
+        }
+
+        var title = (await classes.FindAsync(basis.ClassId, ct))?.Title ?? "";
+        var told = new List<NotifyRequest>();
+        if (basis.UserId is { } studentUser)
+        {
+            told.Add(new NotifyRequest(
+                studentUser, "payment_voided", new { amount = payment.Amount, receiptNo = payment.ReceiptNo, classTitle = title },
+                Link: "/welcome", OnceKey: $"void:{payment.Id}"));
+        }
+
+        foreach (var parent in await ParentsOfAsync(parents, basis.StudentId, ct))
+        {
+            told.Add(new NotifyRequest(
+                parent, "child_payment_voided",
+                new { student = basis.FullName, amount = payment.Amount, receiptNo = payment.ReceiptNo, classTitle = title },
+                Link: "/family", OnceKey: $"void:{payment.Id}", Topic: AlertTopics.Payments, AboutStudentId: basis.StudentId));
+        }
+
+        await notifier.NotifyAsync(told, ct);
+    }
+
+    private static async Task<IReadOnlyList<Guid>> ParentsOfAsync(IParentLinks parents, Guid studentId, CancellationToken ct) =>
+        (await parents.ParentsOfAsync([studentId], ct)).TryGetValue(studentId, out var linked) ? linked : [];
 
     private static async Task<PaymentDto[]> ToDtosAsync(FeesDbContext db, List<Payment> payments, CancellationToken ct)
     {

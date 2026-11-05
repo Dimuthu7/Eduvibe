@@ -15,6 +15,7 @@ import { applyServerError, fieldErrorKey, filled, nonEmptyArray } from '../../sh
 import { StudentAvatar } from '../../shared/student-avatar';
 import { StudentPhotos } from '../../shared/student-photos';
 import { SubmitButton } from '../../shared/submit-button';
+import { AlertsCard } from './alerts-card';
 import { MyPlanCard } from './my-plan';
 
 @Component({
@@ -32,6 +33,7 @@ import { MyPlanCard } from './my-plan';
     MatInputModule,
     SearchSelect,
     MyPlanCard,
+    AlertsCard,
     TranslatePipe,
   ],
   template: `
@@ -84,6 +86,7 @@ import { MyPlanCard } from './my-plan';
         </form>
       </mat-card-content>
     </mat-card>
+    <app-alerts-card />
     @if (auth.user()?.teacherId) {
       <app-my-plan />
     }
