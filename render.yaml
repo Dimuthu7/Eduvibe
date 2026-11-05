@@ -51,6 +51,13 @@ services:
         sync: false
       - key: WhatsApp__AppSecret
         sync: false
+      # Text messages (see docs/sms-setup.md). Simulated pretends to send; change to TextLk only once the text.lk account, sender name and token are ready, because every text costs money.
+      - key: Sms__Mode
+        value: Simulated
+      - key: Sms__ApiToken
+        sync: false
+      - key: Sms__SenderId
+        value: GuruBook
       # Phone notifications (see docs/push-setup.md). Optional: without the two keys the app does not offer them.
       - key: Push__PublicKey
         sync: false

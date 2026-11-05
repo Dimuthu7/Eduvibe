@@ -45,6 +45,9 @@ public sealed class WhatsAppMessage : Entity, ITenantOwned
     /// <summary>A short code such as not_on_whatsapp or template_problem when Status is Failed; the web app turns it into words.</summary>
     public string? Error { get; set; }
 
+    /// <summary>True when WhatsApp could not deliver it and a text was sent instead, so the teacher can see where the message went.</summary>
+    public bool HandedToSms { get; set; }
+
     public int Attempts { get; set; }
     public DateTimeOffset? NextAttemptAt { get; set; }
     public DateTimeOffset? SentAt { get; set; }

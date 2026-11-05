@@ -18,7 +18,7 @@ namespace GuruBook.Modules.WhatsApp.Endpoints;
 public sealed record WhatsAppStatusDto(bool Enabled, bool Configured, bool Simulated, int? Limit, int Used, int? Remaining);
 
 public sealed record WhatsAppMessageDto(
-    Guid Id, string StudentName, string Kind, string Status, string? Error, string Phone, DateTimeOffset CreatedAt);
+    Guid Id, string StudentName, string Kind, string Status, string? Error, string Phone, bool HandedToSms, DateTimeOffset CreatedAt);
 
 public sealed record WhatsAppListDto(WhatsAppStatusDto Status, WhatsAppMessageDto[] Items);
 
@@ -67,7 +67,8 @@ internal static class WhatsAppEndpoints
 
         return Results.Ok(new WhatsAppListDto(
             await StatusAsync(db, plans, client, options.Value, clock, ct),
-            [.. rows.Select(m => new WhatsAppMessageDto(m.Id, m.StudentName, m.Kind, m.Status.ToString(), m.Error, Mask(m.ToPhone), m.CreatedAt))]));
+            [.. rows.Select(m => new WhatsAppMessageDto(
+                m.Id, m.StudentName, m.Kind, m.Status.ToString(), m.Error, Mask(m.ToPhone), m.HandedToSms, m.CreatedAt))]));
     }
 
     // The list shows only the end of the number: enough to tell parents apart, not enough to copy.

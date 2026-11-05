@@ -31,18 +31,26 @@ public static class PlanGateExtensions
     /// <summary>Rejects the request with 403 and code <c>plan_feature_locked</c> unless the teacher's plan includes the feature.</summary>
     public static TBuilder RequireFeature<TBuilder>(this TBuilder builder, string feature) where TBuilder : IEndpointConventionBuilder =>
         builder.AddEndpointFilter(new PlanFeatureFilter(feature));
+
+    /// <summary>
+    /// The same, for something a teacher can reach through either of two features: sending a parent a message needs WhatsApp or SMS, and which
+    /// of them it goes by is the teacher's own choice.
+    /// </summary>
+    public static TBuilder RequireAnyFeature<TBuilder>(this TBuilder builder, params string[] features) where TBuilder : IEndpointConventionBuilder =>
+        builder.AddEndpointFilter(new PlanFeatureFilter(features));
 }
 
-/// <summary>The check behind <see cref="PlanGateExtensions.RequireFeature"/>.</summary>
-public sealed class PlanFeatureFilter(string feature) : IEndpointFilter
+/// <summary>The check behind <see cref="PlanGateExtensions.RequireFeature"/>. With several features, any one of them is enough.</summary>
+public sealed class PlanFeatureFilter(params string[] features) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var plan = await context.HttpContext.RequestServices.GetRequiredService<IPlanGate>().CurrentAsync(context.HttpContext.RequestAborted);
-        return plan.Has(feature)
+        return features.Any(plan.Has)
             ? await next(context)
+            // The first feature is the one the request is named after, so a locked message still says what to upgrade for.
             : Results.Problem(
                 statusCode: StatusCodes.Status403Forbidden, title: "plan_feature_locked",
-                extensions: new Dictionary<string, object?> { ["code"] = "plan_feature_locked", ["feature"] = feature });
+                extensions: new Dictionary<string, object?> { ["code"] = "plan_feature_locked", ["feature"] = features[0] });
     }
 }

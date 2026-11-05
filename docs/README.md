@@ -7,6 +7,7 @@
 - [Free test deployment](deploy-free.md) — web on Azure, API on Render, database on Neon.
 - [Google Drive setup](drive-setup.md) — the Google Cloud client and settings behind class materials.
 - [WhatsApp setup](whatsapp-setup.md) — the Meta account, message templates and settings behind WhatsApp messages to parents.
+- [SMS setup](sms-setup.md) — the text.lk account, sender name and settings behind text messages to parents, and why the allowance counts parts.
 - [Phone notifications and fee reminders](push-setup.md) — the sender keys, turning notifications on, and when reminders go out.
 - [QR student cards](qr-cards.md) — printing cards and scanning them to mark attendance.
 - [Privacy requests](privacy.md) — downloading and deleting a teacher's or a student's data.

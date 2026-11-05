@@ -18,7 +18,7 @@ internal static class WhatsAppEndpoints
 {
     public static void Map(RouteGroupBuilder group)
     {
-        var whatsapp = group.MapGroup("/{id:guid}/whatsapp").RequireAuthorization(Policies.Teacher).RequireFeature(PlanFeatures.WhatsApp);
+        var whatsapp = group.MapGroup("/{id:guid}/whatsapp").RequireAuthorization(Policies.Teacher).RequireAnyFeature(PlanFeatures.WhatsApp, PlanFeatures.Sms);
         whatsapp.MapGet("", Preview);
         whatsapp.MapPost("", Send);
     }

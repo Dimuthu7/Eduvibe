@@ -9,17 +9,6 @@ namespace GuruBook.Modules.WhatsApp.Services;
 /// </summary>
 internal static partial class WhatsAppTemplates
 {
-    private static readonly Dictionary<string, int> ParamCounts = new()
-    {
-        [WhatsAppKinds.FeeReminder] = 5,
-        [WhatsAppKinds.Absence] = 4,
-        [WhatsAppKinds.Results] = 7,
-    };
-
-    public static bool IsKnown(string kind) => ParamCounts.ContainsKey(kind);
-
-    public static int ParamCount(string kind) => ParamCounts[kind];
-
     public static string NameOf(string prefix, string kind) => prefix + kind;
 
     /// <summary>

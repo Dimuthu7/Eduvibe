@@ -10,7 +10,8 @@ import { REFRESH_MS, REFRESH_TIMES, WhatsAppMessages } from './messages';
 const API = 'http://api.test';
 
 const message = (id: string, over: Partial<WhatsAppMessage> = {}): WhatsAppMessage => ({
-  id, studentName: `Student ${id}`, kind: 'fee_reminder', status: 'Sent', error: null, phone: '•••• 4567', createdAt: '2027-03-15T04:00:00Z', ...over,
+  id, studentName: `Student ${id}`, kind: 'fee_reminder', status: 'Sent', error: null, phone: '•••• 4567', handedToSms: false,
+  createdAt: '2027-03-15T04:00:00Z', ...over,
 });
 
 const list = (items: WhatsAppMessage[], over: Partial<WhatsAppList['status']> = {}): WhatsAppList => ({

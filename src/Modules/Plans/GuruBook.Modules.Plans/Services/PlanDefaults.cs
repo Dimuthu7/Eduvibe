@@ -23,7 +23,7 @@ public static class PlanDefaults
         }
 
         var free = new Plan { Name = FreeName, Description = "Classes, students, fees, attendance and exams.", IsDefault = true };
-        var pro = new Plan { Name = ProName, Description = "Everything in Free, plus WhatsApp notifications, Drive materials and the parent portal." };
+        var pro = new Plan { Name = ProName, Description = "Everything in Free, plus WhatsApp and SMS notifications, Drive materials and the parent portal." };
         db.Plans.AddRange(free, pro);
         foreach (var key in PlanFeatures.All)
         {
@@ -33,13 +33,23 @@ public static class PlanDefaults
 
         foreach (var key in PlanLimits.All)
         {
-            // Free has no WhatsApp at all, so its allowance is zero rather than unlimited.
-            db.Features.Add(new PlanFeature { PlanId = free.Id, Key = key, Enabled = true, LimitValue = key == PlanLimits.WhatsAppPerMonth ? 0 : null });
-            db.Features.Add(new PlanFeature { PlanId = pro.Id, Key = key, Enabled = true, LimitValue = key == PlanLimits.WhatsAppPerMonth ? 500 : null });
+            // Free has neither WhatsApp nor SMS at all, so those allowances are zero rather than unlimited.
+            db.Features.Add(new PlanFeature { PlanId = free.Id, Key = key, Enabled = true, LimitValue = Paid(key) ? 0 : null });
+            db.Features.Add(new PlanFeature { PlanId = pro.Id, Key = key, Enabled = true, LimitValue = Default(key) });
         }
 
         await db.SaveChangesAsync(ct);
     }
+
+    private static bool Paid(string key) => key is PlanLimits.WhatsAppPerMonth or PlanLimits.SmsPerMonth;
+
+    /// <summary>Pro's allowances. An SMS part is paid for in cash, so Pro starts far lower than its WhatsApp allowance.</summary>
+    private static int? Default(string key) => key switch
+    {
+        PlanLimits.WhatsAppPerMonth => 500,
+        PlanLimits.SmsPerMonth => 300,
+        _ => null,
+    };
 
     /// <summary>Today's date in Sri Lanka (UTC+5:30, no daylight saving).</summary>
     public static DateOnly Today(TimeProvider clock) =>

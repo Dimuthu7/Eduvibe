@@ -84,6 +84,9 @@ const KIND_ICON: Record<WhatsAppMessage['kind'], string> = {
                       <div class="row-meta">{{ row.when }}</div>
                       @if (row.m.status === 'Failed') {
                         <div class="row-meta failed">{{ row.reason }}</div>
+                        @if (row.m.handedToSms) {
+                          <div class="row-meta">{{ 'whatsapp.handed_to_sms' | t }}</div>
+                        }
                       } @else if (row.m.status === 'Queued') {
                         <div class="row-meta queued">{{ 'whatsapp.queued_hint' | t }}</div>
                       }

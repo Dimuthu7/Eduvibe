@@ -18,6 +18,9 @@ public interface ITeacherDirectory
     /// <summary>How many active teachers there are, across all of them.</summary>
     Task<int> CountActiveAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>The language the teacher chose ("en", "si" or "ta"), and "en" when there is no such teacher. What a message to their parents is written in.</summary>
+    Task<string> LanguageAsync(Guid teacherId, CancellationToken cancellationToken = default);
+
     /// <summary>The teacher whatever their status, or null when there is no such teacher. For privacy requests, which reach switched-off teachers too.</summary>
     Task<TeacherIdentity?> FindIdentityAsync(Guid teacherId, CancellationToken cancellationToken = default);
 }
