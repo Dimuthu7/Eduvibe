@@ -49,12 +49,3 @@ internal sealed class AlertMuteConfiguration : IEntityTypeConfiguration<AlertMut
         builder.HasIndex(m => new { m.UserId, m.StudentId, m.Topic }).IsUnique();
     }
 }
-
-internal sealed class ParentAlertSettingConfiguration : IEntityTypeConfiguration<ParentAlertSetting>
-{
-    public void Configure(EntityTypeBuilder<ParentAlertSetting> builder)
-    {
-        builder.ToTable("parent_alert_settings");
-        builder.Property(s => s.AttendanceAlerts).HasMaxLength(20);
-    }
-}

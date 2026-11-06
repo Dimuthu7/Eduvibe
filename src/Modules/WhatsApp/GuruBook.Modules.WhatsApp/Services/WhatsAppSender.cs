@@ -4,6 +4,7 @@ using GuruBook.Modules.WhatsApp.Domain;
 using GuruBook.Shared.Modules;
 using GuruBook.Shared.Phone;
 using GuruBook.Shared.Plans;
+using GuruBook.Shared.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace GuruBook.Modules.WhatsApp.Services;
@@ -13,8 +14,8 @@ namespace GuruBook.Modules.WhatsApp.Services;
 /// does the actual sending, so the teacher's request returns at once. Preview and send share one decision, so the preview is what send does.
 /// </summary>
 internal sealed class WhatsAppSender(
-    WhatsAppDbContext db, IStudentContacts contacts, IPlanGate plans, IWhatsAppClient client, ISmsSender sms,
-    WhatsAppSignal signal, WhatsAppDispatchRunner runner, TimeProvider clock) : IWhatsAppSender
+    WhatsAppDbContext db, IStudentContacts contacts, IPlanGate plans, IWhatsAppClient client, ISmsSender sms, IMessageSettings messages,
+    ITenantContext tenant, WhatsAppSignal signal, WhatsAppDispatchRunner runner, TimeProvider clock) : IWhatsAppSender
 {
     public async Task<WhatsAppPreview> PreviewAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken ct)
     {
@@ -27,7 +28,7 @@ internal sealed class WhatsAppSender(
                 text.Limit, text.Used, text.NoNumberStudentIds, MessageChannels.SmsOnly);
         }
 
-        var plan = await DecideAsync(drafts, ct);
+        var plan = await DecideAsync(drafts, null, ct);
         return new WhatsAppPreview(
             client.IsConfigured, drafts.Count, plan.Ready.Count, plan.NoNumber.Count, plan.OptedOut, plan.AlreadySent, plan.Over,
             plan.Limit, plan.Used, [.. plan.NoNumber]);
@@ -42,20 +43,38 @@ internal sealed class WhatsAppSender(
                 text.Configured, text.Queued, text.NoNumber, text.OptedOut, text.AlreadySent, text.OverAllowance, MessageChannels.SmsOnly);
         }
 
+        return await QueueAsync(drafts, null, ct);
+    }
+
+    /// <summary>
+    /// For a background job, which acts for nobody: the teacher is named outright and the choice of channel was already made for this event,
+    /// so a teacher's own "SMS for everything" setting is not consulted again here.
+    /// </summary>
+    public Task<WhatsAppSendResult> SendForAsync(Guid teacherId, IReadOnlyList<WhatsAppDraft> drafts, CancellationToken ct = default) =>
+        QueueAsync(drafts, teacherId, ct);
+
+    private async Task<WhatsAppSendResult> QueueAsync(IReadOnlyList<WhatsAppDraft> drafts, Guid? teacherId, CancellationToken ct)
+    {
         if (!client.IsConfigured)
         {
             return new WhatsAppSendResult(false, 0, 0, 0, 0, 0);
         }
 
-        var plan = await DecideAsync(drafts, ct);
+        var plan = await DecideAsync(drafts, teacherId, ct);
         var month = Month();
+        var owner = teacherId ?? tenant.TenantId;
         foreach (var item in plan.Ready)
         {
+            var name = MessageEvents.IsKnown(item.Draft.Event) ? item.Draft.Event! : MessageEvents.ForKind(item.Draft.Kind);
             db.Messages.Add(new WhatsAppMessage
             {
+                TenantId = teacherId ?? Guid.Empty,
                 StudentId = item.Draft.StudentId,
                 StudentName = item.Name,
                 Kind = item.Draft.Kind,
+                Event = name,
+                Note = owner is { } who ? await messages.NoteForAsync(who, name, ct) : null,
+                AllowSms = item.Draft.AllowSms,
                 ToPhone = item.Phone,
                 ParamsJson = JsonSerializer.Serialize(item.Draft.Params.Select(WhatsAppTemplates.Clean)),
                 DedupKey = item.Draft.DedupKey,
@@ -77,15 +96,22 @@ internal sealed class WhatsAppSender(
 
     /// <summary>The same facts, for the SMS module to put into words.</summary>
     private static List<SmsDraft> AsSms(IReadOnlyList<WhatsAppDraft> drafts) =>
-        [.. drafts.Select(d => new SmsDraft(d.StudentId, d.Kind, d.Params, d.DedupKey, d.Window))];
+        [.. drafts.Select(d => new SmsDraft(d.StudentId, d.Kind, d.Params, d.DedupKey, d.Window, d.Event))];
 
     private string Month() => clock.GetUtcNow().ToOffset(TimeSpan.FromMinutes(330)).ToString("yyyy-MM");
+
+    /// <summary>What this teacher has sent: named outright for a background run, which acts for nobody.</summary>
+    private IQueryable<WhatsAppMessage> Rows(Guid? teacherId) =>
+        teacherId is { } id ? db.Messages.IgnoreQueryFilters().Where(m => m.TenantId == id) : db.Messages;
+
+    private IQueryable<WhatsAppOptOut> OptOuts(Guid? teacherId) =>
+        teacherId is { } id ? db.OptOuts.IgnoreQueryFilters().Where(o => o.TenantId == id) : db.OptOuts;
 
     private sealed record Ready(WhatsAppDraft Draft, string Name, string Phone);
 
     private sealed record Decision(List<Ready> Ready, List<Guid> NoNumber, int OptedOut, int AlreadySent, int Over, int? Limit, int Used);
 
-    private async Task<Decision> DecideAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken ct)
+    private async Task<Decision> DecideAsync(IReadOnlyList<WhatsAppDraft> drafts, Guid? teacherId, CancellationToken ct)
     {
         foreach (var draft in drafts)
         {
@@ -95,15 +121,18 @@ internal sealed class WhatsAppSender(
             }
         }
 
-        var plan = await plans.CurrentAsync(ct);
+        var plan = teacherId is { } owner ? await plans.ForTeacherAsync(owner, ct) : await plans.CurrentAsync(ct);
         int? limit = plan.Has(PlanFeatures.WhatsApp) ? plan.LimitOf(PlanLimits.WhatsAppPerMonth) : 0;
         var month = Month();
-        var used = await db.Messages.CountAsync(m => m.Month == month && m.Status != MessageStatus.Failed, ct);
+        var used = await Rows(teacherId).CountAsync(m => m.Month == month && m.Status != MessageStatus.Failed, ct);
 
-        var found = await contacts.FindAsync(drafts.Select(d => d.StudentId), ct);
-        var optedOut = (await db.OptOuts.Select(o => o.Phone).ToListAsync(ct)).ToHashSet();
+        var ids = drafts.Select(d => d.StudentId);
+        var found = teacherId is { } forTeacher
+            ? await contacts.FindForTeacherAsync(forTeacher, ids, ct)
+            : await contacts.FindAsync(ids, ct);
+        var optedOut = (await OptOuts(teacherId).Select(o => o.Phone).ToListAsync(ct)).ToHashSet();
         var keys = drafts.Select(d => d.DedupKey).Distinct().ToList();
-        var sent = (await db.Messages.Where(m => keys.Contains(m.DedupKey) && m.Status != MessageStatus.Failed)
+        var sent = (await Rows(teacherId).Where(m => keys.Contains(m.DedupKey) && m.Status != MessageStatus.Failed)
                 .Select(m => new { m.DedupKey, m.CreatedAt }).ToListAsync(ct))
             .GroupBy(m => m.DedupKey).ToDictionary(g => g.Key, g => g.Max(m => m.CreatedAt));
 

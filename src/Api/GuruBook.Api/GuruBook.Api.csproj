@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\Modules\Materials\GuruBook.Modules.Materials\GuruBook.Modules.Materials.csproj" />
     <ProjectReference Include="..\..\Modules\WhatsApp\GuruBook.Modules.WhatsApp\GuruBook.Modules.WhatsApp.csproj" />
     <ProjectReference Include="..\..\Modules\Payments\GuruBook.Modules.Payments\GuruBook.Modules.Payments.csproj" />
+    <ProjectReference Include="..\..\Modules\Messaging\GuruBook.Modules.Messaging\GuruBook.Modules.Messaging.csproj" />
     <ProjectReference Include="..\..\Modules\Sms\GuruBook.Modules.Sms\GuruBook.Modules.Sms.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\GuruBook.Modules.Notifications\GuruBook.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\Modules\Plans\GuruBook.Modules.Plans\GuruBook.Modules.Plans.csproj" />

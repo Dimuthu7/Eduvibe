@@ -28,6 +28,15 @@ public sealed class WhatsAppMessage : Entity, ITenantOwned
     /// <summary>One of <c>WhatsAppKinds</c>.</summary>
     public required string Kind { get; set; }
 
+    /// <summary>The <c>MessageEvents</c> this message belongs to, so a text that takes over is written in the words the teacher chose for it.</summary>
+    public string? Event { get; set; }
+
+    /// <summary>The teacher's own line at the end of the message, when they wrote one. Sent as the template's last value.</summary>
+    public string? Note { get; set; }
+
+    /// <summary>False when the teacher asked for WhatsApp alone, so a message WhatsApp cannot deliver is not sent as a text instead.</summary>
+    public bool AllowSms { get; set; } = true;
+
     /// <summary>International form, for example +94771234567: the guardian's number when the student has one.</summary>
     public required string ToPhone { get; set; }
 

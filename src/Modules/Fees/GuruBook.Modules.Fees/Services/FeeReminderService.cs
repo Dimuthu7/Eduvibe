@@ -11,7 +11,9 @@ namespace GuruBook.Modules.Fees.Services;
 /// the class or the class is archived. A teacher can turn reminders off for a class or skip a student. A teacher is told once a month, from the 10th,
 /// how many students in each class have not paid. Everything that goes out is noted in the reminder log.
 /// </summary>
-public sealed class FeeReminderService(FeesDbContext db, IClassRoster roster, IClassDirectory classes, INotifier notifier, TimeProvider clock)
+public sealed class FeeReminderService(
+    FeesDbContext db, IClassRoster roster, IClassDirectory classes, INotifier notifier, IMessageRouter messages,
+    IStudentContacts contacts, ITeacherDirectory teachers, TimeProvider clock)
 {
     /// <summary>The day of the month the teacher's unpaid-fees reminder goes out, in Sri Lanka time.</summary>
     public const int TeacherReminderDay = 10;
@@ -83,9 +85,11 @@ public sealed class FeeReminderService(FeesDbContext db, IClassRoster roster, IC
         var sent = (await db.Reminders.IgnoreQueryFilters().Where(r => dueIds.Contains(r.DueId)).Select(r => new { r.DueId, r.Step, r.Number }).ToListAsync(ct))
             .Select(r => (r.DueId, r.Step, r.Number)).ToHashSet();
 
+        var rules = new Dictionary<(Guid Teacher, string Event), MessageRule>();
+        var paying = new Dictionary<(Guid Teacher, string Event), List<Owing>>();
         foreach (var due in unpaid)
         {
-            if (!byEnrolment.TryGetValue(due.EnrolmentId, out var basis) || basis.UserId is not { } student || skipped.Contains(due.EnrolmentId)
+            if (!byEnrolment.TryGetValue(due.EnrolmentId, out var basis) || skipped.Contains(due.EnrolmentId)
                 || !titles.TryGetValue(due.ClassId, out var cls) || cls.IsArchived)
             {
                 continue;
@@ -97,19 +101,101 @@ public sealed class FeeReminderService(FeesDbContext db, IClassRoster roster, IC
                 continue;
             }
 
+            var name = EventOf(step.Step);
+            var key = (due.TenantId, name);
+            if (!rules.TryGetValue(key, out var rule))
+            {
+                rule = await messages.RuleForAsync(due.TenantId, name, ct);
+                rules[key] = rule;
+            }
+
+            // Off means the fee is not chased at all: not in the app either, because the teacher said not to.
+            if (!rule.On)
+            {
+                continue;
+            }
+
             var owing = due.AmountDue - paid.GetValueOrDefault(due.Id);
             var kind = step.Step switch { Before => "fee_before", Due => "fee_due_today", _ => "fee_overdue" };
-            requests.Add(new NotifyRequest(
-                student, kind,
-                new
-                {
-                    classTitle = cls.Title, amount = owing, month = due.Month, lastMonth = due.LastMonth, dueDate = due.DueDate.ToString("yyyy-MM-dd"),
-                    daysLate = Math.Max(0, today.DayNumber - due.DueDate.DayNumber), weeks = step.Number,
-                },
-                Link: "/welcome", OnceKey: $"remind:{due.Id}:{step.Step}:{step.Number}"));
-            log.Add(new FeeReminder { TenantId = due.TenantId, DueId = due.Id, EnrolmentId = due.EnrolmentId, ClassId = due.ClassId, Step = step.Step, Number = step.Number, Channel = "App" });
+
+            // A student who has never signed in still has a parent with a phone, so a paid reminder goes out without an account to show it in.
+            if (basis.UserId is { } student)
+            {
+                requests.Add(new NotifyRequest(
+                    student, kind,
+                    new
+                    {
+                        classTitle = cls.Title, amount = owing, month = due.Month, lastMonth = due.LastMonth, dueDate = due.DueDate.ToString("yyyy-MM-dd"),
+                        daysLate = Math.Max(0, today.DayNumber - due.DueDate.DayNumber), weeks = step.Number,
+                    },
+                    Link: "/welcome", OnceKey: $"remind:{due.Id}:{step.Step}:{step.Number}"));
+            }
+            log.Add(new FeeReminder
+            {
+                TenantId = due.TenantId, DueId = due.Id, EnrolmentId = due.EnrolmentId, ClassId = due.ClassId,
+                Step = step.Step, Number = step.Number, Channel = ChannelOf(rule.Way),
+            });
+
+            if (MessageWays.IsPaid(rule.Way))
+            {
+                (paying.TryGetValue(key, out var list) ? list : paying[key] = []).Add(
+                    new Owing(basis, cls.Title, due.Month, owing, $"{name}:{due.Id}:{step.Step}:{step.Number}"));
+            }
+        }
+
+        await SendPaidAsync(paying, ct);
+    }
+
+    /// <summary>A fee a parent is about to hear about, with what it will say.</summary>
+    private sealed record Owing(FeeBasis Basis, string ClassTitle, string Month, decimal Amount, string DedupKey);
+
+    /// <summary>
+    /// The WhatsApp messages or texts for the teachers who asked for them. The names are looked up once per teacher, and only for the teachers
+    /// who pay for messages, so an ordinary run asks nothing extra of the database.
+    /// </summary>
+    private async Task SendPaidAsync(Dictionary<(Guid Teacher, string Event), List<Owing>> paying, CancellationToken ct)
+    {
+        var names = new Dictionary<Guid, string>();
+        var firstNames = new Dictionary<Guid, Dictionary<Guid, string>>();
+        foreach (var ((teacher, name), items) in paying)
+        {
+            if (!names.TryGetValue(teacher, out var teacherName))
+            {
+                names[teacher] = teacherName = await teachers.FindNameAsync(teacher, ct) ?? "";
+            }
+
+            if (!firstNames.TryGetValue(teacher, out var first))
+            {
+                var found = await contacts.FindForTeacherAsync(teacher, paying.Where(p => p.Key.Teacher == teacher).SelectMany(p => p.Value).Select(o => o.Basis.StudentId), ct);
+                firstNames[teacher] = first = found.ToDictionary(f => f.Key, f => f.Value.FirstName);
+            }
+
+            var drafts = items.Select(item => new MessageDraft(
+                item.Basis.StudentId,
+                [
+                    first.GetValueOrDefault(item.Basis.StudentId, item.Basis.FullName), item.ClassTitle, MessageTexts.MonthLabel(item.Month),
+                    MessageTexts.Lkr(item.Amount), teacherName,
+                ],
+                item.DedupKey)).ToList();
+            await messages.SendForAsync(teacher, name, drafts, ct);
         }
     }
+
+    /// <summary>Which of the three fee messages a step is, so the teacher's choice for it is the one that is used.</summary>
+    private static string EventOf(string step) => step switch
+    {
+        Before => MessageEvents.FeeBefore,
+        Due => MessageEvents.FeeDueToday,
+        _ => MessageEvents.FeeOverdue,
+    };
+
+    /// <summary>How the reminder log names the way it went out.</summary>
+    private static string ChannelOf(string way) => way switch
+    {
+        MessageWays.Sms => "Sms",
+        MessageWays.WhatsApp or MessageWays.WhatsAppThenSms => "WhatsApp",
+        _ => "App",
+    };
 
     /// <summary>
     /// The one reminder a fee is due today, if any: the day before its period starts, then on the due date (or in the six days after, for a

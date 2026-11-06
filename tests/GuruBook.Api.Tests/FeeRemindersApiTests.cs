@@ -84,7 +84,8 @@ public class FeeRemindersApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         using var scope = factory.Services.CreateScope();
         var sp = scope.ServiceProvider;
         await new FeeReminderService(
-            sp.GetRequiredService<FeesDbContext>(), sp.GetRequiredService<IClassRoster>(), sp.GetRequiredService<IClassDirectory>(), sp.GetRequiredService<INotifier>(), clock)
+            sp.GetRequiredService<FeesDbContext>(), sp.GetRequiredService<IClassRoster>(), sp.GetRequiredService<IClassDirectory>(), sp.GetRequiredService<INotifier>(),
+            sp.GetRequiredService<IMessageRouter>(), sp.GetRequiredService<IStudentContacts>(), sp.GetRequiredService<ITeacherDirectory>(), clock)
             .RunAsync(CancellationToken.None);
     }
 

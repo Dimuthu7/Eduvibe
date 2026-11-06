@@ -18,6 +18,8 @@ const KIND_ICON: Record<WhatsAppMessage['kind'], string> = {
   fee_reminder: 'payments',
   absence_alert: 'event_busy',
   results: 'quiz',
+  payment_received: 'receipt_long',
+  low_attendance: 'running_with_errors',
 };
 
 /** What the teacher has sent on WhatsApp, newest first, with each message's status and how much of the month's allowance is used. */

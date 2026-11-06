@@ -20,6 +20,8 @@ const KIND_ICON: Record<SmsMessage['kind'], string> = {
   fee_reminder: 'payments',
   absence_alert: 'event_busy',
   results: 'quiz',
+  payment_received: 'receipt_long',
+  low_attendance: 'running_with_errors',
 };
 
 /**

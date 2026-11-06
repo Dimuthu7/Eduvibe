@@ -45,7 +45,7 @@ export type WhatsAppMessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Read' | '
 export interface WhatsAppMessage {
   id: string;
   studentName: string;
-  kind: 'fee_reminder' | 'absence_alert' | 'results';
+  kind: 'fee_reminder' | 'absence_alert' | 'results' | 'payment_received' | 'low_attendance';
   status: WhatsAppMessageStatus;
   error: string | null;
   phone: string;
