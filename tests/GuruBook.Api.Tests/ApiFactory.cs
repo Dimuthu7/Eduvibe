@@ -17,6 +17,7 @@ using GuruBook.Modules.Notifications;
 using GuruBook.Modules.Plans;
 using GuruBook.Modules.Plans.Services;
 using GuruBook.Modules.Students;
+using GuruBook.Modules.Payments;
 using GuruBook.Modules.Sms;
 using GuruBook.Modules.Sms.Client;
 using GuruBook.Modules.WhatsApp;
@@ -141,6 +142,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Notifications:CleanupJob", "false");
         builder.UseSetting("WhatsApp:DispatchJob", "false");
         builder.UseSetting("Sms:DispatchJob", "false");
+        builder.UseSetting("Payments:SlipCleanupJob", "false");
         builder.UseSetting("WhatsApp:AppSecret", WhatsAppAppSecret);
         builder.UseSetting("WhatsApp:VerifyToken", WhatsAppVerifyToken);
 
@@ -159,6 +161,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<MaterialsDbContext>(services);
             UseSqlite<WhatsAppDbContext>(services);
             UseSqlite<SmsDbContext>(services);
+            UseSqlite<PaymentsDbContext>(services);
             services.RemoveAll<IWhatsAppClient>();
             services.AddSingleton<IWhatsAppClient>(WhatsApp);
             services.RemoveAll<ISmsClient>();
@@ -193,6 +196,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<MaterialsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<WhatsAppDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<SmsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();

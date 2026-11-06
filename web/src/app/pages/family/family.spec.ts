@@ -34,10 +34,12 @@ describe('Family', () => {
     return fixture;
   };
 
-  const flushChild = (id: string, over: { attendance?: unknown[]; fees?: unknown[]; results?: unknown[] } = {}) => {
+  const flushChild = (id: string, over: { attendance?: unknown[]; fees?: unknown[]; results?: unknown[]; payable?: string[] } = {}) => {
     http.expectOne(`${API}/api/attendance/children/${id}`).flush(over.attendance ?? []);
     http.expectOne(`${API}/api/fees/children/${id}`).flush(over.fees ?? []);
     http.expectOne(`${API}/api/exams/children/${id}`).flush(over.results ?? []);
+    // Which fees can be paid by transfer; it only decides whether a Pay button is shown.
+    http.expectOne(`${API}/api/payments/children/${id}`).flush(over.payable ?? []);
   };
 
   afterEach(() => http.verify());

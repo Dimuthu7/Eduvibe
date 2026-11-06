@@ -12,7 +12,10 @@ public static class PlanFeatures
     public const string AdvancedAnalytics = "advanced_analytics";
     public const string Sms = "sms";
 
-    public static readonly IReadOnlyList<string> All = [WhatsApp, DriveMaterials, ParentPortal, AdvancedAnalytics, Sms];
+    /// <summary>Students and parents pay by bank transfer or LankaQR and send the slip; the teacher confirms it.</summary>
+    public const string BankPayments = "bank_payments";
+
+    public static readonly IReadOnlyList<string> All = [WhatsApp, DriveMaterials, ParentPortal, AdvancedAnalytics, Sms, BankPayments];
 }
 
 /// <summary>The numbers a plan can cap. A plan with no value for a limit sets no cap.</summary>

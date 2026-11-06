@@ -8,6 +8,7 @@ import { AttendanceService, MyAttendance } from '../../core/api/attendance.servi
 import { ExamsService, MyExam } from '../../core/api/exams.service';
 import { FeesService, MyFees } from '../../core/api/fees.service';
 import { MaterialsService, StudentMaterial } from '../../core/api/materials.service';
+import { PaymentsApi } from '../../core/api/payments.service';
 import { MyClass, StudentsService } from '../../core/api/students.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
@@ -45,7 +46,7 @@ interface MyClassView {
     <app-push-prompt />
 
     @if (data.status() === 'ready') {
-      <app-fees-alert [items]="alerts()" />
+      <app-fees-alert [items]="alerts()" [payable]="payable()" (claimed)="load()" />
     }
     <h2 class="section-title first">{{ 'welcome.my_classes' | t }}</h2>
 
@@ -208,8 +209,11 @@ export class Welcome {
   private readonly fees = inject(FeesService);
   private readonly exams = inject(ExamsService);
   private readonly materials = inject(MaterialsService);
+  private readonly payments = inject(PaymentsApi);
 
-  protected readonly data = new Loadable<{ classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[]; results: MyExam[]; materials: StudentMaterial[] }>();
+  protected readonly data = new Loadable<{
+    classes: MyClass[]; attendance: MyAttendance[]; fees: MyFees[]; results: MyExam[]; materials: StudentMaterial[]; payable: string[];
+  }>();
   protected readonly num = short;
   private readonly i18n = inject(TranslateService);
   protected readonly schedule = (slots: { day: number; start: string; end: string }[]) => slotSummary(slots, (key) => this.i18n.translate(key));
@@ -220,6 +224,7 @@ export class Welcome {
     const value = this.data.data();
     return feeAlerts(value?.fees ?? [], (classId) => value?.classes.find((c) => c.classId === classId)?.classTitle ?? '');
   });
+  protected readonly payable = computed(() => this.data.data()?.payable ?? []);
   protected readonly views = computed<MyClassView[]>(() => {
     const value = this.data.data();
     return (value?.classes ?? []).map((klass) => ({
@@ -245,6 +250,8 @@ export class Welcome {
         results: this.exams.mine(),
         // Only decides whether to show a link, so a failure leaves it out instead of breaking the page.
         materials: this.materials.mineQuietly().pipe(catchError(() => of<StudentMaterial[]>([]))),
+        // Only decides whether a Pay button is offered, so a failure simply leaves it off.
+        payable: this.payments.payable().pipe(catchError(() => of<string[]>([]))),
       }),
     );
   }

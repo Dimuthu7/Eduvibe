@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
 import { MyFees } from '../core/api/fees.service';
 import { AuthService } from '../core/auth/auth.service';
 import { TranslateService } from '../core/i18n/translate.service';
@@ -8,7 +10,7 @@ import { todayColombo } from './format';
 const month = (m: string, over: Partial<MyFees['months'][number]> = {}): MyFees['months'][number] => ({
   month: m, due: 2000, paid: 0, status: 'Unpaid', dueDate: `${m}-10`, periodMonths: 1, lastMonth: m, timing: '', daysLate: 0, ...over,
 });
-const fees = (classId: string, months: MyFees['months']): MyFees => ({ classId, outstanding: 0, months, receipts: [] });
+const fees = (classId: string, months: MyFees['months']): MyFees => ({ classId, enrolmentId: `e-${classId}`, outstanding: 0, months, receipts: [] });
 const title = (id: string) => `Class ${id}`;
 
 describe('feeAlerts', () => {
@@ -35,7 +37,7 @@ describe('feeAlerts', () => {
       title,
     );
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ timing: 'Overdue', daysLate: 9, amount: 1500, classTitle: 'Class a' });
+    expect(result[0]).toMatchObject({ timing: 'Overdue', daysLate: 9, amount: 1500, classTitle: 'Class a', enrolmentId: 'e-a', month: '2026-10' });
   });
 
   it('ignores a fee that has been paid in full', () => {
@@ -44,21 +46,30 @@ describe('feeAlerts', () => {
 });
 
 describe('FeesAlert', () => {
+  const open = vi.fn((_component: unknown, _config?: { data?: unknown }) => ({ afterClosed: () => of(undefined) }));
+
   const items: FeeAlertItem[] = [
-    { classId: 'a', classTitle: 'Grade 10 Maths', amount: 2000, dueDate: '2026-11-10', timing: 'Overdue', daysLate: 3 },
+    { classId: 'a', classTitle: 'Grade 10 Maths', enrolmentId: 'e1', month: '2026-11', amount: 2000, dueDate: '2026-11-10', timing: 'Overdue', daysLate: 3 },
   ];
 
-  const mount = (list: FeeAlertItem[]) => {
-    TestBed.configureTestingModule({ imports: [FeesAlert] });
+  const mount = (list: FeeAlertItem[], payable: string[] = []) => {
+    TestBed.configureTestingModule({ imports: [FeesAlert], providers: [{ provide: MatDialog, useValue: { open } }] });
     vi.spyOn(TestBed.inject(TranslateService), 'translate').mockImplementation((key) => key);
     TestBed.inject(AuthService).user.set({ id: 'u1' } as never);
     const fixture = TestBed.createComponent(FeesAlert);
     fixture.componentRef.setInput('items', list);
+    fixture.componentRef.setInput('payable', payable);
     fixture.detectChanges();
     return fixture;
   };
 
-  beforeEach(() => localStorage.clear());
+  const payButton = (fixture: ReturnType<typeof mount>) =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) => b.textContent!.includes('pay.button'));
+
+  beforeEach(() => {
+    localStorage.clear();
+    open.mockClear();
+  });
 
   it('shows the class, the amount and how late it is', () => {
     const text = (mount(items).nativeElement as HTMLElement).textContent ?? '';
@@ -66,6 +77,19 @@ describe('FeesAlert', () => {
     expect(text).toContain('2,000');
     expect(text).toContain('alert.fees_late');
     expect(text).toContain('fees.days_late');
+  });
+
+  it('offers Pay only for a fee whose teacher takes bank transfers', () => {
+    expect(payButton(mount(items))).toBeUndefined();
+
+    TestBed.resetTestingModule();
+    const withPay = mount(items, ['e1']);
+    const button = payButton(withPay);
+    expect(button).toBeDefined();
+
+    button!.click();
+    expect(open).toHaveBeenCalledOnce();
+    expect(open.mock.calls[0][1]?.data).toMatchObject({ enrolmentId: 'e1', month: '2026-11', classTitle: 'Grade 10 Maths' });
   });
 
   it('says "soon" when nothing is late yet', () => {

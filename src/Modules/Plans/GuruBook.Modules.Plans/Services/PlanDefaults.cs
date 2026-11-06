@@ -23,7 +23,7 @@ public static class PlanDefaults
         }
 
         var free = new Plan { Name = FreeName, Description = "Classes, students, fees, attendance and exams.", IsDefault = true };
-        var pro = new Plan { Name = ProName, Description = "Everything in Free, plus WhatsApp and SMS notifications, Drive materials and the parent portal." };
+        var pro = new Plan { Name = ProName, Description = "Everything in Free, plus WhatsApp and SMS notifications, Drive materials, the parent portal and paying by bank transfer." };
         db.Plans.AddRange(free, pro);
         foreach (var key in PlanFeatures.All)
         {

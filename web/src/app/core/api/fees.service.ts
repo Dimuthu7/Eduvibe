@@ -119,6 +119,8 @@ export interface PaymentInput {
 /** A student's own fee status in one class. */
 export interface MyFees {
   classId: string;
+  /** The student's place in the class; the pay screen names the fee being paid by it. */
+  enrolmentId: string;
   outstanding: number;
   months: FeeDue[];
   receipts: { receiptNo: string; amount: number; method: PaymentMethod; paidOn: string }[];

@@ -19,6 +19,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   { id: 'exams', icon: 'quiz', steps: 4 },
   { id: 'whatsapp', icon: 'chat', steps: 3 },
   { id: 'sms', icon: 'sms', steps: 4 },
+  { id: 'payments', icon: 'account_balance', steps: 4 },
   { id: 'parents', icon: 'family_restroom', steps: 6 },
   { id: 'plan', icon: 'workspace_premium', steps: 2 },
 ];
