@@ -155,6 +155,14 @@
           title: fill(t('notifications.child_absent.title'), { student: text(p.student) }),
           lines: [fill(t('notifications.child_attended.body'), { class: classTitle, date: formatDayMonth(lang, text(p.date)) })],
         };
+      case 'child_low_attendance':
+        return {
+          title: fill(t('notifications.child_low_attendance.title'), { student: text(p.student) }),
+          lines: [
+            fill(t('notifications.child_low_attendance.body'), { percent: String(p.percent), weeks: String(p.weeks) }),
+            classTitle,
+          ].filter(Boolean),
+        };
       case 'child_results':
         return {
           title: fill(t('notifications.results_published.title'), { exam: text(p.exam) }),

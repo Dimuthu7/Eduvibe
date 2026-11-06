@@ -108,6 +108,15 @@ export function describe(n: AppNotification, t: Translate): NotificationView {
         title: fill(t('notifications.child_absent.title'), { student: text(p['student']) }),
         lines: [fill(t('notifications.child_attended.body'), { class: classTitle, date: formatDayMonth(text(p['date'])) })],
       };
+    case 'child_low_attendance':
+      return {
+        icon: 'running_with_errors',
+        title: fill(t('notifications.child_low_attendance.title'), { student: text(p['student']) }),
+        lines: [
+          fill(t('notifications.child_low_attendance.body'), { percent: String(number(p['percent'])), weeks: String(number(p['weeks'])) }),
+          classTitle,
+        ].filter(Boolean),
+      };
     case 'child_results':
       return {
         icon: 'quiz',

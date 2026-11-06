@@ -14,4 +14,8 @@ public interface IStudentContacts
 {
     /// <summary>The contacts of those among <paramref name="studentIds"/> that the current teacher has (or had) in a class, by student id.</summary>
     Task<IReadOnlyDictionary<Guid, StudentContact>> FindAsync(IEnumerable<Guid> studentIds, CancellationToken cancellationToken = default);
+
+    /// <summary>The same, for a teacher named outright, for the background jobs, which act for nobody.</summary>
+    Task<IReadOnlyDictionary<Guid, StudentContact>> FindForTeacherAsync(
+        Guid teacherId, IEnumerable<Guid> studentIds, CancellationToken cancellationToken = default);
 }

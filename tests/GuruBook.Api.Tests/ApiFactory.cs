@@ -17,6 +17,7 @@ using GuruBook.Modules.Notifications;
 using GuruBook.Modules.Plans;
 using GuruBook.Modules.Plans.Services;
 using GuruBook.Modules.Students;
+using GuruBook.Modules.Messaging;
 using GuruBook.Modules.Payments;
 using GuruBook.Modules.Sms;
 using GuruBook.Modules.Sms.Client;
@@ -162,6 +163,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             UseSqlite<WhatsAppDbContext>(services);
             UseSqlite<SmsDbContext>(services);
             UseSqlite<PaymentsDbContext>(services);
+            UseSqlite<MessagingDbContext>(services);
             services.RemoveAll<IWhatsAppClient>();
             services.AddSingleton<IWhatsAppClient>(WhatsApp);
             services.RemoveAll<ISmsClient>();
@@ -197,6 +199,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         scope.ServiceProvider.GetRequiredService<WhatsAppDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<SmsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         scope.ServiceProvider.GetRequiredService<PaymentsDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
+        scope.ServiceProvider.GetRequiredService<MessagingDbContext>().GetService<IRelationalDatabaseCreator>().CreateTables();
         PlanDefaults.EnsureAsync(scope.ServiceProvider.GetRequiredService<PlansDbContext>(), CancellationToken.None).GetAwaiter().GetResult();
 
         var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();

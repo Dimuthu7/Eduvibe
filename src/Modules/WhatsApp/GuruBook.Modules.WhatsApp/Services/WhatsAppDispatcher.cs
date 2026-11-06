@@ -11,7 +11,8 @@ namespace GuruBook.Modules.WhatsApp.Services;
 /// <summary>
 /// Sends the queued messages. It acts for no teacher (it runs in the background), so it lifts the teacher filter and works from what the log holds.
 /// A busy WhatsApp is tried again after 2, 4, 8 minutes; after that, or when WhatsApp refuses the message for good, the message is marked Failed
-/// and stops counting against the allowance. A parent who turns out not to be on WhatsApp gets a text instead, if their teacher pays for SMS.
+/// and stops counting against the allowance. A parent who turns out not to be on WhatsApp gets a text instead, if their teacher pays for SMS
+/// and asked for texts to step in.
 /// </summary>
 public sealed class WhatsAppDispatcher(
     WhatsAppDbContext db, IWhatsAppClient client, ISmsSender sms, IOptions<WhatsAppOptions> options, TimeProvider clock,
@@ -35,8 +36,10 @@ public sealed class WhatsAppDispatcher(
         {
             var values = JsonSerializer.Deserialize<string[]>(message.ParamsJson) ?? [];
             var digits = message.ToPhone.TrimStart('+');
+            // Every template ends with a line of its own: the teacher's, or a plain thank you in the template's language.
+            string[] withNote = [.. values, WhatsAppTemplates.Clean(MessageTexts.Note(message.Note, settings.Language))];
             var outcome = client.IsConfigured
-                ? await client.SendTemplateAsync(digits, WhatsAppTemplates.NameOf(settings.TemplatePrefix, message.Kind), settings.Language, values, ct)
+                ? await client.SendTemplateAsync(digits, WhatsAppTemplates.NameOf(settings.TemplatePrefix, message.Kind), settings.Language, withNote, ct)
                 : new SendOutcome.Rejected("not_configured");
 
             message.Attempts++;
@@ -59,7 +62,7 @@ public sealed class WhatsAppDispatcher(
                     break;
                 case SendOutcome.Rejected rejected:
                     Fail(message, rejected.Code);
-                    message.HandedToSms = NotOnWhatsApp(rejected.Code) && await TakeOverAsync(message, values, ct);
+                    message.HandedToSms = NotOnWhatsApp(rejected.Code) && message.AllowSms && await TakeOverAsync(message, values, ct);
                     log.LogWarning(
                         "WhatsApp message {Id} failed: {Code}{Sms}", message.Id, rejected.Code, message.HandedToSms ? " (sent as a text instead)" : "");
                     break;
@@ -83,7 +86,7 @@ public sealed class WhatsAppDispatcher(
     {
         try
         {
-            var draft = new SmsDraft(message.StudentId, message.Kind, values, message.DedupKey);
+            var draft = new SmsDraft(message.StudentId, message.Kind, values, message.DedupKey, Event: message.Event);
             return await sms.TakeOverAsync(message.TenantId, draft, message.ToPhone, message.StudentName, ct);
         }
         catch (Exception e) when (e is not OperationCanceledException)

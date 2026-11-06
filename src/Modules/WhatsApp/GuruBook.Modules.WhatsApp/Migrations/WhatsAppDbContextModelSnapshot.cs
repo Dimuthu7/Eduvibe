@@ -30,6 +30,10 @@ namespace GuruBook.Modules.WhatsApp.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("AllowSms")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_sms");
+
                     b.Property<int>("Attempts")
                         .HasColumnType("integer")
                         .HasColumnName("attempts");
@@ -48,6 +52,11 @@ namespace GuruBook.Modules.WhatsApp.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)")
                         .HasColumnName("error");
+
+                    b.Property<string>("Event")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("event");
 
                     b.Property<bool>("HandedToSms")
                         .HasColumnType("boolean")
@@ -68,6 +77,11 @@ namespace GuruBook.Modules.WhatsApp.Migrations
                     b.Property<DateTimeOffset?>("NextAttemptAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_attempt_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("note");
 
                     b.Property<string>("ParamsJson")
                         .IsRequired()

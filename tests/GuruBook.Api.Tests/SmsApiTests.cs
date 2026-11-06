@@ -332,22 +332,22 @@ public class SmsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [Fact]
     public void Parts_are_counted_the_way_a_phone_counts_them()
     {
-        Assert.Equal(1, SmsTexts.Parts(new string('a', 160)));
-        Assert.Equal(2, SmsTexts.Parts(new string('a', 161)));
-        Assert.Equal(1, SmsTexts.Parts(new string('ක', 70)));
-        Assert.Equal(2, SmsTexts.Parts(new string('ක', 71)));
-        Assert.Equal(1, SmsTexts.Parts(""));
+        Assert.Equal(1, MessageTexts.Parts(new string('a', 160)));
+        Assert.Equal(2, MessageTexts.Parts(new string('a', 161)));
+        Assert.Equal(1, MessageTexts.Parts(new string('ක', 70)));
+        Assert.Equal(2, MessageTexts.Parts(new string('ක', 71)));
+        Assert.Equal(1, MessageTexts.Parts(""));
     }
 
     [Fact]
-    public void Every_kind_has_words_in_every_language()
+    public void Every_event_has_words_in_every_language()
     {
-        foreach (var kind in WhatsAppKinds.All)
+        foreach (var name in MessageEvents.All)
         {
-            foreach (var language in SmsTexts.Languages)
+            foreach (var language in MessageTexts.Languages)
             {
-                var values = Enumerable.Range(1, WhatsAppKinds.ParamCount(kind)).Select(n => $"v{n}").ToList();
-                var text = SmsTexts.Compose(kind, language, values, withStopNote: false);
+                var values = MessageEvents.Of(name).Fields.Select((_, n) => $"v{n + 1}").ToList();
+                var text = MessageTexts.Compose(name, language, values, withStopNote: false);
                 Assert.All(values, value => Assert.Contains(value, text));
                 Assert.DoesNotContain("{", text);
             }

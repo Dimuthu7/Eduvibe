@@ -11,11 +11,11 @@ namespace GuruBook.Modules.Sms.Services;
 /// <summary>
 /// Decides which drafts can go (a number, not asked to stop, not sent before, inside the month's allowance of parts) and queues them. The
 /// background sender does the actual sending, so the teacher's request returns at once. Preview and send share one decision, so the preview is
-/// what send does.
+/// what send does. The words come from <see cref="MessageTexts"/>, or from the teacher's own wording when they wrote some.
 /// </summary>
 internal sealed class SmsSender(
     SmsDbContext db, IStudentContacts contacts, IPlanGate plans, ITeacherDirectory teachers, ISmsClient client,
-    ITenantContext tenant, SmsSignal signal, SmsDispatchRunner runner, TimeProvider clock) : ISmsSender
+    IMessageSettings messages, ITenantContext tenant, SmsSignal signal, SmsDispatchRunner runner, TimeProvider clock) : ISmsSender
 {
     public async Task<string> ChannelAsync(CancellationToken ct = default)
     {
@@ -25,38 +25,21 @@ internal sealed class SmsSender(
 
     public async Task<SmsPreview> PreviewAsync(IReadOnlyList<SmsDraft> drafts, CancellationToken ct = default)
     {
-        var decision = await DecideAsync(drafts, ct);
+        var decision = await DecideAsync(drafts, null, ct);
         return new SmsPreview(
             client.IsConfigured, drafts.Count, decision.Ready.Count, decision.Ready.Sum(r => r.Parts),
             decision.NoNumber.Count, decision.OptedOut, decision.AlreadySent, decision.Over,
             decision.Limit, decision.Used, [.. decision.NoNumber]);
     }
 
-    public async Task<SmsSendResult> SendAsync(IReadOnlyList<SmsDraft> drafts, CancellationToken ct = default)
-    {
-        if (!client.IsConfigured)
-        {
-            return new SmsSendResult(false, 0, 0, 0, 0, 0);
-        }
+    public Task<SmsSendResult> SendAsync(IReadOnlyList<SmsDraft> drafts, CancellationToken ct = default) => QueueAsync(drafts, null, ct);
 
-        var decision = await DecideAsync(drafts, ct);
-        foreach (var item in decision.Ready)
-        {
-            db.Messages.Add(Row(item, Month(), false));
-        }
-
-        if (decision.Ready.Count > 0)
-        {
-            await db.SaveChangesAsync(ct);
-            Wake();
-        }
-
-        return new SmsSendResult(true, decision.Ready.Count, decision.NoNumber.Count, decision.OptedOut, decision.AlreadySent, decision.Over);
-    }
+    public Task<SmsSendResult> SendForAsync(Guid teacherId, IReadOnlyList<SmsDraft> drafts, CancellationToken ct = default) =>
+        QueueAsync(drafts, teacherId, ct);
 
     public async Task<bool> TakeOverAsync(Guid teacherId, SmsDraft draft, string toPhone, string studentName, CancellationToken ct = default)
     {
-        if (!client.IsConfigured || PhoneNumber.Normalize(toPhone) is not { } phone || !SmsTexts.IsKnownKind(draft.Kind))
+        if (!client.IsConfigured || PhoneNumber.Normalize(toPhone) is not { } phone || !MessageTexts.Has(EventOf(draft)))
         {
             return false;
         }
@@ -83,9 +66,9 @@ internal sealed class SmsSender(
 
         var month = Month();
         var used = await UsedAsync(month, teacherId, ct);
-        var language = SmsTexts.LanguageOf(await teachers.LanguageAsync(teacherId, ct));
-        var text = SmsTexts.Compose(draft.Kind, language, draft.Params, !await KnownAsync(phone, ct));
-        var parts = SmsTexts.Parts(text);
+        var language = MessageTexts.LanguageOf(await teachers.LanguageAsync(teacherId, ct));
+        var text = await ComposeAsync(teacherId, draft, language, !await KnownAsync(phone, ct), ct);
+        var parts = MessageTexts.Parts(text);
         if (limit is { } cap && used + parts > cap)
         {
             return false;
@@ -95,7 +78,7 @@ internal sealed class SmsSender(
         {
             TenantId = teacherId,
             StudentId = draft.StudentId,
-            StudentName = SmsTexts.Clean(studentName),
+            StudentName = MessageTexts.Clean(studentName),
             Kind = draft.Kind,
             ToPhone = phone,
             Text = text,
@@ -111,6 +94,28 @@ internal sealed class SmsSender(
         return true;
     }
 
+    private async Task<SmsSendResult> QueueAsync(IReadOnlyList<SmsDraft> drafts, Guid? teacherId, CancellationToken ct)
+    {
+        if (!client.IsConfigured)
+        {
+            return new SmsSendResult(false, 0, 0, 0, 0, 0);
+        }
+
+        var decision = await DecideAsync(drafts, teacherId, ct);
+        foreach (var item in decision.Ready)
+        {
+            db.Messages.Add(Row(item, Month(), teacherId));
+        }
+
+        if (decision.Ready.Count > 0)
+        {
+            await db.SaveChangesAsync(ct);
+            Wake();
+        }
+
+        return new SmsSendResult(true, decision.Ready.Count, decision.NoNumber.Count, decision.OptedOut, decision.AlreadySent, decision.Over);
+    }
+
     private void Wake()
     {
         // Wakes the background loop, and also starts a run straight away in case that loop is not running.
@@ -118,10 +123,22 @@ internal sealed class SmsSender(
         runner.Kick();
     }
 
-    private SmsMessage Row(Ready item, string month, bool fallback) => new()
+    /// <summary>The event a draft belongs to: the one it names, or the one its kind belongs to when a teacher sent it by hand.</summary>
+    private static string EventOf(SmsDraft draft) => MessageEvents.IsKnown(draft.Event) ? draft.Event! : MessageEvents.ForKind(draft.Kind);
+
+    private async Task<string> ComposeAsync(Guid teacherId, SmsDraft draft, string language, bool withStopNote, CancellationToken ct)
     {
+        var name = EventOf(draft);
+        var custom = await messages.TextForAsync(teacherId, name, language, ct);
+        return MessageTexts.Compose(name, language, draft.Params, withStopNote, custom);
+    }
+
+    private SmsMessage Row(Ready item, string month, Guid? teacherId) => new()
+    {
+        // A background send names the teacher; a teacher's own send is stamped with theirs.
+        TenantId = teacherId ?? Guid.Empty,
         StudentId = item.Draft.StudentId,
-        StudentName = SmsTexts.Clean(item.Name),
+        StudentName = MessageTexts.Clean(item.Name),
         Kind = item.Draft.Kind,
         ToPhone = item.Phone,
         Text = item.Text,
@@ -129,7 +146,6 @@ internal sealed class SmsSender(
         Parts = item.Parts,
         DedupKey = item.Draft.DedupKey,
         Month = month,
-        Fallback = fallback,
         Status = SmsStatus.Queued,
     };
 
@@ -139,11 +155,11 @@ internal sealed class SmsSender(
 
     /// <summary>Parts used this month. Failed messages are not paid for, so they do not count.</summary>
     private Task<int> UsedAsync(string month, Guid? teacherId, CancellationToken ct) =>
-        (teacherId is { } id
-            ? db.Messages.IgnoreQueryFilters().Where(m => m.TenantId == id)
-            : db.Messages)
-        .Where(m => m.Month == month && m.Status != SmsStatus.Failed)
-        .SumAsync(m => m.Parts, ct);
+        Rows(teacherId).Where(m => m.Month == month && m.Status != SmsStatus.Failed).SumAsync(m => m.Parts, ct);
+
+    /// <summary>Everything this teacher has sent: named outright for a background run, which acts for nobody.</summary>
+    private IQueryable<SmsMessage> Rows(Guid? teacherId) =>
+        teacherId is { } id ? db.Messages.IgnoreQueryFilters().Where(m => m.TenantId == id) : db.Messages;
 
     /// <summary>True once this number has had a text from GuruBook, whoever sent it: then it needs no "you can stop these" line.</summary>
     private Task<bool> KnownAsync(string phone, CancellationToken ct) =>
@@ -153,28 +169,33 @@ internal sealed class SmsSender(
 
     private sealed record Decision(List<Ready> Ready, List<Guid> NoNumber, int OptedOut, int AlreadySent, int Over, int? Limit, int Used);
 
-    private async Task<Decision> DecideAsync(IReadOnlyList<SmsDraft> drafts, CancellationToken ct)
+    private async Task<Decision> DecideAsync(IReadOnlyList<SmsDraft> drafts, Guid? teacherId, CancellationToken ct)
     {
         foreach (var draft in drafts)
         {
-            if (!SmsTexts.IsKnownKind(draft.Kind) || draft.Params.Count != WhatsAppKinds.ParamCount(draft.Kind))
+            var name = EventOf(draft);
+            if (!MessageTexts.Has(name) || draft.Params.Count != MessageEvents.Of(name).Fields.Count)
             {
-                throw new ArgumentException($"A '{draft.Kind}' message needs the values its text takes.", nameof(drafts));
+                throw new ArgumentException($"A '{name}' message needs the values its text takes.", nameof(drafts));
             }
         }
 
-        var plan = await plans.CurrentAsync(ct);
+        var me = teacherId ?? tenant.TenantId;
+        var plan = teacherId is { } owner ? await plans.ForTeacherAsync(owner, ct) : await plans.CurrentAsync(ct);
         var limit = LimitOf(plan);
         var month = Month();
-        var used = await UsedAsync(month, null, ct);
+        var used = await UsedAsync(month, teacherId, ct);
 
-        var found = await contacts.FindAsync(drafts.Select(d => d.StudentId), ct);
+        var ids = drafts.Select(d => d.StudentId);
+        var found = teacherId is { } forTeacher
+            ? await contacts.FindForTeacherAsync(forTeacher, ids, ct)
+            : await contacts.FindAsync(ids, ct);
         var stopped = (await db.OptOuts.Select(o => o.Phone).ToListAsync(ct)).ToHashSet();
         var keys = drafts.Select(d => d.DedupKey).Distinct().ToList();
-        var sent = (await db.Messages.Where(m => keys.Contains(m.DedupKey) && m.Status != SmsStatus.Failed)
+        var sent = (await Rows(teacherId).Where(m => keys.Contains(m.DedupKey) && m.Status != SmsStatus.Failed)
                 .Select(m => new { m.DedupKey, m.CreatedAt }).ToListAsync(ct))
             .GroupBy(m => m.DedupKey).ToDictionary(g => g.Key, g => g.Max(m => m.CreatedAt));
-        var language = SmsTexts.LanguageOf(tenant.TenantId is { } me ? await teachers.LanguageAsync(me, ct) : "en");
+        var language = MessageTexts.LanguageOf(me is { } who ? await teachers.LanguageAsync(who, ct) : "en");
         var known = (await db.Messages.IgnoreQueryFilters().Where(m => m.Status != SmsStatus.Failed).Select(m => m.ToPhone).Distinct().ToListAsync(ct))
             .ToHashSet();
 
@@ -199,8 +220,10 @@ internal sealed class SmsSender(
             }
             else
             {
-                var text = SmsTexts.Compose(draft.Kind, language, draft.Params, known.Add(phone));
-                ready.Add(new Ready(draft, contact.FullName, phone, text, language, SmsTexts.Parts(text)));
+                var text = me is { } author
+                    ? await ComposeAsync(author, draft, language, known.Add(phone), ct)
+                    : MessageTexts.Compose(EventOf(draft), language, draft.Params, known.Add(phone));
+                ready.Add(new Ready(draft, contact.FullName, phone, text, language, MessageTexts.Parts(text)));
             }
         }
 

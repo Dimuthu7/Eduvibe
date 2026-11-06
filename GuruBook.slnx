@@ -34,6 +34,9 @@
   <Folder Name="/src/Modules/Payments/">
     <Project Path="src/Modules/Payments/GuruBook.Modules.Payments/GuruBook.Modules.Payments.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Messaging/">
+    <Project Path="src/Modules/Messaging/GuruBook.Modules.Messaging/GuruBook.Modules.Messaging.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Sms/">
     <Project Path="src/Modules/Sms/GuruBook.Modules.Sms/GuruBook.Modules.Sms.csproj" />
   </Folder>

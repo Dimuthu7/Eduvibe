@@ -6,6 +6,7 @@ using GuruBook.Modules.Exams;
 using GuruBook.Modules.Fees;
 using GuruBook.Modules.Identity;
 using GuruBook.Modules.Materials;
+using GuruBook.Modules.Messaging;
 using GuruBook.Modules.Notifications;
 using GuruBook.Modules.Plans;
 using GuruBook.Modules.Privacy;
@@ -37,6 +38,7 @@ public static class ModuleCatalog
         new MaterialsModule(),
         new WhatsAppModule(),
         new SmsModule(),
+        new MessagingModule(),
         new PaymentsModule(),
         new PrivacyModule(),
     ];

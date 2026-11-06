@@ -15,13 +15,21 @@ public static class WhatsAppKinds
     /// <summary>Params: student first name, exam name, class title, marks ("78 / 100"), grade, rank ("3 of 24" or "-"), teacher name.</summary>
     public const string Results = "results";
 
-    public static readonly IReadOnlyList<string> All = [FeeReminder, Absence, Results];
+    /// <summary>Params: student first name, class title, amount ("LKR 2,000"), receipt number, teacher name.</summary>
+    public const string PaymentReceived = "payment_received";
+
+    /// <summary>Params: student first name, class title, attendance ("60%"), weeks counted ("4"), teacher name.</summary>
+    public const string LowAttendance = "low_attendance";
+
+    public static readonly IReadOnlyList<string> All = [FeeReminder, Absence, Results, PaymentReceived, LowAttendance];
 
     private static readonly Dictionary<string, int> Counts = new()
     {
         [FeeReminder] = 5,
         [Absence] = 4,
         [Results] = 7,
+        [PaymentReceived] = 5,
+        [LowAttendance] = 5,
     };
 
     public static bool IsKnown(string kind) => Counts.ContainsKey(kind);
@@ -33,8 +41,12 @@ public static class WhatsAppKinds
 /// <summary>
 /// One message a module wants sent about one student. The DedupKey says what the message is about ("fee:{enrolment}:{month}"): a message with the same
 /// key that was already sent inside <see cref="Window"/> (forever when null) is not sent again.
+/// <see cref="Event"/> is the <see cref="MessageEvents"/> this message belongs to, which decides the teacher's own closing line; left out, it is
+/// the one that kind belongs to. <see cref="AllowSms"/> is false for an event the teacher set to WhatsApp alone, so an undelivered message stops there.
 /// </summary>
-public sealed record WhatsAppDraft(Guid StudentId, string Kind, IReadOnlyList<string> Params, string DedupKey, TimeSpan? Window = null);
+public sealed record WhatsAppDraft(
+    Guid StudentId, string Kind, IReadOnlyList<string> Params, string DedupKey, TimeSpan? Window = null,
+    string? Event = null, bool AllowSms = true);
 
 /// <summary>
 /// What sending a batch would do. Ready is how many would go; the rest of Total is why the others would not.
@@ -59,6 +71,12 @@ public interface IWhatsAppSender
     Task<WhatsAppPreview> PreviewAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken cancellationToken = default);
 
     Task<WhatsAppSendResult> SendAsync(IReadOnlyList<WhatsAppDraft> drafts, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Queues messages for a teacher named outright, for a background job, which acts for nobody. Nothing is sent when that teacher's plan,
+    /// allowance or the numbers themselves say no.
+    /// </summary>
+    Task<WhatsAppSendResult> SendForAsync(Guid teacherId, IReadOnlyList<WhatsAppDraft> drafts, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

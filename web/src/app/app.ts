@@ -38,6 +38,7 @@ const TEACHER_NAV: NavItem[] = [
   { route: '/materials', label: 'nav.materials', icon: 'folder_open' },
   { route: '/whatsapp', label: 'nav.whatsapp', icon: 'chat' },
   { route: '/sms', label: 'nav.sms', icon: 'sms' },
+  { route: '/messages', label: 'nav.messages', icon: 'edit_notifications' },
   { route: '/payments', label: 'nav.payments', icon: 'account_balance' },
   { route: '/timetable', label: 'nav.timetable', icon: 'calendar_month' },
   { route: '/venues', label: 'nav.venues', icon: 'place' },

@@ -23,6 +23,7 @@ public sealed class ExamsModule : IModule
         services.AddScoped<IPersonalDataSource, ExamsPersonalData>();
         services.AddScoped<GradeSchemeService>();
         services.AddScoped<ExamReader>();
+        services.AddScoped<ResultMessages>();
         services.AddScoped<IReportSource, ExamResultsReport>();
     }
 

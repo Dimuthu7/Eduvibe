@@ -1,6 +1,6 @@
 # WhatsApp setup (messages to parents)
 
-Teachers on a plan with **WhatsApp** (Pro) send fee reminders, absence alerts and exam results to parents from the Fees, Attendance and Exams screens. Messages go out through Meta's **WhatsApp Cloud API** from one GuruBook number, using three message templates that Meta must approve first. This page is the one-time setup the person running the API does, and how the feature behaves.
+Teachers on a plan with **WhatsApp** (Pro) send fee reminders, absence alerts and exam results to parents from the Fees, Attendance and Exams screens, and GuruBook sends fee reminders, payment receipts, absence alerts, low-attendance warnings and results on its own for whichever of them the teacher switched to WhatsApp on the **Messages** screen. Messages go out through Meta's **WhatsApp Cloud API** from one GuruBook number, using five message templates that Meta must approve first. This page is the one-time setup the person running the API does, and how the feature behaves.
 
 Nothing here is needed to try the screens: with `WhatsApp__Mode=Simulated` (the test site's setting) every send is accepted and nothing is sent, and the screens say *Test mode*.
 
@@ -22,7 +22,7 @@ Nothing here is needed to try the screens: with `WhatsApp__Mode=Simulated` (the 
 2. At <https://developers.facebook.com/> create an app of type **Business** and add the **WhatsApp** product. Link it to the portfolio.
 3. In **WhatsApp > API setup** add the sending phone number. It must not be registered in the ordinary WhatsApp or WhatsApp Business app. Choose a display name Meta will accept (for example *GuruBook*). Note the **Phone number ID** (not the number itself).
 4. Create the access token: in **Business settings > Users > System users** add a system user, give it the app and the WhatsApp account, and generate a token with the permissions `whatsapp_business_messaging` and `whatsapp_business_management` and **no expiry**. (The temporary token on the API setup page lasts 24 hours and is for trying only.)
-5. Submit the three **message templates** below in **WhatsApp Manager > Message templates**: category **Utility**, language **English**, with exactly these names and texts. Approval usually takes minutes to a day. Templates in other languages (Sinhala, Tamil) can be added later; today every message goes out in the language set by `WhatsApp__Language`.
+5. Submit the five **message templates** below in **WhatsApp Manager > Message templates**: category **Utility**, language **English**, with exactly these names and texts. Approval usually takes minutes to a day. Templates in other languages (Sinhala, Tamil) can be added later; today every message goes out in the language set by `WhatsApp__Language`.
 6. Set the webhook: in **WhatsApp > Configuration** set the callback URL to `https://<your API>/api/whatsapp/webhook` (Render test site: `https://eduvibe-api-hnd2.onrender.com/api/whatsapp/webhook`) and the verify token to the same text as `WhatsApp__VerifyToken`, then subscribe to the **messages** field (delivery reports and STOP replies both arrive through it). Meta calls the address once to check it, so the API must already be running with the settings below.
 7. Set the settings below on the API, then change `WhatsApp__Mode` to `Meta`.
 
@@ -30,25 +30,41 @@ Nothing here is needed to try the screens: with `WhatsApp__Mode=Simulated` (the 
 
 Submit these exactly (the `{{n}}` places are filled by GuruBook in this order). Meta asks for example values; the ones shown work.
 
-**`gurubook_fee_reminder`** (5 values)
+The **last place of every template is the teacher's own line**, written on the **Messages** screen (a Pro feature). A teacher who writes nothing gets *Thank you.* in the template's language, so the message always reads as a whole sentence.
 
-> Dear parent, this is a reminder about {{1}}'s {{2}} fee for {{3}}: {{4}} is still due to {{5}}. Thank you. Reply STOP to stop these messages.
+**`gurubook_fee_reminder`** (6 values)
 
-Examples: Kamal, 2027 A/L Maths, March 2027, LKR 2,000, Mr Perera.
+> Dear parent, this is a reminder about {{1}}'s {{2}} fee for {{3}}: {{4}} is still due to {{5}}. {{6}} Reply STOP to stop these messages.
 
-**`gurubook_absence_alert`** (4 values)
+Examples: Kamal, 2027 A/L Maths, March 2027, LKR 2,000, Mr Perera, Thank you.
 
-> Dear parent, {{1}} was absent from the {{2}} class on {{3}}. This message is from {{4}}. Reply STOP to stop these messages.
+**`gurubook_absence_alert`** (5 values)
 
-Examples: Kamal, 2027 A/L Maths, Mon 15 Mar, Mr Perera.
+> Dear parent, {{1}} was absent from the {{2}} class on {{3}}. This message is from {{4}}. {{5}} Reply STOP to stop these messages.
 
-**`gurubook_results`** (7 values)
+Examples: Kamal, 2027 A/L Maths, Mon 15 Mar, Mr Perera, Thank you.
 
-> Dear parent, {{1}}'s result for {{2}} ({{3}}): {{4}} marks, grade {{5}}, rank {{6}}. From {{7}}. Reply STOP to stop these messages.
+**`gurubook_results`** (8 values)
 
-Examples: Kamal, Term test, 2027 A/L Maths, 78 / 100, B, 3 of 24, Mr Perera.
+> Dear parent, {{1}}'s result for {{2}} ({{3}}): {{4}} marks, grade {{5}}, rank {{6}}. From {{7}}. {{8}} Reply STOP to stop these messages.
 
-The template names are `WhatsApp__TemplatePrefix` (default `gurubook_`) plus `fee_reminder`, `absence_alert` and `results`. Changing the wording in Meta is fine as long as the number and order of the `{{n}}` places stay the same; adding a place needs a code change.
+Examples: Kamal, Term test, 2027 A/L Maths, 78 / 100, B, 3 of 24, Mr Perera, Thank you.
+
+**`gurubook_payment_received`** (6 values)
+
+> Dear parent, {{3}} was received for {{1}}'s {{2}} fee. Receipt {{4}}. From {{5}}. {{6}} Reply STOP to stop these messages.
+
+Examples: Kamal, 2027 A/L Maths, LKR 2,000, R-000123, Mr Perera, Thank you.
+
+**`gurubook_low_attendance`** (6 values)
+
+> Dear parent, {{1}} has attended only {{3}} of the {{2}} classes in the last {{4}} weeks. This message is from {{5}}. {{6}} Reply STOP to stop these messages.
+
+Examples: Kamal, 2027 A/L Maths, 60%, 4, Mr Perera, Thank you.
+
+The template names are `WhatsApp__TemplatePrefix` (default `gurubook_`) plus `fee_reminder`, `absence_alert`, `results`, `payment_received` and `low_attendance`. Changing the wording in Meta is fine as long as the number and order of the `{{n}}` places stay the same; adding a place needs a code change.
+
+**If you already have the first three approved:** they now take one more place at the end, so edit each one in WhatsApp Manager (or submit it again) with the `{{6}}`, `{{5}}` and `{{8}}` above. Until that is approved those messages fail with *The message template is not approved yet*, because the number of values no longer matches.
 
 ## Settings on the API
 
