@@ -11,6 +11,8 @@ internal sealed class WhatsAppMessageConfiguration : IEntityTypeConfiguration<Wh
         builder.ToTable("messages");
         builder.Property(m => m.StudentName).HasMaxLength(200);
         builder.Property(m => m.Kind).HasMaxLength(30);
+        builder.Property(m => m.Event).HasMaxLength(40);
+        builder.Property(m => m.Note).HasMaxLength(80);
         builder.Property(m => m.ToPhone).HasMaxLength(20);
         builder.Property(m => m.ParamsJson).HasMaxLength(2000);
         builder.Property(m => m.DedupKey).HasMaxLength(100);

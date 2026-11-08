@@ -19,12 +19,3 @@ public sealed class AlertMute : Entity
     /// <summary>One of <see cref="AlertTopics"/>.</summary>
     public required string Topic { get; set; }
 }
-
-/// <summary>What a teacher's parents are told. One row per teacher, made the first time they change anything.</summary>
-public sealed class ParentAlertSetting : Entity, ITenantOwned
-{
-    public Guid TenantId { get; set; }
-
-    /// <summary>One of <see cref="AttendanceAlerts"/>: every mark, absences only, or nothing.</summary>
-    public string AttendanceAlerts { get; set; } = Shared.Modules.AttendanceAlerts.All;
-}

@@ -361,7 +361,10 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var sent = Assert.Single(factory.WhatsApp.Sent);
         Assert.Equal("94772223333", sent.To);
         Assert.Equal("gurubook_absence_alert", sent.Template);
-        Assert.Equal(["Absentee", "Daily maths", Today.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture), "Wanda Teacher"], sent.Params);
+        // Every template ends with the teacher's own line, and a plain thank you when they have written none.
+        Assert.Equal(
+            ["Absentee", "Daily maths", Today.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture), "Wanda Teacher", "Thank you."],
+            sent.Params);
 
         var again = await Json(await teacher.Client.PostAsync(url, null));
         Assert.Equal(0, again.GetProperty("queued").GetInt32());
@@ -405,7 +408,7 @@ public class WhatsAppApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         await Dispatch();
         var top = factory.WhatsApp.Sent.Single(s => s.Params[0] == "Topper");
         Assert.Equal("gurubook_results", top.Template);
-        Assert.Equal(["Topper", "Term test", "Science class", "90 / 100", "A", "1 of 2", "Wanda Teacher"], top.Params);
+        Assert.Equal(["Topper", "Term test", "Science class", "90 / 100", "A", "1 of 2", "Wanda Teacher", "Thank you."], top.Params);
         var low = factory.WhatsApp.Sent.Single(s => s.Params[0] == "Second");
         Assert.Equal("50.5 / 100", low.Params[3]);
         Assert.Equal("2 of 2", low.Params[5]);

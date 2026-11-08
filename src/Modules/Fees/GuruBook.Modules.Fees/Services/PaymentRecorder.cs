@@ -6,11 +6,12 @@ namespace GuruBook.Modules.Fees.Services;
 
 /// <summary>
 /// Takes money for one enrolment: it spreads the amount over the months it is for, gives the payment the teacher's next receipt number, and
-/// tells the student and the parents a teacher linked. Both recording a payment by hand and confirming a bank transfer come through here, so
-/// a receipt looks the same whichever way the money arrived.
+/// tells the student and the parents a teacher linked, in the app and, when the teacher asked for that, on WhatsApp or by text. Both recording a
+/// payment by hand and confirming a bank transfer come through here, so a receipt looks the same whichever way the money arrived.
 /// </summary>
 internal sealed class PaymentRecorder(
-    FeesDbContext db, FeeDueService dues, IClassDirectory classes, IParentLinks parents, INotifier notifier, TimeProvider clock)
+    FeesDbContext db, FeeDueService dues, IClassDirectory classes, IParentLinks parents, INotifier notifier, IMessageRouter messages,
+    ITeacherDirectory teachers, TimeProvider clock)
 {
     private const int MonthsBack = ClassMonthService.MonthsBack;
 
@@ -119,6 +120,12 @@ internal sealed class PaymentRecorder(
 
     private async Task TellAboutPaymentAsync(FeeBasis basis, Payment payment, CancellationToken ct)
     {
+        var rule = await messages.RuleForAsync(basis.TenantId, MessageEvents.PaymentReceived, ct);
+        if (!rule.On)
+        {
+            return;
+        }
+
         var title = await TitleOfAsync(basis, ct);
         var told = new List<NotifyRequest>();
         if (basis.UserId is { } studentUser)
@@ -138,6 +145,16 @@ internal sealed class PaymentRecorder(
         }
 
         await notifier.NotifyAsync(told, ct);
+        if (MessageWays.IsPaid(rule.Way))
+        {
+            var teacher = await teachers.FindNameAsync(basis.TenantId, ct) ?? "";
+            await messages.SendForAsync(
+                basis.TenantId, MessageEvents.PaymentReceived,
+                [new MessageDraft(
+                    basis.StudentId, [basis.FullName, title, MessageTexts.Lkr(payment.Amount), payment.ReceiptNo, teacher],
+                    $"{MessageEvents.PaymentReceived}:{payment.Id}")],
+                ct);
+        }
     }
 
     private async Task<string> TitleOfAsync(FeeBasis basis, CancellationToken ct) =>

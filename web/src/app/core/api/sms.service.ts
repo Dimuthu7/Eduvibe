@@ -24,7 +24,7 @@ export type SmsMessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Failed';
 export interface SmsMessage {
   id: string;
   studentName: string;
-  kind: 'fee_reminder' | 'absence_alert' | 'results';
+  kind: 'fee_reminder' | 'absence_alert' | 'results' | 'payment_received' | 'low_attendance';
   status: SmsMessageStatus;
   error: string | null;
   phone: string;

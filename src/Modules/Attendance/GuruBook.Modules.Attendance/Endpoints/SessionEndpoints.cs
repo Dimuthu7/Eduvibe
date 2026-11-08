@@ -1,6 +1,8 @@
+using System.Globalization;
 using GuruBook.Modules.Attendance.Domain;
 using GuruBook.Shared.Modules;
 using GuruBook.Shared.Security;
+using GuruBook.Shared.Tenancy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -191,7 +193,8 @@ internal static class SessionEndpoints
     // The request lists the students who are not present; anyone not listed is present. Saving again replaces the earlier marks.
     private static async Task<IResult> SaveMarks(
         Guid id, SaveMarksRequest request, AttendanceDbContext db, IClassDirectory classes, IClassRoster roster,
-        IParentLinks parents, IParentAlertSettings alerts, INotifier notifier, TimeProvider clock, CancellationToken ct)
+        IParentLinks parents, INotifier notifier, IMessageRouter messages, IStudentContacts contacts, ITeacherDirectory teachers,
+        ITenantContext user, TimeProvider clock, CancellationToken ct)
     {
         var session = await db.Sessions.FindAsync([id], ct);
         if (session is null)
@@ -253,21 +256,27 @@ internal static class SessionEndpoints
         session.TakenAt ??= clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
         var dto = (await ToDtosAsync([session], db, classes, today, ct))[0];
-        await TellParentsAsync(session, dto.ClassTitle, roll, db, parents, alerts, notifier, ct);
+        await TellParentsAsync(session, dto.ClassTitle, roll, db, parents, notifier, messages, contacts, teachers, user.TenantId, ct);
+        await LowAttendanceAlerts.RunAsync(
+            session, dto.ClassTitle, roll, db, parents, notifier, messages, teachers, user.TenantId, today, ct);
         return Results.Ok(dto);
     }
 
     /// <summary>
     /// One line to each linked parent once a session is saved: their child arrived (with the time the card was scanned, when it was)
-    /// or was not there. The key holds the status, so saving the same marks again says nothing and only a correction goes out.
-    /// Late counts as arrived, as it does everywhere else.
+    /// or was not there. The key holds the status, so saving the same marks again says nothing and only a correction goes out. Arrived and
+    /// absent are switched on or off separately on the Messages page, and go on WhatsApp or by text when the teacher asked for that.
     /// </summary>
     private static async Task TellParentsAsync(
         ClassSession session, string classTitle, IReadOnlyList<RosterEntry> roll, AttendanceDbContext db, IParentLinks parents,
-        IParentAlertSettings alerts, INotifier notifier, CancellationToken ct)
+        INotifier notifier, IMessageRouter messages, IStudentContacts contacts, ITeacherDirectory teachers, Guid? teacherId, CancellationToken ct)
     {
-        var scope = await alerts.AttendanceAlertsAsync(ct);
-        if (scope == AttendanceAlerts.Off || roll.Count == 0)
+        var rules = new Dictionary<bool, MessageRule>
+        {
+            [true] = await messages.RuleAsync(MessageEvents.Absent, ct),
+            [false] = await messages.RuleAsync(MessageEvents.Arrived, ct),
+        };
+        if (roll.Count == 0 || rules.Values.All(r => !r.On))
         {
             return;
         }
@@ -281,6 +290,8 @@ internal static class SessionEndpoints
         var marks = await db.Marks.AsNoTracking().Where(m => m.SessionId == session.Id).ToListAsync(ct);
         var byEnrolment = marks.ToDictionary(m => m.EnrolmentId);
         var told = new List<NotifyRequest>();
+        var paying = new Dictionary<bool, List<RosterEntry>>();
+        var times = new Dictionary<Guid, string>();
         foreach (var student in roll)
         {
             if (!linked.TryGetValue(student.StudentId, out var people) || !byEnrolment.TryGetValue(student.EnrolmentId, out var mark))
@@ -289,7 +300,8 @@ internal static class SessionEndpoints
             }
 
             var absent = mark.Status == AttendanceStatus.Absent;
-            if (!absent && scope == AttendanceAlerts.Absences)
+            var rule = rules[absent];
+            if (!rule.On)
             {
                 continue;
             }
@@ -304,9 +316,44 @@ internal static class SessionEndpoints
                 parent, absent ? "child_absent" : "child_attended", details, Link: "/family",
                 OnceKey: $"attend:{session.Id}:{student.EnrolmentId}:{mark.Status}",
                 Topic: AlertTopics.Attendance, AboutStudentId: student.StudentId)));
+
+            if (MessageWays.IsPaid(rule.Way))
+            {
+                (paying.TryGetValue(absent, out var list) ? list : paying[absent] = []).Add(student);
+                // A message says when the child arrived, which is the time their card was scanned, or the class's own start time.
+                times[student.EnrolmentId] = (when is { } at ? TimeOnly.FromDateTime(at.DateTime) : session.Start).ToString("HH:mm");
+            }
         }
 
         await notifier.NotifyAsync(told, ct);
+        await SendPaidAsync(session, classTitle, paying, times, contacts, teachers, messages, teacherId, ct);
+    }
+
+    /// <summary>The WhatsApp messages or texts for a teacher who asked for them, with the first names their parents will recognise.</summary>
+    private static async Task SendPaidAsync(
+        ClassSession session, string classTitle, Dictionary<bool, List<RosterEntry>> paying, Dictionary<Guid, string> times,
+        IStudentContacts contacts, ITeacherDirectory teachers, IMessageRouter messages, Guid? teacherId, CancellationToken ct)
+    {
+        if (paying.Count == 0 || teacherId is not { } me)
+        {
+            return;
+        }
+
+        var found = await contacts.FindAsync(paying.Values.SelectMany(v => v).Select(s => s.StudentId), ct);
+        var teacher = await teachers.FindNameAsync(me, ct) ?? "";
+        var date = session.Date.ToString("ddd d MMM", CultureInfo.InvariantCulture);
+        foreach (var (absent, students) in paying)
+        {
+            var drafts = students.Select(student =>
+            {
+                var first = found.TryGetValue(student.StudentId, out var contact) ? contact.FirstName : student.FullName;
+                return new MessageDraft(
+                    student.StudentId,
+                    absent ? [first, classTitle, date, teacher] : [first, classTitle, times[student.EnrolmentId], teacher],
+                    $"{(absent ? MessageEvents.Absent : MessageEvents.Arrived)}:{session.Id}:{student.EnrolmentId}");
+            }).ToList();
+            await messages.SendAsync(absent ? MessageEvents.Absent : MessageEvents.Arrived, drafts, ct);
+        }
     }
 
     // Looks up a scanned student card. Nothing is saved: the screen collects who has arrived, and the teacher saves the marks as usual.

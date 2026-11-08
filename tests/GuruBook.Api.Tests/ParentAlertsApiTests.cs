@@ -198,7 +198,8 @@ public class ParentAlertsApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         var late = Assert.Single(await Of(parent, "child_attended"));
         Assert.True(late.GetProperty("params").GetProperty("late").GetBoolean());
 
-        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.PutAsJsonAsync("/api/notifications/parent-alerts", new { attendanceAlerts = "absences" })).StatusCode);
+        // Absences only: the teacher switches the "arrived" message off on their Messages page.
+        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.PutAsJsonAsync("/api/messaging/arrived", new { on = false, way = "app" })).StatusCode);
         var second = await DailyClass(teacher.Client, "Scope class two");
         var alsoMine = await Enrol(teacher.Client, second, "Suresh", guardian);
         Assert.Equal(HttpStatusCode.OK, (await teacher.Client.PostAsync($"/api/students/{alsoMine.StudentId}/parent", null)).StatusCode);
@@ -210,16 +211,19 @@ public class ParentAlertsApiTests(ApiFactory factory) : IClassFixture<ApiFactory
         Assert.Equal(HttpStatusCode.OK, (await SaveMarks(teacher.Client, secondSession, new { enrolmentId = alsoMine.EnrolmentId, status = "Absent" })).StatusCode);
         Assert.Single(await Of(parent, "child_absent"));
 
-        // Off means nothing at all, not even an absence.
-        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.PutAsJsonAsync("/api/notifications/parent-alerts", new { attendanceAlerts = "off" })).StatusCode);
+        // Both off means nothing at all, not even an absence.
+        Assert.Equal(HttpStatusCode.OK, (await teacher.Client.PutAsJsonAsync("/api/messaging/absent", new { on = false, way = "app" })).StatusCode);
         var third = await DailyClass(teacher.Client, "Scope class three");
         var thirdChild = await Enrol(teacher.Client, third, "Suresh", guardian);
         Assert.Equal(HttpStatusCode.OK, (await teacher.Client.PostAsync($"/api/students/{thirdChild.StudentId}/parent", null)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await SaveMarks(teacher.Client, await TodaySession(teacher.Client, third), new { enrolmentId = thirdChild.EnrolmentId, status = "Absent" })).StatusCode);
         Assert.Single(await Of(parent, "child_absent"));
 
-        Assert.Equal("attendance_alerts_invalid", await Code(await teacher.Client.PutAsJsonAsync("/api/notifications/parent-alerts", new { attendanceAlerts = "sometimes" })));
-        Assert.Equal("all", (await Json(await (await ProTeacher("Default Dilani")).Client.GetAsync("/api/notifications/parent-alerts"))).GetProperty("attendanceAlerts").GetString());
+        // A teacher who has never opened the Messages page has both on.
+        var fresh = await Json(await (await ProTeacher("Default Dilani")).Client.GetAsync("/api/messaging"));
+        Assert.All(
+            fresh.GetProperty("events").EnumerateArray().Where(e => e.GetProperty("event").GetString() is "absent" or "arrived"),
+            e => Assert.True(e.GetProperty("on").GetBoolean()));
     }
 
     [Fact]
@@ -298,17 +302,17 @@ public class ParentAlertsApiTests(ApiFactory factory) : IClassFixture<ApiFactory
     }
 
     [Fact]
-    public async Task Only_a_teacher_on_the_parent_portal_plan_can_read_or_change_what_parents_are_told()
+    public async Task Only_a_teacher_on_the_right_plan_can_read_or_change_what_parents_are_told()
     {
         var free = await factory.NewTeacherAsync("Frank");
-        Assert.Equal("plan_feature_locked", await Code(await free.Client.GetAsync("/api/notifications/parent-alerts")));
-        Assert.Equal("plan_feature_locked", await Code(await free.Client.PutAsJsonAsync("/api/notifications/parent-alerts", new { attendanceAlerts = "off" })));
+        Assert.Equal("plan_feature_locked", await Code(await free.Client.GetAsync("/api/messaging")));
+        Assert.Equal("plan_feature_locked", await Code(await free.Client.PutAsJsonAsync("/api/messaging/absent", new { on = false, way = "app" })));
 
         var guardian = NewPhone();
         var pro = await ProTeacher("Pavi");
         var classId = await DailyClass(pro.Client, "Plan class");
         var child = await Enrol(pro.Client, classId, "Tharindu", guardian);
         var parent = await ParentOf(pro.Client, child, guardian);
-        Assert.Equal(HttpStatusCode.Forbidden, (await parent.GetAsync("/api/notifications/parent-alerts")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await parent.GetAsync("/api/messaging")).StatusCode);
     }
 }

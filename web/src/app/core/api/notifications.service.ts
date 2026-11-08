@@ -45,11 +45,6 @@ export type AlertTopic = 'payments' | 'attendance' | 'results';
 
 export const ALERT_TOPICS: readonly AlertTopic[] = ['payments', 'attendance', 'results'];
 
-/** How much of attendance a teacher's parents are told about. */
-export type AttendanceAlerts = 'all' | 'absences' | 'off';
-
-export const ATTENDANCE_ALERTS: readonly AttendanceAlerts[] = ['all', 'absences', 'off'];
-
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
   private readonly http = inject(HttpClient);
@@ -98,14 +93,5 @@ export class NotificationsService {
 
   muteAlerts(studentId: string, topic: AlertTopic, on: boolean) {
     return this.http.put<{ muted: MutedTopic[] }>(`${this.base}/alerts`, { studentId, topic, on });
-  }
-
-  /** How much of attendance this teacher's parents are told about. */
-  parentAlerts() {
-    return this.http.get<{ attendanceAlerts: AttendanceAlerts }>(`${this.base}/parent-alerts`);
-  }
-
-  saveParentAlerts(attendanceAlerts: AttendanceAlerts) {
-    return this.http.put<{ attendanceAlerts: AttendanceAlerts }>(`${this.base}/parent-alerts`, { attendanceAlerts });
   }
 }

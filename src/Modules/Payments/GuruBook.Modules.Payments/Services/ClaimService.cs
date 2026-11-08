@@ -24,7 +24,7 @@ public sealed record ClaimDto(
 /// </summary>
 internal sealed class ClaimService(
     PaymentsDbContext db, IFeeCollection fees, IClassRoster roster, IClassDirectory classes, IPlanGate plans,
-    INotifier notifier, ITenantContext user, TimeProvider clock)
+    INotifier notifier, IMessageRouter messages, ITeacherDirectory teachers, ITenantContext user, TimeProvider clock)
 {
     private const decimal MaxAmount = 10_000_000m;
 
@@ -211,12 +211,24 @@ internal sealed class ClaimService(
 
         // Whoever said they had paid is told, so they can fix the reference or send the right slip.
         var title = (await classes.FindAsync(claim.ClassId, ct))?.Title ?? "";
-        if (claim.ClaimedBy != Guid.Empty)
+        var rule = await messages.RuleAsync(MessageEvents.ClaimRejected, ct);
+        if (claim.ClaimedBy != Guid.Empty && rule.On)
         {
             await notifier.NotifyAsync(
                 [new NotifyRequest(
                     claim.ClaimedBy, "payment_claim_rejected", new { amount = claim.Amount, classTitle = title, reason },
                     Link: claim.ByParent ? "/family" : "/welcome", OnceKey: $"claim:{claim.Id}")],
+                ct);
+        }
+
+        if (rule.On && MessageWays.IsPaid(rule.Way))
+        {
+            var name = (await roster.FindFeeBasisAsync(claim.EnrolmentId, ct))?.FullName ?? "";
+            var teacher = claim.TenantId != Guid.Empty ? await teachers.FindNameAsync(claim.TenantId, ct) ?? "" : "";
+            await messages.SendAsync(
+                MessageEvents.ClaimRejected,
+                [new MessageDraft(
+                    claim.StudentId, [name, title, MessageTexts.MonthLabel(claim.Month), teacher], $"{MessageEvents.ClaimRejected}:{claim.Id}")],
                 ct);
         }
 

@@ -180,15 +180,16 @@ internal static class ExamEndpoints
     // after this, and students see the change. Publishing again keeps the first date.
     private static async Task<IResult> Publish(
         Guid id, ExamsDbContext db, ExamReader reader, IClassRoster roster, IClassDirectory classes, IParentLinks parents, INotifier notifier,
-        TimeProvider clock, CancellationToken ct) =>
-        await SetPublished(id, db, reader, clock.GetUtcNow(), (roster, classes, parents, notifier), ct);
+        IMessageRouter messages, ResultMessages results, TimeProvider clock, CancellationToken ct) =>
+        await SetPublished(id, db, reader, clock.GetUtcNow(), (roster, classes, parents, notifier, messages, results), ct);
 
     private static async Task<IResult> Unpublish(Guid id, ExamsDbContext db, ExamReader reader, CancellationToken ct) =>
         await SetPublished(id, db, reader, null, null, ct);
 
     private static async Task<IResult> SetPublished(
         Guid id, ExamsDbContext db, ExamReader reader, DateTimeOffset? at,
-        (IClassRoster Roster, IClassDirectory Classes, IParentLinks Parents, INotifier Notifier)? tell, CancellationToken ct)
+        (IClassRoster Roster, IClassDirectory Classes, IParentLinks Parents, INotifier Notifier, IMessageRouter Messages, ResultMessages Results)? tell,
+        CancellationToken ct)
     {
         var exam = await db.Exams.SingleOrDefaultAsync(e => e.Id == id, ct);
         if (exam is null)
@@ -200,7 +201,7 @@ internal static class ExamEndpoints
         {
             exam.PublishedAt = at;
             await db.SaveChangesAsync(ct);
-            if (at is not null && tell is { } who)
+            if (at is not null && tell is { } who && (await who.Messages.RuleAsync(MessageEvents.ResultsPublished, ct)) is { On: true } rule)
             {
                 // Students are told when results first go out. The key is the exam, so publishing again after taking it back tells nobody twice.
                 var title = (await who.Classes.FindAsync(exam.ClassId, ct))?.Title ?? "";
@@ -214,6 +215,12 @@ internal static class ExamEndpoints
                     parent, "child_results", new { student = r.FullName, exam = exam.Name, classTitle = title }, Link: "/family",
                     OnceKey: $"results:{exam.Id}:{r.StudentId}", Topic: AlertTopics.Results, AboutStudentId: r.StudentId))));
                 await who.Notifier.NotifyAsync(told, ct);
+
+                // Marks on a phone as well, when the teacher asked for that: the same message their Send button would have sent.
+                if (MessageWays.IsPaid(rule.Way) && (await who.Results.BuildAsync(exam.Id, ct)).Plan is { } plan)
+                {
+                    await who.Messages.SendAsync(MessageEvents.ResultsPublished, plan.Drafts, ct);
+                }
             }
         }
 

@@ -20,9 +20,11 @@ public static class MessageChannels
 /// <summary>
 /// One SMS about one student. Kind and Params are a <see cref="WhatsAppDraft"/>'s, so the same facts can go out either way; the SMS module turns
 /// them into words. The DedupKey says what the message is about: a message with the same key already sent inside <see cref="Window"/>
-/// (forever when null) is not sent again, by either channel.
+/// (forever when null) is not sent again, by either channel. <see cref="Event"/> is the <see cref="MessageEvents"/> this message belongs to,
+/// which decides whose wording is used; left out, it is the one that kind belongs to.
 /// </summary>
-public sealed record SmsDraft(Guid StudentId, string Kind, IReadOnlyList<string> Params, string DedupKey, TimeSpan? Window = null);
+public sealed record SmsDraft(
+    Guid StudentId, string Kind, IReadOnlyList<string> Params, string DedupKey, TimeSpan? Window = null, string? Event = null);
 
 /// <summary>
 /// What sending a batch of SMS would do. Ready is how many would go; the rest of Total is why the others would not. Parts is what those
@@ -47,6 +49,9 @@ public interface ISmsSender
     Task<SmsPreview> PreviewAsync(IReadOnlyList<SmsDraft> drafts, CancellationToken cancellationToken = default);
 
     Task<SmsSendResult> SendAsync(IReadOnlyList<SmsDraft> drafts, CancellationToken cancellationToken = default);
+
+    /// <summary>Queues messages for a teacher named outright, for a background job, which acts for nobody.</summary>
+    Task<SmsSendResult> SendForAsync(Guid teacherId, IReadOnlyList<SmsDraft> drafts, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Queues one SMS for a teacher named outright, for the background sender, which acts for nobody. Returns false when that teacher's

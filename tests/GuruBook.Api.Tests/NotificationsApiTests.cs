@@ -287,7 +287,8 @@ public class NotificationsApiTests(ApiFactory factory) : IClassFixture<ApiFactor
         var dues = new FeeDueService(sp.GetRequiredService<FeesDbContext>(), sp.GetRequiredService<IClassRoster>(), sp.GetRequiredService<IClassDirectory>(), clock);
         await dues.EnsureForAllTeachersAsync([FeeMonths(clock)], CancellationToken.None);
         var reminders = new FeeReminderService(
-            sp.GetRequiredService<FeesDbContext>(), sp.GetRequiredService<IClassRoster>(), sp.GetRequiredService<IClassDirectory>(), sp.GetRequiredService<INotifier>(), clock);
+            sp.GetRequiredService<FeesDbContext>(), sp.GetRequiredService<IClassRoster>(), sp.GetRequiredService<IClassDirectory>(), sp.GetRequiredService<INotifier>(),
+            sp.GetRequiredService<IMessageRouter>(), sp.GetRequiredService<IStudentContacts>(), sp.GetRequiredService<ITeacherDirectory>(), clock);
         await reminders.RunAsync(CancellationToken.None);
     }
 

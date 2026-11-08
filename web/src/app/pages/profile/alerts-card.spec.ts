@@ -12,12 +12,6 @@ const API = 'http://api.test';
 
 const child = (studentId: string, fullName: string) => ({ studentId, firstName: fullName.split(' ')[0], fullName, classes: [] });
 
-const plan = (parentPortal: boolean) => ({
-  name: 'Pro',
-  features: [{ key: 'parent_portal', enabled: parentPortal, availableOn: null }],
-  limits: [],
-});
-
 describe('AlertsCard', () => {
   let http: HttpTestingController;
   let fixture: ComponentFixture<AlertsCard>;
@@ -78,27 +72,8 @@ describe('AlertsCard', () => {
     expect(toggles(root)[0].getAttribute('aria-checked')).toBe('false');
   });
 
-  it('lets a teacher on the parent portal choose how much of attendance goes out', () => {
+  it('shows a teacher nothing: they say what their parents are told on the Messages page', () => {
     const root = setup({ roles: ['Teacher'], teacherId: 't1' });
-    http.expectOne(`${API}/api/plans/mine`).flush(plan(true));
-    http.expectOne(`${API}/api/notifications/parent-alerts`).flush({ attendanceAlerts: 'all' });
-    fixture.detectChanges();
-
-    expect(root.textContent).toContain('alerts.parents_title');
-    const choices = Array.from(root.querySelectorAll<HTMLButtonElement>('mat-button-toggle button'));
-    expect(choices).toHaveLength(3);
-    choices[1].click();
-    const saved = http.expectOne(`${API}/api/notifications/parent-alerts`);
-    expect(saved.request.method).toBe('PUT');
-    expect(saved.request.body).toEqual({ attendanceAlerts: 'absences' });
-    saved.flush({ attendanceAlerts: 'absences' });
-    fixture.detectChanges();
-    expect(toast.success).toHaveBeenCalledWith('alerts.saved');
-  });
-
-  it('says nothing to a teacher whose plan has no parent portal, and asks for no settings', () => {
-    const root = setup({ roles: ['Teacher'], teacherId: 't1' });
-    http.expectOne(`${API}/api/plans/mine`).flush(plan(false));
     fixture.detectChanges();
     expect(root.textContent?.trim()).toBe('');
   });
