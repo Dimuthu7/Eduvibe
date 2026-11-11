@@ -17,9 +17,15 @@ internal sealed class WebPushSender(HttpClient http, IOptions<PushOptions> optio
 
     public async Task<PushOutcome> SendAsync(PushTarget target, string payloadJson, CancellationToken cancellationToken)
     {
-        if (!Enabled || !Uri.TryCreate(target.Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme != Uri.UriSchemeHttps)
+        if (!Enabled || !Uri.TryCreate(target.Endpoint, UriKind.Absolute, out var endpoint))
         {
             return PushOutcome.Failed;
+        }
+
+        // A device saved before addresses were checked, on a host that is not a push service: never post to it, and forget it.
+        if (!options.Value.IsPushService(endpoint))
+        {
+            return PushOutcome.Gone;
         }
 
         try
