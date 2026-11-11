@@ -12,13 +12,14 @@ import { SearchSelect } from '../../shared/search-select';
 import { TrendChart, TrendPoint } from '../../shared/trend-chart';
 import { short } from './exam-analysis';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { LoadError } from '../../shared/load-error';
 
 /** One student's results across every exam of a class: a chart against the class average, then each exam with grade and rank. */
 @Component({
   selector: 'app-student-trend',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, SearchSelect, TrendChart, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, ReactiveFormsModule, RouterLink, SearchSelect, TrendChart, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     @if (examId()) {
       <a mat-button [routerLink]="['/exams', examId()]" class="back">
@@ -95,10 +96,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="record.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

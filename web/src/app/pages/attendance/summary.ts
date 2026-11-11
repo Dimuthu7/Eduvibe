@@ -16,13 +16,14 @@ import { formatDate, monthRange, todayColombo } from '../../shared/format';
 import { DateRange, PeriodPicker } from '../../shared/period-picker';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { LoadError } from '../../shared/load-error';
 
 /** How often each student of a class came over a period (this month to start with). Late counts as attended. */
 @Component({
   selector: 'app-attendance-summary',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/attendance" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -89,10 +90,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="summary.error()" (retry)="reload()" />
         }
         @default {
           <div class="skeleton"></div>

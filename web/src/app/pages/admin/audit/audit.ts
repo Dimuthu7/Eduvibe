@@ -16,6 +16,7 @@ import { Loadable } from '../../../core/state/loadable';
 import { formatDateTime } from '../../../shared/format';
 import { SearchSelect } from '../../../shared/search-select';
 import { changesOf, FieldChange, spaced } from './audit-diff';
+import { LoadError } from '../../../shared/load-error';
 
 const ACTIONS = ['created', 'updated', 'deleted'] as const;
 const ICONS: Record<AuditRow['action'], string> = { created: 'add_circle', updated: 'edit', deleted: 'delete' };
@@ -25,7 +26,7 @@ const ICONS: Record<AuditRow['action'], string> = { created: 'add_circle', updat
   selector: 'app-admin-audit',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatExpansionModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatExpansionModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/admin/dashboard" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -123,10 +124,7 @@ const ICONS: Record<AuditRow['action'], string> = { created: 'add_circle', updat
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="page.error()" (retry)="reload()" />
       }
       @default {
         <div class="skeleton"></div>

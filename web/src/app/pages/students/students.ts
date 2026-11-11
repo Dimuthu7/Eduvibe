@@ -19,6 +19,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
 import { StudentPhotos } from '../../shared/student-photos';
 import { PasswordDialog, passwordDialogConfig } from './password-dialog';
 import { StudentDialog } from './student-dialog';
+import { LoadError } from '../../shared/load-error';
 
 type View = 'current' | 'left';
 
@@ -27,7 +28,7 @@ type View = 'current' | 'left';
   selector: 'app-students',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, StudentAvatar, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, RouterLink, SearchSelect, StudentAvatar, MatButtonModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -110,10 +111,7 @@ type View = 'current' | 'left';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="students.error()" (retry)="reload()" />
       }
       @default {
         <div class="skeleton"></div>

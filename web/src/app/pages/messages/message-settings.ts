@@ -9,6 +9,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { MessageEventCard } from './message-event-card';
+import { LoadError } from '../../shared/load-error';
 
 /**
  * The Messages page: every alert GuruBook sends on its own, whether it goes out, how it is sent, and what the paid ones say. Everything
@@ -18,7 +19,7 @@ import { MessageEventCard } from './message-event-card';
   selector: 'app-message-settings',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatExpansionModule, MatIconModule, MessageEventCard, TranslatePipe],
+  imports: [LoadError, MatButtonModule, MatExpansionModule, MatIconModule, MessageEventCard, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -61,10 +62,7 @@ import { MessageEventCard } from './message-event-card';
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="settings.error()" (retry)="load()" />
         }
         @default {
           <div class="skeleton"></div>

@@ -16,6 +16,7 @@ import { ToastService } from '../../../core/ui/toast.service';
 import { applyServerError, fieldErrorKey } from '../../../shared/forms';
 import { formatDate, formatLkr, todayColombo } from '../../../shared/format';
 import { SubmitButton } from '../../../shared/submit-button';
+import { LoadError } from '../../../shared/load-error';
 
 interface Loaded {
   plans: Plan[];
@@ -26,7 +27,7 @@ interface Loaded {
 @Component({
   selector: 'app-teacher-plan-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, SubmitButton, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTabsModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, SubmitButton, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatTabsModule, TranslatePipe],
   template: `
     <h2 mat-dialog-title>{{ 'teacher_plan.title' | t }}</h2>
     <mat-dialog-content>
@@ -169,10 +170,7 @@ interface Loaded {
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="loaded.error()" (retry)="load()" />
         }
         @default {
           <div class="skeleton"></div>

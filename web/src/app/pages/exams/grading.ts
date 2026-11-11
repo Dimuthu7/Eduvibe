@@ -13,6 +13,7 @@ import { ToastService } from '../../core/ui/toast.service';
 import { OL_DEFAULT_BANDS } from '../../shared/exam-calc';
 import { fieldErrorKey, filled } from '../../shared/forms';
 import { SubmitButton } from '../../shared/submit-button';
+import { LoadError } from '../../shared/load-error';
 
 const MAX_BANDS = 10;
 
@@ -21,7 +22,7 @@ const MAX_BANDS = 10;
   selector: 'app-grading',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SubmitButton, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, RouterLink, SubmitButton, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/exams" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -77,10 +78,7 @@ const MAX_BANDS = 10;
         </form>
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="scheme.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

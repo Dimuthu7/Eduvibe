@@ -20,6 +20,7 @@ import { fileNamePart, saveBlob } from '../../../shared/download';
 import { CreatedTeacher, TeacherDialog } from './teacher-dialog';
 import { TeacherEraseDialog } from './teacher-erase-dialog';
 import { TeacherPlanDialog } from './teacher-plan-dialog';
+import { LoadError } from '../../../shared/load-error';
 
 interface Handout {
   name: string;
@@ -33,6 +34,7 @@ interface Handout {
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LoadError,
     FormsModule,
     MatButtonModule,
     MatCardModule,
@@ -161,10 +163,7 @@ interface Handout {
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="teachers.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

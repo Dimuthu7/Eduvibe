@@ -11,6 +11,7 @@ import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { formatSize, materialIcon, openMaterial } from '../../shared/material-view';
+import { LoadError } from '../../shared/load-error';
 
 /** Files that sit together: the same shelf and the same folders. */
 interface Section {
@@ -35,7 +36,7 @@ const UNAVAILABLE = new Set(['drive_reconnect', 'drive_not_connected', 'drive_un
   selector: 'app-my-materials',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatButtonModule, MatChipsModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
+  imports: [LoadError, RouterLink, MatButtonModule, MatChipsModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/welcome" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -94,10 +95,7 @@ const UNAVAILABLE = new Set(['drive_reconnect', 'drive_not_connected', 'drive_un
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="data.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

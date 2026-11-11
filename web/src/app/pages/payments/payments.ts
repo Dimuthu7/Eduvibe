@@ -16,6 +16,7 @@ import { BlobImage } from '../../shared/blob-image';
 import { formatLkr, formatMonth } from '../../shared/format';
 import { ReasonDialog } from '../../shared/reason-dialog';
 import { SubmitButton } from '../../shared/submit-button';
+import { LoadError } from '../../shared/load-error';
 
 /** Nothing bigger than this is sent, matching what the API takes. */
 const MAX_QR_BYTES = 2 * 1024 * 1024;
@@ -30,6 +31,7 @@ const MAX_QR_BYTES = 2 * 1024 * 1024;
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LoadError,
     ReactiveFormsModule, SubmitButton, MatButtonModule, MatCardModule, MatFormFieldModule, MatIconModule, MatInputModule, TranslatePipe,
   ],
   template: `
@@ -45,10 +47,7 @@ const MAX_QR_BYTES = 2 * 1024 * 1024;
         <p class="muted">{{ 'common.loading' | t }}</p>
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="data.error()" (retry)="load()" />
       }
       @case ('ready') {
         <mat-card appearance="outlined">

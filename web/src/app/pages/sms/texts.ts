@@ -11,6 +11,7 @@ import { TranslateService } from '../../core/i18n/translate.service';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { formatDateTime } from '../../shared/format';
+import { LoadError } from '../../shared/load-error';
 
 /** While a text is waiting, the list is checked again this often, a few times, so the teacher sees it turn to Sent without reloading. */
 export const REFRESH_MS = 10_000;
@@ -32,7 +33,7 @@ const KIND_ICON: Record<SmsMessage['kind'], string> = {
   selector: 'app-sms-texts',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatButtonToggleModule, MatIconModule, MatProgressBarModule, TranslatePipe],
+  imports: [LoadError, MatButtonModule, MatButtonToggleModule, MatIconModule, MatProgressBarModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -135,10 +136,7 @@ const KIND_ICON: Record<SmsMessage['kind'], string> = {
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="list.error()" (retry)="load()" />
         }
         @default {
           <div class="skeleton"></div>
