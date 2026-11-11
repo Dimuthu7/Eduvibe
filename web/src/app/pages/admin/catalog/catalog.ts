@@ -13,12 +13,14 @@ import { Loadable } from '../../../core/state/loadable';
 import { ToastService } from '../../../core/ui/toast.service';
 import { applyServerError, fieldErrorKey, filled } from '../../../shared/forms';
 import { SubmitButton } from '../../../shared/submit-button';
+import { LoadError } from '../../../shared/load-error';
 
 /** One editable list (streams or subjects): add a name, hide or show an existing one. */
 @Component({
   selector: 'app-catalog-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LoadError,
     ReactiveFormsModule,
     SubmitButton,
     MatButtonModule,
@@ -58,10 +60,7 @@ import { SubmitButton } from '../../../shared/submit-button';
         </div>
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="items.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

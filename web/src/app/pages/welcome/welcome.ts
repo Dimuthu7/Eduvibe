@@ -20,6 +20,7 @@ import { PushPrompt } from '../../shared/push-prompt';
 import { slotSummary } from '../../shared/schedule';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { short } from '../exams/exam-analysis';
+import { LoadError } from '../../shared/load-error';
 
 interface MyClassView {
   klass: MyClass;
@@ -36,7 +37,7 @@ interface MyClassView {
   selector: 'app-welcome',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FeeStatus, FeesAlert, PushPrompt, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, RouterLink, FeeStatus, FeesAlert, PushPrompt, MatButtonModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <h1 class="page-title">{{ 'home.welcome' | t }}, {{ auth.user()?.firstName }}</h1>
     @if (auth.hasRole('Parent')) {
@@ -159,10 +160,7 @@ interface MyClassView {
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="data.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

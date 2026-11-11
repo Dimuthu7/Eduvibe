@@ -2,7 +2,10 @@ namespace GuruBook.Shared.Modules;
 
 public sealed record NewStudentAccount(string Phone, string FirstName, string LastName, string? PasswordHash);
 
-public sealed record NewParentAccount(string Phone, string FirstName, string LastName);
+/// <param name="FreshPassword">
+/// Whether a parent-only account nobody has signed in to yet gets a new one-time password. Only the teacher who linked the parent first passes true.
+/// </param>
+public sealed record NewParentAccount(string Phone, string FirstName, string LastName, bool FreshPassword = true);
 
 public enum AccountOutcome
 {

@@ -18,6 +18,7 @@ import { slotSummary } from '../../shared/schedule';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { ClassDialog } from './class-dialog';
 import { openExtraClass } from './extra-session-dialog';
+import { LoadError } from '../../shared/load-error';
 
 type View = 'active' | 'archived';
 
@@ -26,7 +27,7 @@ type View = 'active' | 'archived';
   selector: 'app-classes',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatButtonToggleModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatButtonToggleModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -87,10 +88,7 @@ type View = 'active' | 'archived';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="classes.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

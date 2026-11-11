@@ -35,7 +35,7 @@ public sealed record EnrolmentDto(
 
 public sealed record StudentDto(
     Guid Id, string FirstName, string LastName, string FullName, string Phone, string? School, string? Grade,
-    string? GuardianName, string? GuardianPhone, bool HasAccount, bool HasParent, EnrolmentDto[] Enrolments);
+    string? GuardianName, string? GuardianPhone, bool HasAccount, bool HasParent, EnrolmentDto[] Enrolments, bool ManagesAccount);
 
 public sealed record OneTimePasswordDto(string OneTimePassword);
 
@@ -89,7 +89,7 @@ internal static class StudentEndpoints
         return Results.Ok(rows.Select(e => ToRow(e, titles)).ToList());
     }
 
-    private static async Task<IResult> Get(Guid id, StudentsDbContext db, IClassDirectory classes, CancellationToken ct)
+    private static async Task<IResult> Get(Guid id, StudentsDbContext db, IClassDirectory classes, ITenantContext tenant, CancellationToken ct)
     {
         var enrolments = await db.Enrolments.Include(e => e.Student).Where(e => e.StudentId == id).ToListAsync(ct);
         if (enrolments.Count == 0)
@@ -99,7 +99,8 @@ internal static class StudentEndpoints
 
         var titles = await classes.FindManyAsync(enrolments.Select(e => e.ClassId), ct);
         var hasParent = await db.ParentLinks.AnyAsync(l => l.StudentId == id, ct);
-        return Results.Ok(ToStudent(enrolments[0].Student, enrolments, titles, hasParent));
+        var manages = await AccountTeacherAsync(db, id, ct) == tenant.TenantId;
+        return Results.Ok(ToStudent(enrolments[0].Student, enrolments, titles, hasParent, manages));
     }
 
     private static async Task<IResult> Add(
@@ -143,6 +144,13 @@ internal static class StudentEndpoints
         var newStudent = student is null;
         if (student is not null)
         {
+            // Knowing a phone number is not enough to find out whose it is or to add them: the teacher must also have the first name
+            // the student is known by. Nothing about the student is sent back either way.
+            if (!SameFirstName(student.FirstName, clean.FirstName))
+            {
+                return Problems.Reject("student_name_mismatch", StatusCodes.Status409Conflict);
+            }
+
             if (request.EnrolExisting != true)
             {
                 var enrolledHere = await db.Enrolments.AnyAsync(e => e.StudentId == student.Id && e.ClassId == cls.Id, ct);
@@ -151,7 +159,7 @@ internal static class StudentEndpoints
                     extensions: new Dictionary<string, object?>
                     {
                         ["code"] = "student_exists",
-                        ["existing"] = new { firstName = student.FirstName, lastInitial = student.LastName[..1], enrolledHere },
+                        ["existing"] = new { enrolledHere },
                     });
             }
         }
@@ -178,7 +186,8 @@ internal static class StudentEndpoints
             $"/api/students/{student.Id}", new StudentCreatedDto(ToRow(enrolment, TitlesOf(cls)), otp));
     }
 
-    private static async Task<IResult> Update(Guid id, UpdateStudentRequest request, StudentsDbContext db, IAccountProvisioner accounts, CancellationToken ct)
+    private static async Task<IResult> Update(
+        Guid id, UpdateStudentRequest request, StudentsDbContext db, IAccountProvisioner accounts, ITenantContext tenant, CancellationToken ct)
     {
         // Only a teacher who has the student in a class may edit them.
         if (!await db.Enrolments.AnyAsync(e => e.StudentId == id, ct))
@@ -195,12 +204,19 @@ internal static class StudentEndpoints
         }
 
         var student = await db.Students.SingleAsync(s => s.Id == id, ct);
+        var guardianChanged = student.GuardianPhone != clean.GuardianPhone;
+
+        // The guardian phone is where every teacher's alerts and the parent's sign-in go, so only the teacher who looks after the account may change it.
+        if (guardianChanged && await AccountTeacherAsync(db, id, ct) != tenant.TenantId)
+        {
+            return Problems.Reject("guardian_phone_locked", StatusCodes.Status409Conflict);
+        }
+
         student.FirstName = clean.FirstName;
         student.LastName = clean.LastName;
         student.School = clean.School;
         student.Grade = clean.Grade;
         student.GuardianName = clean.GuardianName;
-        var guardianChanged = student.GuardianPhone != clean.GuardianPhone;
         student.GuardianPhone = clean.GuardianPhone;
         await db.SaveChangesAsync(ct);
 
@@ -255,11 +271,17 @@ internal static class StudentEndpoints
         return await SaveAsync(db, ct) ?? Results.Ok(ToRow(enrolment, TitlesOf(cls)));
     }
 
-    private static async Task<IResult> ResetPassword(Guid id, StudentsDbContext db, IAccountProvisioner accounts, CancellationToken ct)
+    private static async Task<IResult> ResetPassword(Guid id, StudentsDbContext db, IAccountProvisioner accounts, ITenantContext tenant, CancellationToken ct)
     {
         if (!await db.Enrolments.AnyAsync(e => e.StudentId == id, ct))
         {
             return Results.NotFound();
+        }
+
+        // A new password lets whoever holds it sign in as the student and see every teacher's classes, so only the teacher who looks after the account may make one.
+        if (await AccountTeacherAsync(db, id, ct) != tenant.TenantId)
+        {
+            return Problems.Reject("account_managed_elsewhere", StatusCodes.Status409Conflict);
         }
 
         var userId = await db.Students.Where(s => s.Id == id).Select(s => s.UserId).SingleAsync(ct);
@@ -474,9 +496,32 @@ internal static class StudentEndpoints
         e.Student.FirstName, e.Student.LastName, e.Student.FullName, e.Student.Phone, e.Student.School, e.Student.Grade,
         e.Status.ToString(), e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn);
 
-    private static StudentDto ToStudent(Student s, List<Enrolment> enrolments, IReadOnlyDictionary<Guid, ClassSummary> titles, bool hasParent) => new(
+    /// <summary>
+    /// The teacher who looks after a student's sign-in and guardian phone: of the student's classes, the one they joined first, counting
+    /// active classes before ones they left and requests still waiting last. A student can study with several teachers and any of them can
+    /// add the student by phone, so a later teacher must not be able to reset the student's password (and sign in as them) or send another
+    /// teacher's alerts to a new number.
+    /// </summary>
+    internal static async Task<Guid?> AccountTeacherAsync(StudentsDbContext db, Guid studentId, CancellationToken ct)
+    {
+        var rows = await db.Enrolments.IgnoreQueryFilters().AsNoTracking().Where(e => e.StudentId == studentId)
+            .Select(e => new { e.TenantId, e.Status, e.JoinedOn, e.CreatedAt, e.Id }).ToListAsync(ct);
+        return rows
+            .OrderBy(e => e.Status switch { EnrolmentStatus.Active => 0, EnrolmentStatus.Left => 1, _ => 2 })
+            .ThenBy(e => e.JoinedOn).ThenBy(e => e.CreatedAt).ThenBy(e => e.Id)
+            .Select(e => (Guid?)e.TenantId).FirstOrDefault();
+    }
+
+    /// <summary>The same first name, ignoring case and extra spaces: "amara " is "Amara".</summary>
+    internal static bool SameFirstName(string stored, string typed) =>
+        string.Equals(Squash(stored), Squash(typed), StringComparison.OrdinalIgnoreCase);
+
+    private static string Squash(string name) => string.Join(' ', name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    private static StudentDto ToStudent(
+        Student s, List<Enrolment> enrolments, IReadOnlyDictionary<Guid, ClassSummary> titles, bool hasParent, bool managesAccount) => new(
         s.Id, s.FirstName, s.LastName, s.FullName, s.Phone, s.School, s.Grade, s.GuardianName, s.GuardianPhone, s.UserId is not null, hasParent,
         [.. enrolments.OrderBy(e => e.JoinedOn).Select(e => new EnrolmentDto(
             e.Id, e.ClassId, titles.TryGetValue(e.ClassId, out var c) ? c.Title : "", e.IndexNumber,
-            e.Status.ToString(), e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn))]);
+            e.Status.ToString(), e.FeePlan.ToString(), e.DiscountAmount, e.JoinedOn))], managesAccount);
 }

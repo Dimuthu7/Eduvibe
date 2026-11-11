@@ -9,13 +9,14 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { ToastService } from '../../core/ui/toast.service';
 import { VenueDialog } from './venue-dialog';
+import { LoadError } from '../../shared/load-error';
 
 /** A teacher's private venues: home class, hired hall and the like. */
 @Component({
   selector: 'app-venues',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
+  imports: [LoadError, MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -71,10 +72,7 @@ import { VenueDialog } from './venue-dialog';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="venues.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

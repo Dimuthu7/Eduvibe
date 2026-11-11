@@ -75,6 +75,12 @@ public class PushApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [InlineData("http://insecure.example.test/x")]
     [InlineData("not a url")]
     [InlineData("")]
+    // Not a push service: the server would otherwise post to any address a user names.
+    [InlineData("https://169.254.169.254/latest/meta-data")]
+    [InlineData("https://internal.render.com/hook")]
+    [InlineData("https://example.test.evil.com/x")]
+    [InlineData("https://push.example.test:8443/x")]
+    [InlineData("https://user@push.example.test/x")]
     public async Task A_device_needs_a_secure_address(string endpoint)
     {
         var teacher = await factory.NewTeacherAsync();
@@ -256,4 +262,16 @@ public class PushApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(now.AddHours(12).ToUnixTimeSeconds(), claims.GetProperty("exp").GetInt64());
         Assert.True(key.VerifyData(Encoding.ASCII.GetBytes($"{jwt[0]}.{jwt[1]}"), WebPushCrypto.FromBase64Url(jwt[2]), HashAlgorithmName.SHA256));
     }
+
+    [Theory]
+    [InlineData("https://fcm.googleapis.com/fcm/send/abc:def", true)]
+    [InlineData("https://updates.push.services.mozilla.com/wpush/v2/abc", true)]
+    [InlineData("https://wns2-par02p.notify.windows.com/w/?token=abc", true)]
+    [InlineData("https://web.push.apple.com/QGabc", true)]
+    [InlineData("https://fcm.googleapis.com.evil.com/x", false)]
+    [InlineData("https://notfcm.googleapis.com/x", false)]
+    [InlineData("http://fcm.googleapis.com/x", false)]
+    [InlineData("https://localhost/x", false)]
+    public void Only_the_browsers_push_services_are_accepted(string endpoint, bool accepted) =>
+        Assert.Equal(accepted, new GuruBook.Modules.Notifications.Push.PushOptions().IsPushService(new Uri(endpoint)));
 }

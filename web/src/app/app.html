@@ -1,4 +1,4 @@
-<mat-toolbar class="toolbar">
+<mat-toolbar class="toolbar" role="banner">
   @if (hasNav() && !wide() && !showsTabs()) {
     <button mat-icon-button type="button" (click)="toggleMenu()" [attr.aria-label]="'nav.menu' | t">
       <mat-icon>menu</mat-icon>
@@ -26,7 +26,7 @@
 
   @if (auth.user(); as user) {
     <button mat-icon-button type="button" [matMenuTriggerFor]="accountMenu" [attr.aria-label]="accountLabel()">
-      <mat-icon aria-hidden="false">account_circle</mat-icon>
+      <mat-icon>account_circle</mat-icon>
       @if (badge() !== '') {
         <span class="account-badge" aria-hidden="true">{{ badge() }}</span>
       }

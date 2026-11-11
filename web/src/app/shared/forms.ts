@@ -54,6 +54,8 @@ const FIELD_FOR_CODE: Record<string, string> = {
   last_name_required: 'lastName',
   phone_invalid: 'phone',
   phone_taken: 'phone',
+  student_name_mismatch: 'phone',
+  guardian_phone_locked: 'guardianPhone',
   district_invalid: 'district',
   stream_invalid: 'streamId',
   subjects_required: 'subjectIds',

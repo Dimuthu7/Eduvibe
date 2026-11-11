@@ -16,6 +16,7 @@ import { DateRange, PeriodPicker } from '../../shared/period-picker';
 import { shareOrSave } from '../../shared/receipt';
 import { SearchSelect } from '../../shared/search-select';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { LoadError } from '../../shared/load-error';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
 
@@ -24,7 +25,7 @@ const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late:
   selector: 'app-student-attendance-report',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, ReactiveFormsModule, RouterLink, PeriodPicker, SearchSelect, MatButtonModule, MatIconModule, MatProgressSpinnerModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/attendance/summary" [queryParams]="{ classId: report()?.classId, from: from(), to: to() }" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -96,10 +97,7 @@ const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late:
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="record.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

@@ -8,13 +8,14 @@ import { AttendanceService, ClassSession } from '../../core/api/attendance.servi
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { addDays, formatDate, formatTime, todayColombo } from '../../shared/format';
+import { LoadError } from '../../shared/load-error';
 
 /** The day's classes. Tap one to mark who came. The date moves with the arrows and is kept in the address. */
 @Component({
   selector: 'app-attendance',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, RouterLink, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -87,10 +88,7 @@ import { addDays, formatDate, formatTime, todayColombo } from '../../shared/form
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="sessions.error()" (retry)="reload()" />
       }
       @default {
         <div class="skeleton"></div>

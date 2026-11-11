@@ -14,13 +14,14 @@ import { formatLkr, monthOf, todayColombo } from '../../shared/format';
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { LoadError } from '../../shared/load-error';
 
 /** Students who came to class in the month and still owe for it: the people to remind first. */
 @Component({
   selector: 'app-unpaid-attendees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, ReactiveFormsModule, RouterLink, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, ReactiveFormsModule, RouterLink, MonthNav, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/fees" [queryParams]="backParams()" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -69,10 +70,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="result.error()" (retry)="reload()" />
       }
       @default {
         <div class="skeleton"></div>

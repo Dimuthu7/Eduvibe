@@ -351,7 +351,9 @@ export class StudentDetail {
         this.api.resetParentPassword(s.id).subscribe({
           next: ({ oneTimePassword }) => this.showParentPassword(s.guardianName || s.guardianPhone || '', s.guardianPhone ?? '', oneTimePassword, 'students.parent.reset_title'),
           error: (e) => {
-            if (errorCode(e) === 'account_not_resettable') this.toast.error('error.parent_not_resettable');
+            const code = errorCode(e);
+            if (code === 'account_not_resettable') this.toast.error('error.parent_not_resettable');
+            else if (code === 'account_managed_elsewhere') this.toast.error('error.parent_managed_elsewhere');
           },
         });
       });
@@ -411,7 +413,8 @@ export class StudentDetail {
       next: ({ oneTimePassword }) =>
         this.dialog.open(PasswordDialog, passwordDialogConfig({ name: s.fullName, phone: s.phone, oneTimePassword, title: 'students.reset_title' })),
       error: (e) => {
-        if (errorCode(e) === 'account_not_resettable') this.toast.error('error.account_not_resettable');
+        const code = errorCode(e);
+        if (code === 'account_not_resettable' || code === 'account_managed_elsewhere') this.toast.error(`error.${code}`);
       },
     });
   }

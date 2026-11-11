@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace GuruBook.Modules.Notifications.Endpoints;
 
@@ -31,7 +32,8 @@ internal static class PushEndpoints
 
     private static IResult Settings(IPushSender sender) => Results.Ok(new PushSettingsDto(sender.Enabled, sender.Enabled ? sender.PublicKey : ""));
 
-    private static async Task<IResult> Save(PushDeviceRequest request, NotificationsDbContext db, ITenantContext user, IPushSender sender, TimeProvider clock, CancellationToken ct)
+    private static async Task<IResult> Save(
+        PushDeviceRequest request, NotificationsDbContext db, ITenantContext user, IPushSender sender, IOptions<PushOptions> options, TimeProvider clock, CancellationToken ct)
     {
         if (user.UserId is not { } userId)
         {
@@ -43,7 +45,7 @@ internal static class PushEndpoints
             return Problems.Reject("push_unavailable", StatusCodes.Status409Conflict);
         }
 
-        if (!ValidEndpoint(request.Endpoint) || !Key(request.P256dh, 65, 0x04) || !Key(request.Auth, 16))
+        if (!ValidEndpoint(request.Endpoint, options.Value) || !Key(request.P256dh, 65, 0x04) || !Key(request.Auth, 16))
         {
             return Problems.Reject("push_device_invalid");
         }
@@ -100,8 +102,9 @@ internal static class PushEndpoints
         return Results.NoContent();
     }
 
-    private static bool ValidEndpoint(string? endpoint) =>
-        endpoint is { Length: > 0 and <= 1000 } && Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+    // Only a real push service: the server later posts to this address, so any other host would let a user aim the server at it.
+    private static bool ValidEndpoint(string? endpoint, PushOptions options) =>
+        endpoint is { Length: > 0 and <= 1000 } && Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) && options.IsPushService(uri);
 
     private static bool Key(string? value, int length, byte? first = null)
     {

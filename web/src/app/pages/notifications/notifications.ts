@@ -10,6 +10,7 @@ import { UnreadNotifications } from '../../core/state/unread-notifications';
 import { formatDateTime } from '../../shared/format';
 import { PushPrompt } from '../../shared/push-prompt';
 import { describe } from './describe';
+import { LoadError } from '../../shared/load-error';
 
 /** Swiping a row this far (a share of its width) closes it; less than that and it springs back. */
 const CLOSE_AT = 0.35;
@@ -24,7 +25,7 @@ const SLOP = 10;
   selector: 'app-notifications',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, PushPrompt, TranslatePipe],
+  imports: [LoadError, MatButtonModule, MatIconModule, PushPrompt, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -88,10 +89,7 @@ const SLOP = 10;
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="list.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

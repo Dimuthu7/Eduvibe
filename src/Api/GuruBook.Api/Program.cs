@@ -60,6 +60,22 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+// The API only answers with data, never pages, so browsers are told not to guess types, frame it, run anything from it or pass on its addresses.
+app.Use((context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; sandbox";
+    return next(context);
+});
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();

@@ -13,6 +13,7 @@ import { Loadable } from '../../core/state/loadable';
 import { formatDate } from '../../shared/format';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { openExamDialog } from './exam-dialog';
+import { LoadError } from '../../shared/load-error';
 
 /** The class value that means "every class" in the dropdown. */
 const ALL_CLASSES = 'all';
@@ -22,7 +23,7 @@ const ALL_CLASSES = 'all';
   selector: 'app-exams',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -78,10 +79,7 @@ const ALL_CLASSES = 'all';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="exams.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

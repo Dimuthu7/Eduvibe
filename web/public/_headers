@@ -1,4 +1,13 @@
-# Cloudflare: always fetch these fresh so a new deploy and the API address reach phones straight away.
+# Cloudflare: security headers for every response. script-src 'self' means a script slipped into the page (XSS) cannot run, which protects the
+# sign-in kept in the browser. The API address comes from config.json at run time, so connections are not limited here.
+/*
+  Content-Security-Policy: script-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
+
+# Always fetch these fresh so a new deploy and the API address reach phones straight away.
 /config.json
   Cache-Control: no-cache
 /ngsw.json

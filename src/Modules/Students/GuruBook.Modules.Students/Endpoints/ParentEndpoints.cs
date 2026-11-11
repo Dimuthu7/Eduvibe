@@ -52,10 +52,17 @@ internal static class ParentEndpoints
         }
 
         var (first, last) = SplitName(student);
-        var account = await accounts.CreateParentAccountAsync(new NewParentAccount(student.GuardianPhone, first, last), ct);
+        var account = await accounts.CreateParentAccountAsync(new NewParentAccount(student.GuardianPhone, first, last, FreshPassword: false), ct);
         if (account.UserId is not { } userId)
         {
             return Problems.Reject("conflict", StatusCodes.Status409Conflict);
+        }
+
+        // A parent nobody has signed in as yet gets a fresh one-time password, but only from the teacher who linked them first: a later
+        // teacher would otherwise hold the sign-in to everything the first teacher shares with this family.
+        if (account.Outcome == AccountOutcome.Linked && account.OneTimePassword is null && await IsFirstLinkerAsync(db, userId, tenantId, ct))
+        {
+            account = await accounts.CreateParentAccountAsync(new NewParentAccount(student.GuardianPhone, first, last, FreshPassword: true), ct);
         }
 
         if (!await db.ParentLinks.AnyAsync(l => l.StudentId == id && l.ParentUserId == userId, ct))
@@ -70,14 +77,18 @@ internal static class ParentEndpoints
         return Results.Ok(new ParentInvitedDto(student.GuardianName ?? $"{first} {last}".Trim(), student.GuardianPhone, account.Outcome == AccountOutcome.Created, account.OneTimePassword));
     }
 
-    private static async Task<IResult> ResetPassword(Guid id, StudentsDbContext db, IAccountProvisioner accounts, CancellationToken ct)
+    private static async Task<IResult> ResetPassword(Guid id, StudentsDbContext db, IAccountProvisioner accounts, ITenantContext tenant, CancellationToken ct)
     {
-        if (!await db.Enrolments.AnyAsync(e => e.StudentId == id, ct))
+        if (!await db.Enrolments.AnyAsync(e => e.StudentId == id, ct) || tenant.TenantId is not { } tenantId)
         {
             return Results.NotFound();
         }
 
         var userId = await db.ParentLinks.Where(l => l.StudentId == id).Select(l => (Guid?)l.ParentUserId).FirstOrDefaultAsync(ct);
+        if (userId is { } parent && !await IsFirstLinkerAsync(db, parent, tenantId, ct))
+        {
+            return Problems.Reject("account_managed_elsewhere", StatusCodes.Status409Conflict);
+        }
         var otp = userId is null ? null : await accounts.ResetParentPasswordAsync(userId.Value, ct);
         return otp is null ? Problems.Reject("account_not_resettable", StatusCodes.Status409Conflict) : Results.Ok(new OneTimePasswordDto(otp));
     }
@@ -91,6 +102,18 @@ internal static class ParentEndpoints
 
         await DropLinksAsync(db, accounts, id, allTeachers: false, ct);
         return Results.NoContent();
+    }
+
+    /// <summary>
+    /// True when this teacher linked the parent before any other teacher did (or nobody has yet). Only that teacher may hand out a password
+    /// for the parent's account, because the account opens what every linked teacher shares.
+    /// </summary>
+    internal static async Task<bool> IsFirstLinkerAsync(StudentsDbContext db, Guid parentUserId, Guid tenantId, CancellationToken ct)
+    {
+        var links = await db.ParentLinks.IgnoreQueryFilters().AsNoTracking().Where(l => l.ParentUserId == parentUserId)
+            .Select(l => new { l.TenantId, l.CreatedAt, l.Id }).ToListAsync(ct);
+        var first = links.OrderBy(l => l.CreatedAt).ThenBy(l => l.Id).FirstOrDefault();
+        return first is null || first.TenantId == tenantId;
     }
 
     /// <summary>

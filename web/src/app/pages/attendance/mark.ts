@@ -17,6 +17,7 @@ import { SubmitButton } from '../../shared/submit-button';
 import { WhatsAppActions } from '../../shared/whatsapp-actions';
 import { StudentAvatar } from '../../shared/student-avatar';
 import { ScanDialog } from './scan-dialog';
+import { LoadError } from '../../shared/load-error';
 
 const ICONS: Record<AttendanceStatus, string> = { Present: 'check_circle', Late: 'schedule', Absent: 'cancel' };
 const LONG_PRESS_MS = 500;
@@ -30,7 +31,7 @@ const MOVE_LIMIT_PX = 8;
   selector: 'app-attendance-mark',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, RouterLink, SubmitButton, MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, RouterLink, SubmitButton, MatButtonModule, MatIconModule, MatMenuModule, TranslatePipe],
   template: `
     @switch (detail.status()) {
       @case ('ready') {
@@ -152,10 +153,7 @@ const MOVE_LIMIT_PX = 8;
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="detail.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

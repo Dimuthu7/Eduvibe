@@ -18,6 +18,17 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Every_answer_tells_browsers_not_to_sniff_frame_or_run_it()
+    {
+        var response = await factory.CreateClient().GetAsync("/api/system/info");
+
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+        Assert.Contains("frame-ancestors 'none'", response.Headers.GetValues("Content-Security-Policy").Single());
+    }
+
+    [Fact]
     public async Task System_info_lists_every_module()
     {
         var client = factory.CreateClient();

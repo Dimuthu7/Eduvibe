@@ -143,6 +143,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Notifications:CleanupJob", "false");
         builder.UseSetting("WhatsApp:DispatchJob", "false");
         builder.UseSetting("Sms:DispatchJob", "false");
+        builder.UseSetting("Push:ServiceHosts:0", "example.test");
         builder.UseSetting("Payments:SlipCleanupJob", "false");
         builder.UseSetting("WhatsApp:AppSecret", WhatsAppAppSecret);
         builder.UseSetting("WhatsApp:VerifyToken", WhatsAppVerifyToken);

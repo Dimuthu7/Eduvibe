@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { Loadable } from '../../../core/state/loadable';
 import { ToastService } from '../../../core/ui/toast.service';
 import { InstituteDialog } from './institute-dialog';
+import { LoadError } from '../../../shared/load-error';
 
 interface Page {
   institutes: Institute[];
@@ -22,7 +23,7 @@ interface Page {
   selector: 'app-admin-institutes',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatCheckboxModule, MatExpansionModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, MatButtonModule, MatCheckboxModule, MatExpansionModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -89,10 +90,7 @@ interface Page {
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="page.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

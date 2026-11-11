@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { AdminOverviewService, Stat } from '../../../core/api/admin.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { Loadable } from '../../../core/state/loadable';
+import { LoadError } from '../../../shared/load-error';
 
 /** The headline numbers, in the order they are shown. A number the server does not send is left out. */
 const TILES = [
@@ -29,7 +30,7 @@ export function splitStats(stats: Stat[]): { tiles: { key: string; icon: string;
   selector: 'app-admin-dashboard',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, RouterLink, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -81,10 +82,7 @@ export function splitStats(stats: Stat[]): { tiles: { key: string; icon: string;
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="stats.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

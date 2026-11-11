@@ -52,6 +52,11 @@ export interface Student {
   /** This teacher has linked the guardian as a parent who can see the student's records. */
   hasParent: boolean;
   enrolments: StudentEnrolment[];
+  /**
+   * This teacher added the student first, so they may reset the student's password and change the guardian phone. Another teacher who
+   * also teaches the student may not, so that nobody can take over a student's account just by knowing their phone number.
+   */
+  managesAccount: boolean;
 }
 
 export interface StudentDetails {

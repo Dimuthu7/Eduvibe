@@ -21,6 +21,7 @@ import { formatLkr, formatMonth, monthOf, todayColombo } from '../../shared/form
 import { MonthNav } from '../../shared/month-nav';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { LoadError } from '../../shared/load-error';
 
 /** The class value that means "every class" in the dropdown and the address. */
 export const ALL_CLASSES = 'all';
@@ -30,7 +31,7 @@ export const ALL_CLASSES = 'all';
   selector: 'app-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatButtonToggleModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, NgTemplateOutlet, ReactiveFormsModule, RouterLink, FeeStatus, MonthNav, SearchSelect, MatButtonModule, MatButtonToggleModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -90,10 +91,7 @@ export const ALL_CLASSES = 'all';
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="all.error()" (retry)="reload()" />
         }
         @default {
           <div class="skeleton"></div>
@@ -134,10 +132,7 @@ export const ALL_CLASSES = 'all';
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="reload()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="classMonth.error()" (retry)="reload()" />
         }
         @default {
           <div class="skeleton"></div>

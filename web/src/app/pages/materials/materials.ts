@@ -24,6 +24,7 @@ import { FolderDialog, FolderDialogData } from './folder-dialog';
 import { folderChain, folderLabel, withDescendants } from './folder-tree';
 import { MoveDialog, MoveDialogData } from './move-dialog';
 import { MaterialDialog, MaterialDialogData } from './material-dialog';
+import { LoadError } from '../../shared/load-error';
 
 const ALL = 'all';
 
@@ -51,6 +52,7 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    LoadError,
     ReactiveFormsModule, SearchSelect, CdkDrag, CdkDragPreview, CdkDropList, MatButtonModule, MatChipsModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, TranslatePipe,
   ],
   template: `
@@ -120,10 +122,7 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
           }
         }
         @case ('error') {
-          <div class="empty">
-            <p>{{ 'error.load_failed' | t }}</p>
-            <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-          </div>
+          <app-load-error [error]="drive.error()" (retry)="load()" />
         }
         @default {
           <div class="skeleton"></div>
@@ -287,10 +286,7 @@ const OUTCOME_MESSAGES: Record<string, { key: string; ok: boolean }> = {
             }
           }
           @case ('error') {
-            <div class="empty">
-              <p>{{ 'error.load_failed' | t }}</p>
-              <button mat-stroked-button type="button" (click)="loadMaterials()">{{ 'status.retry' | t }}</button>
-            </div>
+            <app-load-error [error]="materials.error()" (retry)="loadMaterials()" />
           }
           @default {
             <div class="skeleton"></div>

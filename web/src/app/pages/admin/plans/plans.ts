@@ -9,13 +9,14 @@ import { Loadable } from '../../../core/state/loadable';
 import { ToastService } from '../../../core/ui/toast.service';
 import { formatLkr } from '../../../shared/format';
 import { PlanDialog } from './plan-dialog';
+import { LoadError } from '../../../shared/load-error';
 
 /** Super Admin: the plans, what each includes and what it costs. Teachers are put on a plan from the Teachers list. */
 @Component({
   selector: 'app-admin-plans',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -53,10 +54,7 @@ import { PlanDialog } from './plan-dialog';
         </div>
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="plans.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

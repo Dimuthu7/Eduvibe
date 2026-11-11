@@ -9,6 +9,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { formatDate } from '../../shared/format';
 import { short } from '../exams/exam-analysis';
+import { LoadError } from '../../shared/load-error';
 
 interface ClassResults {
   classId: string;
@@ -22,7 +23,7 @@ interface ClassResults {
   selector: 'app-my-results',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, RouterLink, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/welcome" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -82,10 +83,7 @@ interface ClassResults {
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="data.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

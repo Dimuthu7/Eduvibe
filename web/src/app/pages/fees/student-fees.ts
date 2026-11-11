@@ -18,13 +18,14 @@ import { drawReceipt, shareOrSave } from '../../shared/receipt';
 import { PaymentDialog } from './payment-dialog';
 import { VoidDialog } from './void-dialog';
 import { StudentAvatar } from '../../shared/student-avatar';
+import { LoadError } from '../../shared/load-error';
 
 /** One student's fees in one class: every month with what is due and paid, and every payment with its receipt number. */
 @Component({
   selector: 'app-student-fees',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StudentAvatar, RouterLink, FeeStatus, MatButtonModule, MatIconModule, MatSlideToggleModule, TranslatePipe],
+  imports: [LoadError, StudentAvatar, RouterLink, FeeStatus, MatButtonModule, MatIconModule, MatSlideToggleModule, TranslatePipe],
   template: `
     <a mat-button routerLink="/fees" [queryParams]="{ classId: fees()?.classId, month: month() || null }" class="back">
       <mat-icon>arrow_back</mat-icon>
@@ -122,10 +123,7 @@ import { StudentAvatar } from '../../shared/student-avatar';
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="record.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

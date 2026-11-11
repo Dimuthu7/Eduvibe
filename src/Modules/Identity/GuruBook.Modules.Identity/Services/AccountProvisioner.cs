@@ -68,7 +68,7 @@ internal sealed class AccountProvisioner(IdentityDbContext db, PasswordService p
             // A parent-only account that has never been signed in to has no password of its own yet, so the inviting teacher gets a fresh
             // one-time password to pass on instead of a dead end. A parent who has chosen a password keeps it.
             var parentOnly = existing.Roles.All(r => r.Role == Roles.Parent);
-            if (!parentOnly || !existing.MustChangePassword)
+            if (!parentOnly || !existing.MustChangePassword || !account.FreshPassword)
             {
                 return new AccountResult(AccountOutcome.Linked, existing.Id, null);
             }

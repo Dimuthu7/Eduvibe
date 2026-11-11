@@ -11,6 +11,7 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { Loadable } from '../../core/state/loadable';
 import { formatTime } from '../../shared/format';
 import { SearchSelect, SelectOption } from '../../shared/search-select';
+import { LoadError } from '../../shared/load-error';
 
 interface DayGroup {
   day: number;
@@ -22,7 +23,7 @@ interface DayGroup {
   selector: 'app-timetable',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, ReactiveFormsModule, RouterLink, SearchSelect, MatButtonModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -77,10 +78,7 @@ interface DayGroup {
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="entries.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>

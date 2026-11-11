@@ -19,6 +19,7 @@ import { formatDate, formatLkr, formatPeriod } from '../../shared/format';
 import { slotSummary } from '../../shared/schedule';
 import { TranslateService } from '../../core/i18n/translate.service';
 import { short } from '../exams/exam-analysis';
+import { LoadError } from '../../shared/load-error';
 
 interface ChildData {
   attendance: MyAttendance[];
@@ -43,7 +44,7 @@ interface ClassView {
   selector: 'app-family',
   host: { class: 'page page-narrow' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FeeStatus, FeesAlert, MatButtonModule, MatButtonToggleModule, MatCardModule, MatIconModule, TranslatePipe],
+  imports: [LoadError, RouterLink, FeeStatus, FeesAlert, MatButtonModule, MatButtonToggleModule, MatCardModule, MatIconModule, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -189,10 +190,7 @@ interface ClassView {
                 }
               }
               @case ('error') {
-                <div class="empty">
-                  <p>{{ 'error.load_failed' | t }}</p>
-                  <button mat-stroked-button type="button" (click)="loadDetails()">{{ 'status.retry' | t }}</button>
-                </div>
+                <app-load-error [error]="details.error()" (retry)="loadDetails()" />
               }
               @default {
                 <div class="skeleton"></div>
@@ -203,10 +201,7 @@ interface ClassView {
         }
       }
       @case ('error') {
-        <div class="empty">
-          <p>{{ 'error.load_failed' | t }}</p>
-          <button mat-stroked-button type="button" (click)="load()">{{ 'status.retry' | t }}</button>
-        </div>
+        <app-load-error [error]="details.error()" (retry)="load()" />
       }
       @default {
         <div class="skeleton"></div>
