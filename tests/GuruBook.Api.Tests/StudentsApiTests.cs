@@ -95,13 +95,14 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var again = await teacher.Client.PostAsJsonAsync("/api/students", StudentBody(science, phone));
         Assert.Equal((HttpStatusCode.Conflict, "student_exists"), await Code(again));
         var existing = (await Json(again)).GetProperty("existing");
-        Assert.Equal("Kasun", existing.GetProperty("firstName").GetString());
-        Assert.Equal("P", existing.GetProperty("lastInitial").GetString());
+        Assert.False(existing.TryGetProperty("firstName", out _));
+        Assert.False(existing.TryGetProperty("lastInitial", out _));
         Assert.False(existing.GetProperty("enrolledHere").GetBoolean());
 
+        // Only the first name has to match (case and spaces aside); the rest of what was typed is ignored, the record is kept.
         var enrol = await teacher.Client.PostAsJsonAsync("/api/students", new
         {
-            phone, firstName = "Ignored", lastName = "Ignored", classId = science, feePlan = "FreeCard", enrolExisting = true,
+            phone, firstName = " kasun ", lastName = "Ignored", classId = science, feePlan = "FreeCard", enrolExisting = true,
         });
         Assert.Equal(HttpStatusCode.Created, enrol.StatusCode);
         var body = await enrol.Content.ReadFromJsonAsync<JsonElement>();
@@ -112,8 +113,49 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var detail = await teacher.Client.GetFromJsonAsync<JsonElement>($"/api/students/{studentId}");
         Assert.Equal(2, detail.GetProperty("enrolments").GetArrayLength());
 
-        var twice = await teacher.Client.PostAsJsonAsync("/api/students", new { phone, classId = science, firstName = "x", lastName = "y", enrolExisting = true });
+        var twice = await teacher.Client.PostAsJsonAsync("/api/students", new { phone, classId = science, firstName = "Kasun", lastName = "y", enrolExisting = true });
         Assert.Equal((HttpStatusCode.Conflict, "already_enrolled"), await Code(twice));
+    }
+
+    [Fact]
+    public async Task A_shared_students_password_and_guardian_phone_belong_to_the_teacher_who_added_them_first()
+    {
+        var first = await factory.NewTeacherAsync();
+        var later = await factory.NewTeacherAsync("Lalith");
+        var phone = NewPhone();
+        var created = await first.Client.PostAsJsonAsync("/api/students", StudentBody(await ClassFor(first.Client), phone));
+        var row = (await Json(created)).GetProperty("row");
+        var studentId = row.GetProperty("studentId").GetGuid();
+        var laterClass = await ClassFor(later.Client);
+
+        // A phone number alone is not enough to learn whose it is or to add them: the first name must match, and nothing is sent back.
+        var wrong = await later.Client.PostAsJsonAsync("/api/students", StudentBody(laterClass, phone, "Someone"));
+        Assert.Equal((HttpStatusCode.Conflict, "student_name_mismatch"), await Code(wrong));
+        Assert.False((await Json(wrong)).TryGetProperty("existing", out _));
+        var forced = await later.Client.PostAsJsonAsync("/api/students", new { phone, firstName = "Someone", lastName = "x", classId = laterClass, feePlan = "Full", enrolExisting = true });
+        Assert.Equal((HttpStatusCode.Conflict, "student_name_mismatch"), await Code(forced));
+
+        var added = await later.Client.PostAsJsonAsync("/api/students", new { phone, firstName = "Kasun", lastName = "x", classId = laterClass, feePlan = "Full", enrolExisting = true });
+        Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        Assert.True((await first.Client.GetFromJsonAsync<JsonElement>($"/api/students/{studentId}")).GetProperty("managesAccount").GetBoolean());
+        Assert.False((await later.Client.GetFromJsonAsync<JsonElement>($"/api/students/{studentId}")).GetProperty("managesAccount").GetBoolean());
+
+        // The later teacher cannot make a password (and so sign in as the student) or move the guardian phone; the other details they can edit.
+        Assert.Equal((HttpStatusCode.Conflict, "account_managed_elsewhere"), await Code(await later.Client.PostAsync($"/api/students/{studentId}/reset-password", null)));
+        var moved = await later.Client.PutAsJsonAsync($"/api/students/{studentId}", new { firstName = "Kasun", lastName = "Perera", guardianName = "Sunil Perera", guardianPhone = "0719999999" });
+        Assert.Equal((HttpStatusCode.Conflict, "guardian_phone_locked"), await Code(moved));
+        var school = await later.Client.PutAsJsonAsync($"/api/students/{studentId}", new { firstName = "Kasun", lastName = "Perera", school = "Ananda College", guardianName = "Sunil Perera", guardianPhone = "0711234567" });
+        Assert.Equal(HttpStatusCode.NoContent, school.StatusCode);
+
+        // The first teacher can do both.
+        Assert.Equal(HttpStatusCode.OK, (await first.Client.PostAsync($"/api/students/{studentId}/reset-password", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await first.Client.PutAsJsonAsync($"/api/students/{studentId}", new { firstName = "Kasun", lastName = "Perera", guardianPhone = "0711234567" })).StatusCode);
+
+        // When the student leaves the first teacher's class, the teacher they still study with looks after the account.
+        await first.Client.PutAsJsonAsync($"/api/students/enrolments/{row.GetProperty("enrolmentId").GetGuid()}", new { status = "Left" });
+        Assert.True((await later.Client.GetFromJsonAsync<JsonElement>($"/api/students/{studentId}")).GetProperty("managesAccount").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, (await later.Client.PostAsync($"/api/students/{studentId}/reset-password", null)).StatusCode);
+        Assert.Equal((HttpStatusCode.Conflict, "account_managed_elsewhere"), await Code(await first.Client.PostAsync($"/api/students/{studentId}/reset-password", null)));
     }
 
     [Fact]
@@ -132,7 +174,7 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, (await other.Client.PutAsJsonAsync($"/api/students/{studentId}", new { firstName = "Hacked", lastName = "Name" })).StatusCode);
         Assert.Empty((await other.Client.GetFromJsonAsync<JsonElement>("/api/students")).EnumerateArray());
 
-        // The other teacher can add the same phone to their class, and learns only a first name and an initial.
+        // The other teacher can add the same phone to their class when they also know the first name, and learns nothing new.
         var clash = await other.Client.PostAsJsonAsync("/api/students", StudentBody(theirs, phone));
         Assert.Equal((HttpStatusCode.Conflict, "student_exists"), await Code(clash));
         var existing = (await Json(clash)).GetProperty("existing");
@@ -196,7 +238,7 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Empty((await teacher.Client.GetFromJsonAsync<JsonElement>($"/api/students?classId={classId}&q=Kasun")).EnumerateArray());
         Assert.Single((await teacher.Client.GetFromJsonAsync<JsonElement>($"/api/students?classId={classId}&status=left")).EnumerateArray());
 
-        var back = await teacher.Client.PostAsJsonAsync("/api/students", new { phone, firstName = "x", lastName = "y", classId, enrolExisting = true });
+        var back = await teacher.Client.PostAsJsonAsync("/api/students", new { phone, firstName = "Kasun", lastName = "y", classId, enrolExisting = true });
         Assert.Equal(HttpStatusCode.Created, back.StatusCode);
         Assert.Equal("Active", (await back.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("row").GetProperty("status").GetString());
     }
@@ -258,9 +300,9 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         return (body.GetProperty("token").GetString()!, body.GetProperty("id").GetGuid());
     }
 
-    private object Registration(string phone, string password = "Student-pass-1") => new
+    private object Registration(string phone, string password = "Student-pass-1", string first = "Dilani") => new
     {
-        phone, firstName = "Dilani", lastName = "Silva", school = "Girls High", grade = "Grade 9", password,
+        phone, firstName = first, lastName = "Silva", school = "Girls High", grade = "Grade 9", password,
     };
 
     [Fact]
@@ -345,7 +387,12 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var science = await ClassFor(teacher.Client, "Science");
         var (token, _) = await InviteFor(teacher.Client, science);
-        var result = await factory.CreateClient().PostAsJsonAsync($"/api/students/register/{token}", Registration(phone, "Attacker-pass-1"));
+        // A link cannot be used to pull in someone by phone number alone: the first name must match the record.
+        var guessed = await factory.CreateClient().PostAsJsonAsync($"/api/students/register/{token}", Registration(phone, "Attacker-pass-1"));
+        Assert.Equal((HttpStatusCode.Conflict, "student_name_mismatch"), await Code(guessed));
+        Assert.Empty((await teacher.Client.GetFromJsonAsync<JsonElement>($"/api/students?classId={science}&status=all")).EnumerateArray());
+
+        var result = await factory.CreateClient().PostAsJsonAsync($"/api/students/register/{token}", Registration(phone, "Attacker-pass-1", "Kasun"));
         Assert.Equal("existing_account", (await result.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("outcome").GetString());
 
         // The chosen password was thrown away: the one-time password still works and the new one does not.
@@ -355,7 +402,7 @@ public class StudentsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal("Kasun", Assert.Single(pending.EnumerateArray()).GetProperty("firstName").GetString());
 
         // Asking again for the same class gives the same answer and adds nothing.
-        var again = await factory.CreateClient().PostAsJsonAsync($"/api/students/register/{token}", Registration(phone));
+        var again = await factory.CreateClient().PostAsJsonAsync($"/api/students/register/{token}", Registration(phone, first: "Kasun"));
         Assert.Equal("existing_account", (await Json(again)).GetProperty("outcome").GetString());
         Assert.Single((await teacher.Client.GetFromJsonAsync<JsonElement>($"/api/students?classId={science}&status=all")).EnumerateArray());
     }

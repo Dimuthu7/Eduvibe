@@ -82,10 +82,10 @@ describe('StudentDialog', () => {
     submit();
     http
       .expectOne(`${API}/api/students`)
-      .flush({ code: 'student_exists', existing: { firstName: 'Kasun', lastInitial: 'P', enrolledHere: false } }, { status: 409, statusText: 'Conflict' });
+      .flush({ code: 'student_exists', existing: { enrolledHere: false } }, { status: 409, statusText: 'Conflict' });
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Kasun P.');
+    expect(text).toContain('students.exists');
     expect(close).not.toHaveBeenCalled();
 
     fixture.componentInstance['enrolExisting']();
@@ -95,11 +95,48 @@ describe('StudentDialog', () => {
     expect(close).toHaveBeenCalled();
   });
 
+  it('says so beside the phone when the number belongs to a student with another first name', () => {
+    const { form, submit, fill } = setup();
+    fill();
+    submit();
+    http.expectOne(`${API}/api/students`).flush({ code: 'student_name_mismatch' }, { status: 409, statusText: 'Conflict' });
+    expect(form.controls.phone.errors).toEqual({ server: 'error.student_name_mismatch' });
+  });
+
   it('puts a server rejection next to its field', () => {
     const { form, submit, fill } = setup();
     fill();
     submit();
     http.expectOne(`${API}/api/students`).flush({ code: 'phone_invalid' }, { status: 400, statusText: 'Bad Request' });
     expect(form.controls.phone.errors).toEqual({ server: 'error.phone_invalid' });
+  });
+});
+
+describe('StudentDialog editing a student another teacher added first', () => {
+  const student = {
+    id: 's1', firstName: 'Kamal', lastName: 'Silva', fullName: 'Kamal Silva', phone: '+94771111111', school: null, grade: null,
+    guardianName: 'Mrs Fernando', guardianPhone: '+94772222222', hasAccount: true, hasParent: false, enrolments: [], managesAccount: false,
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [StudentDialog],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+        { provide: MAT_DIALOG_DATA, useValue: { student } },
+      ],
+    });
+    vi.spyOn(TestBed.inject(TranslateService), 'translate').mockImplementation((key) => key);
+  });
+
+  it('shows the guardian phone but does not let it be changed, and says why', () => {
+    const fixture = TestBed.createComponent(StudentDialog);
+    fixture.detectChanges();
+    const form = fixture.componentInstance['form'];
+    expect(form.controls.guardianPhone.disabled).toBe(true);
+    expect(form.getRawValue().guardianPhone).toBe('+94772222222');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('students.guardian_phone_locked');
   });
 });

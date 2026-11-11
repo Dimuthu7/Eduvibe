@@ -274,7 +274,7 @@ public class AttendanceApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var second = await DailyClass(teacher.Client, "2027 A/L Physics");
         var enrol = await teacher.Client.PostAsJsonAsync("/api/students", new
         {
-            phone, firstName = "x", lastName = "y", classId = second, feePlan = "Full", enrolExisting = true,
+            phone, firstName = "Bandula", lastName = "y", classId = second, feePlan = "Full", enrolExisting = true,
         });
         Assert.Equal(HttpStatusCode.Created, enrol.StatusCode);
         var secondEnrolment = (await Json(enrol)).GetProperty("row").GetProperty("enrolmentId").GetGuid();

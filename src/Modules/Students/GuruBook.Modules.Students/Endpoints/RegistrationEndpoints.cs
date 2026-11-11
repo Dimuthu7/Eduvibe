@@ -85,7 +85,13 @@ internal static class RegistrationEndpoints
         }
 
         // For a phone number that already has a record nothing is overwritten and no password is set:
-        // a link must never let a stranger take over somebody else's account.
+        // a link must never let a stranger take over somebody else's account. The first name must match too, so a teacher cannot put
+        // any phone number through their own link to get a stranger's details by approving the request.
+        if (!newStudent && !StudentEndpoints.SameFirstName(student.FirstName, clean.FirstName))
+        {
+            return Problems.Reject("student_name_mismatch", StatusCodes.Status409Conflict);
+        }
+
         var (enrolment, enrolProblem) = await StudentEndpoints.EnrolAsync(
             db, student, newStudent, cls, null, FeePlan.Full, 0m, EnrolmentStatus.Pending, clock, ct, ignoreTenant: true);
         if (enrolment is null)

@@ -152,6 +152,32 @@ public class ParentPortalApiTests(ApiFactory factory) : IClassFixture<ApiFactory
     }
 
     [Fact]
+    public async Task Only_the_teacher_who_linked_a_parent_first_can_hand_out_a_password_for_them()
+    {
+        var guardian = NewPhone();
+        var first = await ProTeacher("Fiona");
+        var later = await ProTeacher("Lalith");
+        var kamal = await Enrol(first.Client, await ClassOf(first.Client, "First linker"), "Kamal", guardian);
+        var otp = (await Invite(first.Client, kamal.StudentId)).GetProperty("oneTimePassword").GetString()!;
+
+        // A later teacher adds the same child and links the same parent before the parent has signed in: they get no password,
+        // so they cannot sign in as the parent and see the first teacher's records. The first teacher's password still works.
+        var enrol = await later.Client.PostAsJsonAsync("/api/students", new
+        {
+            phone = kamal.Phone, firstName = "Kamal", lastName = "Silva", classId = await ClassOf(later.Client, "Later linker"), feePlan = "Full", enrolExisting = true,
+        });
+        Assert.Equal(HttpStatusCode.Created, enrol.StatusCode);
+        Assert.Equal(JsonValueKind.Null, (await Invite(later.Client, kamal.StudentId)).GetProperty("oneTimePassword").ValueKind);
+        Assert.Equal("account_managed_elsewhere", await Code(await later.Client.PostAsync($"/api/students/{kamal.StudentId}/parent/reset-password", null)));
+
+        // The first teacher can still give a fresh one and reset it.
+        var again = (await Invite(first.Client, kamal.StudentId)).GetProperty("oneTimePassword").GetString();
+        Assert.False(string.IsNullOrEmpty(again));
+        Assert.NotEqual(otp, again);
+        Assert.Equal(HttpStatusCode.OK, (await first.Client.PostAsync($"/api/students/{kamal.StudentId}/parent/reset-password", null)).StatusCode);
+    }
+
+    [Fact]
     public async Task A_parent_sees_fees_attendance_and_only_published_results_of_their_own_child()
     {
         var guardian = NewPhone();

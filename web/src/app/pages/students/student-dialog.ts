@@ -21,10 +21,8 @@ export interface StudentDialogData {
   classId?: string;
 }
 
-/** A phone number that already belongs to a student: the server tells us just enough to offer enrolling them. */
+/** A phone number and first name that already belong to a student: the server says only whether they are in this class already. */
 interface Existing {
-  firstName: string;
-  lastInitial: string;
   enrolledHere: boolean;
 }
 
@@ -45,7 +43,7 @@ interface Existing {
             @if (found.enrolledHere) {
               <p>{{ 'students.exists_here' | t }}</p>
             } @else {
-              <p>{{ 'students.exists' | t }} <strong>{{ found.firstName }} {{ found.lastInitial }}.</strong></p>
+              <p>{{ 'students.exists' | t }}</p>
               <button mat-flat-button type="button" [disabled]="busy()" (click)="enrolExisting()">{{ 'students.enrol_existing' | t }}</button>
             }
           </div>
@@ -87,6 +85,9 @@ interface Existing {
           <mat-form-field>
             <mat-label>{{ 'students.guardian_phone' | t }}</mat-label>
             <input matInput type="tel" inputmode="tel" formControlName="guardianPhone" autocomplete="off" />
+            @if (guardianLocked) {
+              <mat-hint>{{ 'students.guardian_phone_locked' | t }}</mat-hint>
+            }
             <mat-error>{{ key('guardianPhone') | t }}</mat-error>
           </mat-form-field>
           @if (!editing) {
@@ -137,6 +138,8 @@ export class StudentDialog {
   protected readonly plans: FeePlan[] = FEE_PLANS;
   protected readonly student = this.data?.student ?? null;
   protected readonly editing = this.student !== null;
+  /** Another teacher added this student first and looks after their guardian phone, so it is shown but cannot be changed here. */
+  protected readonly guardianLocked = this.student !== null && !this.student.managesAccount;
   protected readonly busy = signal(false);
   protected readonly error = signal('');
   protected readonly existing = signal<Existing | null>(null);
@@ -159,6 +162,7 @@ export class StudentDialog {
   });
 
   constructor() {
+    if (this.guardianLocked) this.form.controls.guardianPhone.disable();
     if (!this.editing) {
       this.classesApi.classes('active').subscribe((list) => this.classes.set(list.map((c) => ({ value: c.id, label: c.title }))));
     }

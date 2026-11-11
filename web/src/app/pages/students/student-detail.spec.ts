@@ -14,7 +14,7 @@ const API = 'http://api.test';
 
 const student = (over: Partial<Student> = {}): Student => ({
   id: 's1', firstName: 'Kamal', lastName: 'Silva', fullName: 'Kamal Silva', phone: '+94771111111', school: null, grade: null,
-  guardianName: 'Mrs Fernando', guardianPhone: '+94772222222', hasAccount: true, hasParent: false, enrolments: [], ...over,
+  guardianName: 'Mrs Fernando', guardianPhone: '+94772222222', hasAccount: true, hasParent: false, enrolments: [], managesAccount: true, ...over,
 });
 
 describe('StudentDetail parent card', () => {
