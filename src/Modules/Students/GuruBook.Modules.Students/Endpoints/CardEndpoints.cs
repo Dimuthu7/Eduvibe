@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using GuruBook.Modules.Students.Domain;
+using GuruBook.Shared.Modules;
 using GuruBook.Shared.Security;
 using GuruBook.Shared.Tenancy;
 using Microsoft.AspNetCore.Builder;
@@ -11,6 +12,9 @@ namespace GuruBook.Modules.Students.Endpoints;
 
 /// <summary>What is printed on a card: the QR text is <see cref="CardEndpoints.Prefix"/> followed by the code.</summary>
 public sealed record CardDto(Guid StudentId, string FullName, int? IndexNumber, string Code);
+
+/// <summary>The text read off a card, with or without the <see cref="CardEndpoints.Prefix"/>.</summary>
+public sealed record FindCardRequest(string? Code);
 
 /// <summary>
 /// Student cards for QR attendance. A card is made the first time it is asked for, so teachers never "set up" anything: they open the
@@ -25,8 +29,39 @@ internal static class CardEndpoints
     {
         var teacher = group.MapGroup("").RequireAuthorization(Policies.Teacher);
         teacher.MapGet("/cards", ForClass);
+        teacher.MapPost("/cards/find", Find);
         teacher.MapGet("/{id:guid}/card", ForStudent);
         teacher.MapPost("/{id:guid}/card/replace", Replace);
+    }
+
+    // The student a scanned card belongs to. Nothing is saved: the teacher is looking a student up, not marking anything.
+    private static async Task<IResult> Find(
+        FindCardRequest request, StudentsDbContext db, IClassDirectory classes, ITenantContext tenant, CancellationToken ct)
+    {
+        var text = request.Code?.Trim() ?? "";
+        var code = text.StartsWith(Prefix, StringComparison.Ordinal) ? text[Prefix.Length..] : text;
+        if (code.Length is 0 or > 64)
+        {
+            return Problems.Reject("card_unknown", StatusCodes.Status404NotFound);
+        }
+
+        // Only this teacher's own cards are found, because the query filter keeps another teacher's rows out.
+        var studentId = await db.StudentCards.Where(c => c.Code == code).Select(c => (Guid?)c.StudentId).FirstOrDefaultAsync(ct);
+        if (studentId is not { } id)
+        {
+            return Problems.Reject("card_unknown", StatusCodes.Status404NotFound);
+        }
+
+        var enrolments = await db.Enrolments.Include(e => e.Student).Where(e => e.StudentId == id).ToListAsync(ct);
+        if (enrolments.Count == 0)
+        {
+            return Problems.Reject("card_unknown", StatusCodes.Status404NotFound);
+        }
+
+        var titles = await classes.FindManyAsync(enrolments.Select(e => e.ClassId), ct);
+        var hasParent = await db.ParentLinks.AnyAsync(l => l.StudentId == id, ct);
+        var manages = await StudentEndpoints.AccountTeacherAsync(db, id, ct) == tenant.TenantId;
+        return Results.Ok(StudentEndpoints.ToStudent(enrolments[0].Student, enrolments, titles, hasParent, manages));
     }
 
     internal static string NewCode() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(16)).TrimEnd('=').Replace('+', '-').Replace('/', '_');

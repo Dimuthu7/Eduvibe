@@ -3,8 +3,17 @@ import { inject, Injectable } from '@angular/core';
 import { AppConfig } from '../config/app-config';
 
 /** The fixed lists the server accepts for a plan. A new feature or limit is added here and on the server. */
-export const PLAN_FEATURES = ['whatsapp', 'drive_materials', 'parent_portal', 'advanced_analytics'] as const;
-export const PLAN_LIMITS = ['max_classes', 'max_students_per_class', 'whatsapp_per_month'] as const;
+export const PLAN_FEATURES = [
+  'whatsapp',
+  'drive_materials',
+  'parent_portal',
+  'advanced_analytics',
+  'sms',
+  'bank_payments',
+  'custom_messages',
+  'priority_support',
+] as const;
+export const PLAN_LIMITS = ['max_classes', 'max_students_per_class', 'whatsapp_per_month', 'sms_per_month'] as const;
 export type PlanFeatureKey = (typeof PLAN_FEATURES)[number];
 export type PlanLimitKey = (typeof PLAN_LIMITS)[number];
 

@@ -10,6 +10,12 @@
   </a>
   <span class="spacer"></span>
 
+  @if (showsScan()) {
+    <button mat-icon-button type="button" (click)="scan()" [attr.aria-label]="'scan.find_title' | t">
+      <mat-icon>qr_code_scanner</mat-icon>
+    </button>
+  }
+
   <app-language-menu />
 
   <button mat-icon-button type="button" [matMenuTriggerFor]="themeMenu" [attr.aria-label]="'theme.title' | t">

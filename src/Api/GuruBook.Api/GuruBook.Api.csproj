@@ -32,6 +32,7 @@
     <ProjectReference Include="..\..\Modules\Sms\GuruBook.Modules.Sms\GuruBook.Modules.Sms.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\GuruBook.Modules.Notifications\GuruBook.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\Modules\Plans\GuruBook.Modules.Plans\GuruBook.Modules.Plans.csproj" />
+    <ProjectReference Include="..\..\Modules\Support\GuruBook.Modules.Support\GuruBook.Modules.Support.csproj" />
   </ItemGroup>
 
 </Project>

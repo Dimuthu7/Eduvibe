@@ -1,5 +1,5 @@
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, Injector, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -52,6 +52,7 @@ const ADMIN_NAV: NavItem[] = [
   { route: '/admin/institutes', label: 'nav.institutes', icon: 'apartment' },
   { route: '/admin/plans', label: 'nav.plans', icon: 'workspace_premium' },
   { route: '/admin/catalog', label: 'nav.catalog', icon: 'tune' },
+  { route: '/admin/tickets', label: 'nav.tickets', icon: 'support_agent' },
   { route: '/admin/audit', label: 'nav.audit', icon: 'history' },
 ];
 
@@ -90,6 +91,7 @@ export class App {
   protected readonly themes = THEMES;
   protected readonly unread = inject(UnreadNotifications);
   private readonly i18n = inject(TranslateService);
+  private readonly injector = inject(Injector);
 
   private readonly sidenav = viewChild(MatSidenav);
 
@@ -125,6 +127,9 @@ export class App {
 
   protected readonly tabs = TEACHER_TABS;
 
+  /** Only a teacher has student cards to scan, and the button sits in the top bar wherever they are in the app. */
+  protected readonly showsScan = computed(() => this.menuVisible() && this.auth.hasRole('Teacher') && !this.auth.hasRole('SuperAdmin'));
+
   /** A teacher on a phone gets the tab bar at the bottom, within thumb reach; everyone else keeps the menu button. */
   protected readonly showsTabs = computed(() => this.hasNav() && !this.wide() && this.auth.hasRole('Teacher') && !this.auth.hasRole('SuperAdmin'));
 
@@ -147,6 +152,18 @@ export class App {
       .subscribe(() => {
         if (!this.wide()) void this.sidenav()?.close();
       });
+  }
+
+  /**
+   * Opens the camera full screen; the dialog turns into the student once a card is read. Material's dialog is fetched here rather
+   * than injected, so the app shell every teacher downloads first does not carry it.
+   */
+  protected async scan(): Promise<void> {
+    const [{ MatDialog }, { StudentScanDialog }] = await Promise.all([
+      import('@angular/material/dialog'),
+      import('./shared/student-scan-dialog'),
+    ]);
+    this.injector.get(MatDialog).open(StudentScanDialog, { width: '28rem', maxWidth: 'calc(100vw - 1rem)', autoFocus: false });
   }
 
   protected toggleMenu(): void {

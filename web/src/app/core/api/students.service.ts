@@ -252,6 +252,11 @@ export class StudentsService {
     return this.http.get<StudentCard>(`${this.base}/${studentId}/card`, { params: classId ? { classId } : {} });
   }
 
+  /** The student a scanned card belongs to. Nothing is marked: the teacher is looking a student up. */
+  findByCard(code: string) {
+    return this.http.post<Student>(`${this.base}/cards/find`, { code }, { context: quiet() });
+  }
+
   /** Gives the student a new code, so a lost card stops working. */
   replaceCard(studentId: string) {
     return this.http.post<StudentCard>(`${this.base}/${studentId}/card/replace`, {});

@@ -152,6 +152,12 @@ export function describe(n: AppNotification, t: Translate): NotificationView {
         ],
       };
     }
+    case 'support_reply':
+      return {
+        icon: 'support_agent',
+        title: t('notifications.support_reply.title'),
+        lines: [fill(t('notifications.support_reply.body'), { kind: t('support.kind.' + text(p['kind'])) })],
+      };
     case 'fees_unpaid': {
       const classes = Array.isArray(p['classes']) ? (p['classes'] as Record<string, unknown>[]) : [];
       return {

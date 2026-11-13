@@ -13,7 +13,7 @@ const placeholders = (text: string): string[] => (text.match(/\{\w+\}/g) ?? []).
  * ever shown in Sinhala it falls back to the English text.
  */
 const ADMIN_ONLY =
-  /^(teachers\.|institutes\.|catalog\.|plans\.|teacher_plan\.|audit\.|privacy\.|nav\.(teachers|institutes|plans|catalog|audit|dashboard)$|dashboard\.(title|subtitle|teachers|students|classes|institutes|inactive|by_plan|no_plans|plan_note)$|error\.(unknown_teacher|name_taken|price_invalid|description_too_long|plan_invalid|dates_invalid|reference_too_long|default_plan_active|subscription_required|feature_invalid|limit_invalid|confirm_mismatch|teacher_still_active|teacher_not_found|student_not_found)$)/;
+  /^(teachers\.|institutes\.|catalog\.|plans\.|teacher_plan\.|audit\.|privacy\.|tickets\.|nav\.(teachers|institutes|plans|catalog|audit|dashboard|tickets)$|dashboard\.(title|subtitle|teachers|students|classes|institutes|inactive|by_plan|no_plans|plan_note)$|error\.(unknown_teacher|name_taken|price_invalid|description_too_long|plan_invalid|dates_invalid|reference_too_long|default_plan_active|subscription_required|feature_invalid|limit_invalid|confirm_mismatch|teacher_still_active|teacher_not_found|student_not_found|ticket_status_invalid|support_hours_too_long)$)/;
 
 describe('Sinhala text', () => {
   it('has every teacher and student screen translated', () => {

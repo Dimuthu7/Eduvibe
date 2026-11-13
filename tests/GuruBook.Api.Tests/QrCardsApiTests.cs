@@ -47,6 +47,9 @@ public class QrCardsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     private static Task<HttpResponseMessage> Scan(HttpClient teacher, Guid sessionId, string? code) =>
         teacher.PostAsJsonAsync($"/api/attendance/sessions/{sessionId}/scan", new { code });
 
+    private static Task<HttpResponseMessage> Find(HttpClient teacher, string? code) =>
+        teacher.PostAsJsonAsync("/api/students/cards/find", new { code });
+
     [Fact]
     public async Task A_class_gets_one_card_per_active_student_and_keeps_them()
     {
@@ -165,6 +168,35 @@ public class QrCardsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         Assert.Equal("card_unknown", await Code(await Scan(teacher.Client, session, "EV1:" + oldCode)));
         Assert.Equal(HttpStatusCode.OK, (await Scan(teacher.Client, session, "EV1:" + newCode)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Scanning_a_card_outside_attendance_opens_the_student()
+    {
+        var teacher = await factory.NewTeacherAsync("Scanner");
+        var other = await factory.NewTeacherAsync("Someone Else");
+        var classId = await ClassOf(teacher.Client, "Cards 8");
+        var (studentId, enrolmentId) = await Enrol(teacher.Client, classId, "Amara");
+        var code = (await Json(await teacher.Client.GetAsync($"/api/students/{studentId}/card"))).GetProperty("code").GetString();
+
+        var found = await Json(await Find(teacher.Client, "EV1:" + code));
+        Assert.Equal(studentId, found.GetProperty("id").GetGuid());
+        Assert.Equal("Amara", found.GetProperty("firstName").GetString());
+        var enrolment = found.GetProperty("enrolments").EnumerateArray().Single();
+        Assert.Equal(enrolmentId, enrolment.GetProperty("id").GetGuid());
+        Assert.Equal("Cards 8", enrolment.GetProperty("classTitle").GetString());
+
+        // The text is taken with or without the prefix, because some scanners hand over only what is after it.
+        Assert.Equal(studentId, (await Json(await Find(teacher.Client, code))).GetProperty("id").GetGuid());
+
+        // Nothing was marked: looking a student up is not attendance.
+        var date = DateOnly.FromDateTime(DateTime.UtcNow.AddMinutes(330));
+        var marks = await Json(await teacher.Client.GetAsync($"/api/attendance/enrolments/{enrolmentId}/report?from={date:yyyy-MM-dd}&to={date:yyyy-MM-dd}"));
+        Assert.Empty(marks.GetProperty("entries").EnumerateArray());
+
+        Assert.Equal("card_unknown", await Code(await Find(teacher.Client, "EV1:nobody")));
+        Assert.Equal("card_unknown", await Code(await Find(teacher.Client, " ")));
+        Assert.Equal("card_unknown", await Code(await Find(other.Client, "EV1:" + code)));
     }
 
     [Fact]

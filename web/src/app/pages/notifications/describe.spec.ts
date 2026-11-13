@@ -35,6 +35,9 @@ const t = (key: string) =>
     'notifications.child_absent.title': '{student} was not in class',
     'notifications.result_changed.title': 'A mark was corrected: {exam}',
     'notifications.about_child': '{student} · {class}',
+    'notifications.support_reply.title': 'Support replied',
+    'notifications.support_reply.body': 'About your report: {kind}',
+    'support.kind.problem': 'Something is broken',
     'notifications.unknown': 'New update',
   })[key] ?? key;
 
@@ -110,6 +113,12 @@ describe('describe', () => {
     const v = view(note('fees_unpaid', { month: '2026-10', classes: [{ title: 'Maths', count: 4 }, { title: 'Art', count: 1 }] }), t);
     expect(v.title).toBe('Unpaid fees for October 2026');
     expect(v.lines).toEqual(['Maths: 4 not paid yet', 'Art: 1 not paid yet']);
+  });
+
+  it('names what the report was about when support writes back', () => {
+    const v = view(note('support_reply', { kind: 'problem' }), t);
+    expect(v.title).toBe('Support replied');
+    expect(v.lines).toEqual(['About your report: Something is broken']);
   });
 
   it('shows a plain line for a kind this version does not know', () => {
