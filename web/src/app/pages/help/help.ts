@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { SupportCard } from './support-card';
 
 /** A topic of the help page. Its text is `help.<id>.title` and `help.<id>.1` to `help.<id>.<steps>`. */
 export interface HelpTopic {
@@ -23,6 +24,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   { id: 'payments', icon: 'account_balance', steps: 4 },
   { id: 'parents', icon: 'family_restroom', steps: 6 },
   { id: 'plan', icon: 'workspace_premium', steps: 2 },
+  { id: 'support', icon: 'support_agent', steps: 4 },
 ];
 
 /** A short guide for teachers: what each part of the app is for, as a few steps each. */
@@ -30,7 +32,7 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
   selector: 'app-help',
   host: { class: 'page' },
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatExpansionModule, MatIconModule, TranslatePipe],
+  imports: [MatExpansionModule, MatIconModule, SupportCard, TranslatePipe],
   template: `
     <header class="page-header">
       <div>
@@ -38,6 +40,8 @@ export const HELP_TOPICS: readonly HelpTopic[] = [
         <p class="page-subtitle">{{ 'help.subtitle' | t }}</p>
       </div>
     </header>
+
+    <app-support-card />
 
     <mat-accordion class="topics">
       @for (topic of topics; track topic.id; let first = $first) {

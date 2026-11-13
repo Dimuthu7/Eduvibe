@@ -63,6 +63,7 @@ export const routes: Routes = [
           { path: 'catalog', loadComponent: () => import('./pages/admin/catalog/catalog').then((m) => m.AdminCatalog) },
           { path: 'plans', loadComponent: () => import('./pages/admin/plans/plans').then((m) => m.AdminPlans) },
           { path: 'audit', loadComponent: () => import('./pages/admin/audit/audit').then((m) => m.AdminAudit) },
+          { path: 'tickets', loadComponent: () => import('./pages/admin/tickets/tickets').then((m) => m.AdminTickets) },
           { path: '**', redirectTo: 'dashboard' },
         ],
       },

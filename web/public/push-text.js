@@ -163,6 +163,11 @@
             classTitle,
           ].filter(Boolean),
         };
+      case 'support_reply':
+        return {
+          title: t('notifications.support_reply.title'),
+          lines: [fill(t('notifications.support_reply.body'), { kind: t('support.kind.' + text(p.kind)) })],
+        };
       case 'child_results':
         return {
           title: fill(t('notifications.results_published.title'), { exam: text(p.exam) }),

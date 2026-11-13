@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { Plan } from '../../../core/api/plans.service';
+import { Plan, PLAN_FEATURES } from '../../../core/api/plans.service';
 import { AppConfig } from '../../../core/config/app-config';
 import { TranslateService } from '../../../core/i18n/translate.service';
 import { PlanDialog, toPlanInput } from './plan-dialog';
@@ -87,7 +87,9 @@ describe('PlanDialog', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body.features.whatsapp).toBe(true);
     expect(request.request.body.features.parent_portal).toBe(false);
-    expect(request.request.body.limits).toEqual({ max_classes: 10, max_students_per_class: null, whatsapp_per_month: null });
+    // Every key the server knows is sent: one left out of the request is saved as off, so a missing toggle loses the feature.
+    expect(Object.keys(request.request.body.features!).sort()).toEqual([...PLAN_FEATURES].sort());
+    expect(request.request.body.limits).toEqual({ max_classes: 10, max_students_per_class: null, whatsapp_per_month: null, sms_per_month: null });
     request.flush({ ...pro, id: 'p2', name: 'Gold' });
     expect(close).toHaveBeenCalledWith(expect.objectContaining({ id: 'p2' }));
   });

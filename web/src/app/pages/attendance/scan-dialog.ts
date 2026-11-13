@@ -7,6 +7,7 @@ import { AttendanceService } from '../../core/api/attendance.service';
 import { errorCode } from '../../core/api/problem';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { TranslateService } from '../../core/i18n/translate.service';
+import { CARD_PREFIX, QrCamera } from '../../shared/qr-camera';
 
 export interface ScanData {
   sessionId: string;
@@ -15,14 +16,6 @@ export interface ScanData {
 }
 
 type Answer = { kind: 'ok' | 'again' | 'error'; text: string };
-
-const LOOK_EVERY_MS = 150;
-const SAME_CARD_MS = 3000;
-const CARD_PREFIX = 'EV1:';
-
-interface Detector {
-  detect(source: CanvasImageSource): Promise<{ rawValue: string }[]>;
-}
 
 /**
  * Full-screen camera for scanning student cards. Each card is looked up on the server (nothing is saved there); the dialog keeps the
@@ -83,16 +76,11 @@ export class ScanDialog implements OnInit {
   protected readonly countText = signal('');
 
   private readonly arrived = new Set<string>(this.data.arrived);
-  private stream: MediaStream | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
-  private lastCode = '';
-  private lastAt = 0;
-  private busy = false;
-  private stopped = false;
+  private readonly camera = new QrCamera();
 
   constructor() {
     this.showCount();
-    inject(DestroyRef).onDestroy(() => this.stop());
+    inject(DestroyRef).onDestroy(() => this.camera.stop());
     // Closing with the back button or a tap outside keeps what was scanned, just like Done.
     this.ref.disableClose = true;
     this.ref.backdropClick().subscribe(() => this.done());
@@ -112,69 +100,16 @@ export class ScanDialog implements OnInit {
   }
 
   private async start(): Promise<void> {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      this.cameraProblem.set('scan.no_camera');
-      return;
-    }
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-    } catch (error) {
-      this.cameraProblem.set(error instanceof DOMException && error.name === 'NotAllowedError' ? 'scan.camera_blocked' : 'scan.no_camera');
-      return;
-    }
-    if (this.stopped) {
-      this.stop();
-      return;
-    }
-
-    const video = this.video().nativeElement;
-    video.srcObject = this.stream;
-    await video.play().catch(() => undefined);
-    const look = await this.lookFunction(video);
-    const tick = async () => {
-      if (this.stopped) return;
-      if (video.readyState >= 2) {
-        const value = await look().catch(() => null);
-        if (value) await this.handle(value);
-      }
-      this.timer = setTimeout(tick, LOOK_EVERY_MS);
-    };
-    void tick();
-  }
-
-  /** The phone's own QR reader when it has one, otherwise the library on a shrunken copy of the frame. */
-  private async lookFunction(video: HTMLVideoElement): Promise<() => Promise<string | null>> {
-    const Native = (window as unknown as { BarcodeDetector?: new (options: { formats: string[] }) => Detector }).BarcodeDetector;
-    if (Native) {
-      const detector = new Native({ formats: ['qr_code'] });
-      return async () => (await detector.detect(video))[0]?.rawValue ?? null;
-    }
-
-    const { default: jsQR } = await import('jsqr');
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    return async () => {
-      const scale = Math.min(1, 480 / (video.videoWidth || 480));
-      canvas.width = Math.round(video.videoWidth * scale);
-      canvas.height = Math.round(video.videoHeight * scale);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      return jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
-    };
+    const problem = await this.camera.start(() => this.video().nativeElement, (value) => this.handle(value));
+    if (problem) this.cameraProblem.set(problem);
   }
 
   private async handle(value: string): Promise<void> {
-    const now = Date.now();
-    if (this.busy || (value === this.lastCode && now - this.lastAt < SAME_CARD_MS)) return;
-    this.lastCode = value;
-    this.lastAt = now;
-
     if (!value.startsWith(CARD_PREFIX)) {
       this.say('error', this.i18n.translate('error.card_unknown'), [200]);
       return;
     }
 
-    this.busy = true;
     try {
       const student = await firstValueFrom(this.api.scan(this.data.sessionId, value));
       if (this.arrived.has(student.enrolmentId)) {
@@ -187,20 +122,11 @@ export class ScanDialog implements OnInit {
     } catch (error) {
       const code = errorCode(error);
       this.say('error', this.i18n.translate(code ? `error.${code}` : 'error.unknown'), [200]);
-    } finally {
-      this.busy = false;
     }
   }
 
   private say(kind: Answer['kind'], text: string, buzz: number[]): void {
     this.answer.set({ kind, text });
     navigator.vibrate?.(buzz);
-  }
-
-  private stop(): void {
-    this.stopped = true;
-    if (this.timer) clearTimeout(this.timer);
-    this.stream?.getTracks().forEach((track) => track.stop());
-    this.stream = null;
   }
 }

@@ -18,7 +18,11 @@ public static class PlanFeatures
     /// <summary>The teacher chooses which alerts go out, how they are sent, and the words of the paid ones.</summary>
     public const string CustomMessages = "custom_messages";
 
-    public static readonly IReadOnlyList<string> All = [WhatsApp, DriveMaterials, ParentPortal, AdvancedAnalytics, Sms, BankPayments, CustomMessages];
+    /// <summary>The teacher reports a problem from inside the app, sees the number to call, and support writes back.</summary>
+    public const string PrioritySupport = "priority_support";
+
+    public static readonly IReadOnlyList<string> All =
+        [WhatsApp, DriveMaterials, ParentPortal, AdvancedAnalytics, Sms, BankPayments, CustomMessages, PrioritySupport];
 }
 
 /// <summary>The numbers a plan can cap. A plan with no value for a limit sets no cap.</summary>

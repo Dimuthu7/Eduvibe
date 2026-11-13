@@ -14,6 +14,7 @@ using GuruBook.Modules.Reports;
 using GuruBook.Modules.Payments;
 using GuruBook.Modules.Sms;
 using GuruBook.Modules.Students;
+using GuruBook.Modules.Support;
 using GuruBook.Modules.WhatsApp;
 using GuruBook.Shared.Modules;
 
@@ -40,6 +41,7 @@ public static class ModuleCatalog
         new SmsModule(),
         new MessagingModule(),
         new PaymentsModule(),
+        new SupportModule(),
         new PrivacyModule(),
     ];
 }

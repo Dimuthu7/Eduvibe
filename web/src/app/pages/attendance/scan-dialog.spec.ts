@@ -26,6 +26,13 @@ describe('ScanDialog', () => {
     return fixture;
   };
 
+  /** Lets every pending promise run and redraws: asking for the camera is a promise, not a request. */
+  const settle = async (fixture: { whenStable(): Promise<unknown>; detectChanges(): void }) => {
+    await fixture.whenStable();
+    await new Promise((resume) => setTimeout(resume, 0));
+    fixture.detectChanges();
+  };
+
   afterEach(() => {
     close.mockReset();
     vi.unstubAllGlobals();
@@ -34,8 +41,7 @@ describe('ScanDialog', () => {
   it('says so when the device has no camera, and still lets the teacher finish', async () => {
     vi.stubGlobal('navigator', { ...navigator, mediaDevices: undefined });
     const fixture = open();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
     const root = fixture.nativeElement as HTMLElement;
     expect(root.textContent).toContain('scan.no_camera');
     expect(root.textContent).toContain('"count":2');
@@ -48,8 +54,7 @@ describe('ScanDialog', () => {
     const denied = new DOMException('no', 'NotAllowedError');
     vi.stubGlobal('navigator', { ...navigator, mediaDevices: { getUserMedia: () => Promise.reject(denied) } });
     const fixture = open();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settle(fixture);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('scan.camera_blocked');
   });
 });

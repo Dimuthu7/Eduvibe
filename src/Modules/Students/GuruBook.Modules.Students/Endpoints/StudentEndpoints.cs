@@ -518,7 +518,7 @@ internal static class StudentEndpoints
 
     private static string Squash(string name) => string.Join(' ', name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
-    private static StudentDto ToStudent(
+    internal static StudentDto ToStudent(
         Student s, List<Enrolment> enrolments, IReadOnlyDictionary<Guid, ClassSummary> titles, bool hasParent, bool managesAccount) => new(
         s.Id, s.FirstName, s.LastName, s.FullName, s.Phone, s.School, s.Grade, s.GuardianName, s.GuardianPhone, s.UserId is not null, hasParent,
         [.. enrolments.OrderBy(e => e.JoinedOn).Select(e => new EnrolmentDto(

@@ -55,6 +55,9 @@
   <Folder Name="/src/Modules/Students/">
     <Project Path="src/Modules/Students/GuruBook.Modules.Students/GuruBook.Modules.Students.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Support/">
+    <Project Path="src/Modules/Support/GuruBook.Modules.Support/GuruBook.Modules.Support.csproj" />
+  </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/GuruBook.Shared/GuruBook.Shared.csproj" />
   </Folder>
