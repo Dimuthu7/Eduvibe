@@ -809,6 +809,8 @@
   "error.drive_not_connected": "මුලින් ඔබේ Google Drive සම්බන්ධ කරන්න.",
   "error.drive_reconnect": "Google Drive නැවත සම්බන්ධ කළ යුතුයි.",
   "error.drive_unavailable": "Google Drive වෙත ළඟා විය නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+  "error.drive_link_expired": "එම Google Drive සබැඳිය කල් ඉකුත් වී ඇත, නැතහොත් වෙනත් ගිණුමකින් ආරම්භ කළ එකකි. නැවත උත්සාහ කිරීමට Google Drive සම්බන්ධ කරන්න ඔබන්න.",
+  "error.drive_permission": "Google Drive හි තමන්ගේ ෆෝල්ඩරය භාවිත කිරීමට GuruBook ට අවසර අවශ්‍යයි. නැවත සම්බන්ධ කර අවසර දෙන්න.",
   "error.material_file_missing": "මෙම ගොනුව තවදුරටත් Google Drive හි නැත.",
   "error.material_file_required": "මුලින් ගොනුවක් තෝරන්න.",
   "error.material_too_large": "මෙම ගොනුව 25 MB ට වඩා විශාලයි.",

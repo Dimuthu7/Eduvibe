@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { toSignal } from '@angular/core/rxjs-interop';
 import { CdkDrag, CdkDragEnd, CdkDragMove, CdkDragPreview, CdkDropList } from '@angular/cdk/drag-drop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog } from '@angular/material/dialog';
@@ -342,6 +342,7 @@ export class Materials {
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly i18n = inject(TranslateService);
 
   protected readonly kinds = MATERIAL_KINDS;
@@ -416,14 +417,18 @@ export class Materials {
       if (this.classId() && list.some((c) => c.id === this.classId())) this.classControl.setValue(this.classId());
     });
 
-    // Google's return trip lands here with the result in the address; say it once and tidy the address.
+    // Google's return trip lands here with the result in the address; say it once and tidy the address. When Google said yes, the
+    // address carries its one-time code after the #, and this screen finishes the link while signed in.
     effect(() => {
-      const outcome = OUTCOME_MESSAGES[this.outcome()];
-      if (!outcome) return;
+      const outcome = this.outcome();
+      const message = OUTCOME_MESSAGES[outcome];
+      if (!message && outcome !== 'finish') return;
       untracked(() => {
-        if (outcome.ok) this.toast.success(outcome.key);
-        else this.toast.error(outcome.key);
+        const handed = new URLSearchParams(this.route.snapshot.fragment ?? '');
         void this.router.navigate([], { queryParams: { drive: null }, queryParamsHandling: 'merge', replaceUrl: true });
+        if (outcome === 'finish') this.finishConnect(handed.get('code') ?? '', handed.get('state') ?? '');
+        else if (message.ok) this.toast.success(message.key);
+        else this.toast.error(message.key);
       });
     });
 
@@ -623,6 +628,21 @@ export class Materials {
     this.connecting.set(true);
     this.api.connect().subscribe({
       next: ({ url }) => window.location.assign(url),
+      error: (e) => {
+        this.connecting.set(false);
+        this.toast.error(errorKey(e));
+      },
+    });
+  }
+
+  private finishConnect(code: string, state: string): void {
+    this.connecting.set(true);
+    this.api.finishConnect(code, state).subscribe({
+      next: () => {
+        this.connecting.set(false);
+        this.toast.success('materials.drive_connected');
+        this.load();
+      },
       error: (e) => {
         this.connecting.set(false);
         this.toast.error(errorKey(e));

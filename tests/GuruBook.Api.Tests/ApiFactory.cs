@@ -42,7 +42,7 @@ namespace GuruBook.Api.Tests;
 /// <summary>Runs the real API on an in-memory SQLite database, so tests need no PostgreSQL.</summary>
 public sealed record TestTeacher(HttpClient Client, Guid Id);
 
-public sealed class ApiFactory : WebApplicationFactory<Program>
+public class ApiFactory : WebApplicationFactory<Program>
 {
     public const string AdminPhone = "+94770000001";
     public const string AdminPassword = "AdminPass123";
@@ -138,6 +138,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Database:MigrateOnStartup", "false");
         builder.UseSetting("Jwt:SigningKey", "test-signing-key-test-signing-key-0123456789");
         builder.UseSetting("RateLimit:AuthPerMinute", "1000");
+        builder.UseSetting("RateLimit:SessionPerMinute", "1000");
+        builder.UseSetting("RateLimit:PasswordsPerMinute", "1000");
+        builder.UseSetting("RateLimit:UploadsPerMinute", "1000");
+        builder.UseSetting("RateLimit:UserPerMinute", "100000");
         builder.UseSetting("Catalog:SeedOnStartup", "false");
         builder.UseSetting("Fees:MonthlyJob", "false");
         builder.UseSetting("Plans:SeedOnStartup", "false");
@@ -178,6 +182,13 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IDriveClient>(Drive);
             UseSqlite<AuditDbContext>(services);
         });
+
+        ConfigureSettings(builder);
+    }
+
+    /// <summary>Lets a factory for one kind of test change settings after the defaults above.</summary>
+    protected virtual void ConfigureSettings(IWebHostBuilder builder)
+    {
     }
 
     protected override IHost CreateHost(IHostBuilder builder)

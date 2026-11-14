@@ -13,10 +13,17 @@ public sealed class PasswordService
 
     private readonly PasswordHasher<User> _hasher = new();
 
+    // A hash nobody's password matches, checked when a name has no account so that answer takes as long as a wrong password.
+    private readonly string _decoy;
+
+    public PasswordService() => _decoy = _hasher.HashPassword(null!, NewOneTimePassword());
+
     public string Hash(User user, string password) => _hasher.HashPassword(user, password);
 
     public bool Verify(User user, string password) =>
         _hasher.VerifyHashedPassword(user, user.PasswordHash, password) != PasswordVerificationResult.Failed;
+
+    public void VerifyDecoy(string password) => _hasher.VerifyHashedPassword(null!, _decoy, password);
 
     public static string NewOneTimePassword() => RandomNumberGenerator.GetString(OtpAlphabet, 10);
 }

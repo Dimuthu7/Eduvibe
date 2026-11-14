@@ -25,7 +25,7 @@ internal static class PhotoEndpoints
         var teacher = group.MapGroup("").RequireAuthorization(Policies.Teacher);
         teacher.MapGet("/photos", List);
         teacher.MapGet("/{id:guid}/photo", Get);
-        teacher.MapPut("/{id:guid}/photo", Put);
+        teacher.MapPut("/{id:guid}/photo", Put).RequireRateLimiting(RateLimits.Uploads);
         teacher.MapDelete("/{id:guid}/photo", Delete);
     }
 

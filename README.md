@@ -58,7 +58,11 @@ See [docs](docs/README.md) for the plan and [CLAUDE.md](CLAUDE.md) for the conve
 | `Database__MigrateOnStartup` | API environment | `true` applies migrations on start; on in Development |
 | `Jwt__SigningKey` | API environment | Secret of at least 32 characters; the API will not start without it. Development has a throwaway key in `appsettings.Development.json` |
 | `SuperAdmin__Phone`, `SuperAdmin__Password` | API environment | Creates the first Super Admin when none exists; the password must be changed at first sign-in |
-| `RateLimit__AuthPerMinute` | API environment | Sign-in attempts per address per minute (default 10) |
+| `RateLimit__AuthPerMinute` | API environment | Sign-in and class-link attempts per address per minute (default 10) |
+| `RateLimit__SessionPerMinute` | API environment | Session refreshes and sign-outs per address per minute (default 60) |
+| `RateLimit__PasswordsPerMinute` | API environment | Password changes, password resets and parent invites per person per minute (default 10) |
+| `RateLimit__UploadsPerMinute` | API environment | Photo, slip, screenshot and file uploads per person per minute (default 30) |
+| `RateLimit__UserPerMinute` | API environment | All requests per signed-in person per minute (default 600) |
 | `Cors__AllowedOrigins__0` | API environment | Web app address allowed to call the API |
 | `apiBaseUrl` | `web/public/config.json` | Replaced per environment at deploy time |
 
