@@ -170,6 +170,27 @@ describe('AuthService', () => {
     expect(localStorage.getItem('gurubook.session')).toBeNull();
   });
 
+  it('stays signed in when a refresh is only slowed down or cannot reach the server', async () => {
+    const auth = setup();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    auth.login('0771234567', 'pw').subscribe();
+    http.expectOne(`${API}/api/identity/login`).flush(session());
+
+    let failed = false;
+    auth['http'].get(`${API}/api/identity/teachers`).subscribe({ error: () => (failed = true) });
+    http.expectOne(`${API}/api/identity/teachers`).flush(null, { status: 401, statusText: 'Unauthorized' });
+    await vi.waitFor(() => http.expectOne(`${API}/api/identity/refresh`).flush(null, { status: 429, statusText: 'Too Many Requests' }));
+    await vi.waitFor(() => expect(failed).toBe(true));
+
+    auth['http'].get(`${API}/api/identity/teachers`).subscribe({ error: () => undefined });
+    http.expectOne(`${API}/api/identity/teachers`).flush(null, { status: 401, statusText: 'Unauthorized' });
+    await vi.waitFor(() => http.expectOne(`${API}/api/identity/refresh`).error(new ProgressEvent('error')));
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(auth.accessToken).toBe('access-1');
+    expect(localStorage.getItem('gurubook.session')).toContain('refresh-1');
+  });
+
   it('clears the session on sign-out', async () => {
     const auth = setup();
     vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);

@@ -12,16 +12,15 @@ namespace GuruBook.Modules.Identity.Endpoints;
 
 internal static class IdentityEndpoints
 {
-    public const string AuthRateLimit = "auth";
-
     public static void Map(RouteGroupBuilder group)
     {
-        var auth = group.MapGroup("").AllowAnonymous().RequireRateLimiting(AuthRateLimit);
-        auth.MapPost("/login", Login);
-        auth.MapPost("/refresh", Refresh);
-        auth.MapPost("/logout", Logout);
+        group.MapPost("/login", Login).AllowAnonymous().RequireRateLimiting(RateLimits.SignIn);
 
-        group.MapPost("/change-password", ChangePassword).RequireAuthorization(Policies.SignedIn);
+        // A refresh token is too long to guess, so these only need a limit roomy enough for a full class signing in on one Wi-Fi.
+        group.MapPost("/refresh", Refresh).AllowAnonymous().RequireRateLimiting(RateLimits.Session);
+        group.MapPost("/logout", Logout).AllowAnonymous().RequireRateLimiting(RateLimits.Session);
+
+        group.MapPost("/change-password", ChangePassword).RequireAuthorization(Policies.SignedIn).RequireRateLimiting(RateLimits.Passwords);
         group.MapGet("/me", GetMe).RequireAuthorization(Policies.SignedIn);
         group.MapPut("/me", UpdateMe);
         group.MapPut("/me/language", SetLanguage).RequireAuthorization(Policies.SignedIn);

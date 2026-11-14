@@ -263,6 +263,36 @@ public class IdentityApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.TooManyRequests, locked.StatusCode);
     }
 
+    [Theory]
+    [InlineData("nobody.at.all")]
+    [InlineData("0779999001")]
+    public async Task A_name_without_an_account_answers_exactly_like_a_real_one_so_accounts_cannot_be_found(string name)
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            var bad = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = name, password = "wrong-pass" });
+            Assert.Equal(HttpStatusCode.Unauthorized, bad.StatusCode);
+            Assert.Contains("invalid_credentials", await bad.Content.ReadAsStringAsync());
+        }
+
+        // The pause after five tries comes for a made-up name too, so "locked" no longer gives away that an account exists.
+        var paused = await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = name.ToUpperInvariant(), password = "any-pass" });
+        Assert.Equal(HttpStatusCode.TooManyRequests, paused.StatusCode);
+        Assert.Contains("locked", await paused.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task A_phone_number_written_another_way_counts_toward_the_same_pause()
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            var phone = i % 2 == 0 ? "0779999002" : "+94779999002";
+            Assert.Equal(HttpStatusCode.Unauthorized, (await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = phone, password = "wrong-pass" })).StatusCode);
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await Anonymous().PostAsJsonAsync("/api/identity/login", new { username = "0779999002", password = "x" })).StatusCode);
+    }
+
     [Fact]
     public async Task Refresh_rotates_the_token_and_a_reused_token_ends_the_session()
     {

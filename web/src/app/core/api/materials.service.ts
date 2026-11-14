@@ -82,6 +82,14 @@ export class MaterialsService {
     return this.http.post<{ url: string }>(`${this.base}/drive/connect`, {});
   }
 
+  /**
+   * Links the Drive with what Google handed back. Sent with this teacher's sign-in, so a Google link someone else started cannot link
+   * their account to this teacher's Drive. Quiet: the screen says what happened.
+   */
+  finishConnect(code: string, state: string) {
+    return this.http.post<DriveStatus>(`${this.base}/drive/finish`, { code, state }, { context: quiet() });
+  }
+
   disconnect() {
     return this.http.delete<void>(`${this.base}/drive`);
   }

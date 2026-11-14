@@ -33,13 +33,34 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         return teacher;
     }
 
-    /// <summary>Walks the teacher through Google's consent: asks for the address, then plays Google's redirect back with a code.</summary>
-    private async Task<HttpResponseMessage> Connect(HttpClient teacher, string code = "ok")
+    /// <summary>Asks for Google's consent page and returns the state it carries.</summary>
+    private static async Task<string> StartConnect(HttpClient teacher)
     {
         var consent = await Json(await teacher.PostAsync("/api/materials/drive/connect", null));
-        var state = Uri.UnescapeDataString(consent.GetProperty("url").GetString()!.Split("state=")[1]);
+        return Uri.UnescapeDataString(consent.GetProperty("url").GetString()!.Split("state=")[1]);
+    }
+
+    /// <summary>Plays Google's redirect back to the API with a code, as the browser would, without following it on.</summary>
+    private async Task<HttpResponseMessage> Callback(string code, string state)
+    {
         var browser = factory.CreateClient(new() { AllowAutoRedirect = false });
         return await browser.GetAsync($"/api/materials/drive/callback?code={code}&state={Uri.EscapeDataString(state)}");
+    }
+
+    /// <summary>The code and state the callback hands to the web app after the #.</summary>
+    private static (string Code, string State) Handed(HttpResponseMessage back)
+    {
+        var location = back.Headers.Location!.ToString();
+        Assert.Contains("/materials?drive=finish#", location);
+        var parts = location.Split('#')[1].Split('&').Select(p => p.Split('=', 2)).ToDictionary(p => p[0], p => Uri.UnescapeDataString(p[1]));
+        return (parts["code"], parts["state"]);
+    }
+
+    /// <summary>Walks the teacher through Google's consent: asks for the address, plays Google's redirect back, then lets the web app finish.</summary>
+    private async Task<HttpResponseMessage> Connect(HttpClient teacher, string code = "ok")
+    {
+        var (handedCode, state) = Handed(await Callback(code, await StartConnect(teacher)));
+        return await teacher.PostAsJsonAsync("/api/materials/drive/finish", new { code = handedCode, state });
     }
 
     private async Task<Guid> ClassOf(HttpClient teacher, string title = "Materials class")
@@ -127,9 +148,12 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
             factory.Drive.IsConfigured = true;
         }
 
-        var back = await Connect(teacher.Client);
+        var back = await Callback("ok", await StartConnect(teacher.Client));
         Assert.Equal(HttpStatusCode.Redirect, back.StatusCode);
-        Assert.EndsWith("/materials?drive=connected", back.Headers.Location!.ToString());
+        var (code, state) = Handed(back);
+        var finished = await teacher.Client.PostAsJsonAsync("/api/materials/drive/finish", new { code, state });
+        Assert.Equal(HttpStatusCode.OK, finished.StatusCode);
+        Assert.Equal("teacher@example.com", (await Json(finished)).GetProperty("email").GetString());
 
         var status = await Json(await teacher.Client.GetAsync("/api/materials/drive"));
         Assert.True(status.GetProperty("connected").GetBoolean());
@@ -146,12 +170,29 @@ public class MaterialsApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var forged = await browser.GetAsync("/api/materials/drive/callback?code=ok&state=not-a-real-state");
         Assert.EndsWith("drive=failed", forged.Headers.Location!.ToString());
 
-        var denied = await Connect(teacher.Client, code: "");
+        var denied = await Callback("", await StartConnect(teacher.Client));
         Assert.EndsWith("drive=denied", denied.Headers.Location!.ToString());
 
-        var refused = await Connect(teacher.Client, code: "refused");
-        Assert.EndsWith("drive=permission", refused.Headers.Location!.ToString());
+        Assert.Equal("drive_permission", await Code(await Connect(teacher.Client, code: "refused")));
         Assert.False((await Json(await teacher.Client.GetAsync("/api/materials/drive"))).GetProperty("connected").GetBoolean());
+    }
+
+    [Fact]
+    public async Task A_Google_link_started_by_another_teacher_cannot_tie_their_GuruBook_to_your_Drive()
+    {
+        var teacher = await ProTeacher("Trusting");
+        var schemer = await ProTeacher("Schemer");
+
+        // The schemer starts a connection and sends the Google link to the teacher, who opens it and allows access with their own Drive.
+        var (code, state) = Handed(await Callback("victim", await StartConnect(schemer.Client)));
+        var finished = await teacher.Client.PostAsJsonAsync("/api/materials/drive/finish", new { code, state });
+
+        Assert.Equal("drive_link_expired", await Code(finished));
+        Assert.False((await Json(await teacher.Client.GetAsync("/api/materials/drive"))).GetProperty("connected").GetBoolean());
+        Assert.False((await Json(await schemer.Client.GetAsync("/api/materials/drive"))).GetProperty("connected").GetBoolean());
+
+        // A made-up state is refused too, even from the right teacher.
+        Assert.Equal("drive_link_expired", await Code(await teacher.Client.PostAsJsonAsync("/api/materials/drive/finish", new { code, state = "made-up" })));
     }
 
     [Fact]

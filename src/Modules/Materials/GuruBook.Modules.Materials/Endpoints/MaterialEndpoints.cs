@@ -22,7 +22,7 @@ internal static class MaterialEndpoints
     {
         var materials = group.MapGroup("").RequireAuthorization(Policies.Teacher).RequireFeature(PlanFeatures.DriveMaterials);
         materials.MapGet("", List);
-        materials.MapPost("", Add).DisableAntiforgery();
+        materials.MapPost("", Add).DisableAntiforgery().RequireRateLimiting(RateLimits.Uploads);
         materials.MapPut("/{id:guid}", Update);
         materials.MapDelete("/{id:guid}", Remove);
         materials.MapGet("/{id:guid}/file", Open);
