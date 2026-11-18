@@ -40,7 +40,7 @@ internal static class TeacherEndpoints
         teacher.MapGet("/details", Details);
         teacher.MapPut("/details", SaveDetails);
         teacher.MapGet("/qr", MyQr);
-        teacher.MapPut("/qr", SaveQr);
+        teacher.MapPut("/qr", SaveQr).RequireRateLimiting(RateLimits.Uploads);
         teacher.MapDelete("/qr", RemoveQr);
         teacher.MapGet("/claims", Claims);
         teacher.MapGet("/claims/{id:guid}/slip", Slip);

@@ -990,6 +990,8 @@
   "error.drive_not_connected": "Connect your Google Drive first.",
   "error.drive_reconnect": "Google Drive needs to be connected again.",
   "error.drive_unavailable": "Google Drive could not be reached. Please try again.",
+  "error.drive_link_expired": "That Google Drive link has expired or was started from another account. Press Connect Google Drive to try again.",
+  "error.drive_permission": "GuruBook needs permission to use its folder in Google Drive. Connect again and allow it.",
   "error.material_file_missing": "This file is no longer in Google Drive.",
   "error.material_file_required": "Choose a file first.",
   "error.material_too_large": "This file is bigger than 25 MB.",

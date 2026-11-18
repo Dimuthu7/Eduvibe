@@ -3,7 +3,6 @@ using GuruBook.Shared.Auditing;
 using GuruBook.Shared.Geography;
 using GuruBook.Shared.Persistence;
 using GuruBook.Shared.Tenancy;
-using System.Threading.RateLimiting;
 using GuruBook.Shared.Security;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -18,15 +17,7 @@ builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
 builder.Services.AddGuruBookPersistence(builder.Configuration);
 builder.Services.AddGuruBookSecurity(builder.Configuration);
 
-// Sign-in endpoints are limited per client address to slow down password guessing.
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    var perMinute = builder.Configuration.GetValue("RateLimit:AuthPerMinute", 10);
-    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = perMinute, Window = TimeSpan.FromMinutes(1) }));
-});
+builder.Services.AddGuruBookRateLimits(builder.Configuration);
 
 foreach (var module in modules)
 {
@@ -82,8 +73,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
-app.UseRateLimiter();
 app.UseAuthentication();
+
+// After sign-in is read, so limits can count per person; before authorization, so refused requests count too.
+app.UseRateLimiter();
 app.UseAuthorization();
 
 // Liveness: the process is up. Readiness: the database is reachable too.

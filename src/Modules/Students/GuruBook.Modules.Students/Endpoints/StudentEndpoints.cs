@@ -49,7 +49,7 @@ internal static class StudentEndpoints
         students.MapGet("/{id:guid}", Get);
         students.MapPut("/{id:guid}", Update);
         students.MapPost("/{id:guid}/enrolments", Enrol);
-        students.MapPost("/{id:guid}/reset-password", ResetPassword);
+        students.MapPost("/{id:guid}/reset-password", ResetPassword).RequireRateLimiting(RateLimits.Passwords);
         students.MapPut("/enrolments/{id:guid}", UpdateEnrolment);
         students.MapPost("/enrolments/{id:guid}/approve", Approve);
         students.MapPost("/enrolments/{id:guid}/reject", Reject);

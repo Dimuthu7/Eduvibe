@@ -26,8 +26,8 @@ internal static class ParentEndpoints
     public static void Map(RouteGroupBuilder group)
     {
         var teacher = group.MapGroup("").RequireAuthorization(Policies.Teacher);
-        teacher.MapPost("/{id:guid}/parent", Invite).RequireFeature(PlanFeatures.ParentPortal);
-        teacher.MapPost("/{id:guid}/parent/reset-password", ResetPassword);
+        teacher.MapPost("/{id:guid}/parent", Invite).RequireFeature(PlanFeatures.ParentPortal).RequireRateLimiting(RateLimits.Passwords);
+        teacher.MapPost("/{id:guid}/parent/reset-password", ResetPassword).RequireRateLimiting(RateLimits.Passwords);
         teacher.MapDelete("/{id:guid}/parent", Remove);
         group.MapGet("/family", Family).RequireAuthorization(Policies.Parent);
     }

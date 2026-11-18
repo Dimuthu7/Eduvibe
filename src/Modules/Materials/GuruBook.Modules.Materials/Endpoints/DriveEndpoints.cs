@@ -18,6 +18,9 @@ public sealed record DriveStatusDto(bool Configured, bool Connected, string? Ema
 
 public sealed record ConsentDto(string Url);
 
+/// <summary>What Google handed back, passed on by the web app: the one-time code and the state made in Connect.</summary>
+public sealed record FinishConnectRequest(string? Code, string? State);
+
 /// <summary>Connecting and disconnecting a teacher's Google Drive.</summary>
 internal static class DriveEndpoints
 {
@@ -26,9 +29,11 @@ internal static class DriveEndpoints
         var drive = group.MapGroup("/drive").RequireAuthorization(Policies.Teacher).RequireFeature(PlanFeatures.DriveMaterials);
         drive.MapGet("", Status);
         drive.MapPost("/connect", Connect);
+        drive.MapPost("/finish", Finish);
         drive.MapDelete("", Disconnect);
 
-        // Google sends the browser here. It carries no sign-in, so who is connecting comes from the signed state made in Connect.
+        // Google sends the browser here. It carries no sign-in, so it only checks the state and hands the code on to the web app,
+        // which finishes while signed in.
         group.MapGet("/drive/callback", Callback).AllowAnonymous();
     }
 
@@ -72,44 +77,57 @@ internal static class DriveEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> Callback(
-        string? code, string? state, string? error, MaterialsDbContext db, IDriveClient drive, DriveTokens tokens, IPlanGate plans,
-        IOptions<DriveOptions> options, IConfiguration configuration, TimeProvider clock, ILogger<DriveStatusDto> logger, CancellationToken ct)
+    /// <summary>
+    /// Google's return trip. The code is not used here: the browser carries it on to the web app (after the #, so it never reaches a
+    /// server log), and the web app sends it to Finish with the teacher's sign-in.
+    /// </summary>
+    private static IResult Callback(string? code, string? state, string? error, DriveTokens tokens, IOptions<DriveOptions> options,
+        IConfiguration configuration, TimeProvider clock)
     {
-        var back = (string outcome) => Results.Redirect($"{WebAddress(options.Value, configuration)}/materials?drive={outcome}");
-
-        if (tokens.ReadState(state, clock.GetUtcNow()) is not { } tenantId)
+        var web = WebAddress(options.Value, configuration);
+        if (tokens.ReadState(state, clock.GetUtcNow()) is null)
         {
-            return back("failed");
+            return Results.Redirect($"{web}/materials?drive=failed");
         }
 
         if (!string.IsNullOrEmpty(error) || string.IsNullOrEmpty(code))
         {
-            return back("denied");
+            return Results.Redirect($"{web}/materials?drive=denied");
         }
 
-        if (!(await plans.ForTeacherAsync(tenantId, ct)).Has(PlanFeatures.DriveMaterials))
+        return Results.Redirect($"{web}/materials?drive=finish#code={Uri.EscapeDataString(code)}&state={Uri.EscapeDataString(state!)}");
+    }
+
+    /// <summary>
+    /// Links the Drive. Only the teacher who pressed Connect can finish: a Google link someone else started and sent to this teacher
+    /// to open is refused, so nobody can tie their GuruBook to another teacher's Drive.
+    /// </summary>
+    private static async Task<IResult> Finish(
+        FinishConnectRequest request, ITenantContext tenant, MaterialsDbContext db, IDriveClient drive, DriveTokens tokens,
+        TimeProvider clock, ILogger<DriveStatusDto> logger, CancellationToken ct)
+    {
+        if (tokens.ReadState(request.State, clock.GetUtcNow()) is not { } tenantId || tenantId != tenant.TenantId || string.IsNullOrEmpty(request.Code))
         {
-            return back("locked");
+            return Problems.Reject("drive_link_expired");
         }
 
         DriveGrant grant;
         try
         {
-            grant = await drive.ExchangeCodeAsync(code, ct);
+            grant = await drive.ExchangeCodeAsync(request.Code, ct);
         }
         catch (DriveAuthException e)
         {
             logger.LogInformation("Drive sign-in refused: {Reason}", e.Message);
-            return back("permission");
+            return Problems.Reject("drive_permission", StatusCodes.Status409Conflict);
         }
         catch (DriveUnavailableException e)
         {
             logger.LogWarning(e, "Google could not be reached while connecting Drive");
-            return back("failed");
+            return Problems.Reject(DriveUnavailableException.Generic, StatusCodes.Status502BadGateway);
         }
 
-        var connection = await db.Connections.IgnoreQueryFilters().SingleOrDefaultAsync(c => c.TenantId == tenantId, ct);
+        var connection = await db.Connections.SingleOrDefaultAsync(ct);
         var protectedToken = tokens.Protect(grant.RefreshToken);
         if (connection is null)
         {
@@ -121,7 +139,7 @@ internal static class DriveEndpoints
             if (!string.Equals(connection.Email, grant.Email, StringComparison.OrdinalIgnoreCase))
             {
                 connection.RootFolderId = null;
-                db.ClassFolders.RemoveRange(await db.ClassFolders.IgnoreQueryFilters().Where(f => f.TenantId == tenantId).ToListAsync(ct));
+                db.ClassFolders.RemoveRange(await db.ClassFolders.ToListAsync(ct));
             }
 
             connection.Email = grant.Email;
@@ -130,7 +148,7 @@ internal static class DriveEndpoints
         }
 
         await db.SaveChangesAsync(ct);
-        return back("connected");
+        return Results.Ok(new DriveStatusDto(drive.IsConfigured, true, grant.Email, false));
     }
 
     /// <summary>The web app's address for the browser to return to.</summary>

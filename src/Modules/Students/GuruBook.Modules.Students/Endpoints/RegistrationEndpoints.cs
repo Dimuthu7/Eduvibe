@@ -1,5 +1,6 @@
 using GuruBook.Modules.Students.Domain;
 using GuruBook.Shared.Modules;
+using GuruBook.Shared.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -23,7 +24,7 @@ internal static class RegistrationEndpoints
 {
     public static void Map(RouteGroupBuilder group)
     {
-        var register = group.MapGroup("/register/{token}").AllowAnonymous().RequireRateLimiting("auth");
+        var register = group.MapGroup("/register/{token}").AllowAnonymous().RequireRateLimiting(RateLimits.SignIn);
         register.MapGet("", Info);
         register.MapPost("", Submit);
     }

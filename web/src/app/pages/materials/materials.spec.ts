@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, provideRouter, Router } from '@angular/router';
 import { DriveStatus, Material, MaterialFolder } from '../../core/api/materials.service';
 import { AppConfig } from '../../core/config/app-config';
 import { TranslateService } from '../../core/i18n/translate.service';
@@ -60,6 +60,54 @@ describe('Materials', () => {
     expect(el.textContent).toContain('Pro');
     expect(el.querySelector('.filters')).toBeNull();
     expect(el.textContent).not.toContain('materials.connect');
+  });
+
+  describe("after Google's consent page", () => {
+    const notConnected: DriveStatus = { configured: true, connected: false, email: null, needsReconnect: false };
+
+    const returnFromGoogle = (fragment: string) => {
+      TestBed.configureTestingModule({
+        imports: [Materials],
+        providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: ActivatedRoute, useValue: { snapshot: { fragment } } }],
+      });
+      http = TestBed.inject(HttpTestingController);
+      vi.spyOn(TestBed.inject(AppConfig), 'apiBaseUrl', 'get').mockReturnValue(API);
+      vi.spyOn(TestBed.inject(TranslateService), 'translate').mockImplementation((key) => key);
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const toast = TestBed.inject(ToastService);
+      const success = vi.spyOn(toast, 'success').mockImplementation(() => undefined);
+      const error = vi.spyOn(toast, 'error').mockImplementation(() => undefined);
+      const fixture = TestBed.createComponent(Materials);
+      fixture.componentRef.setInput('drive', 'finish');
+      fixture.detectChanges();
+      http.expectOne((r) => r.url === `${API}/api/classes/classes`).flush([]);
+      http.expectOne(`${API}/api/materials/drive`).flush(notConnected);
+      http.expectOne(`${API}/api/materials`).flush([]);
+      http.expectOne(`${API}/api/materials/folders`).flush([]);
+      return { fixture, navigate, success, error };
+    };
+
+    it("finishes the link with Google's code while signed in, then tidies the address", async () => {
+      const { fixture, navigate, success } = returnFromGoogle('code=4%2F0Ab-c&state=st.sig');
+
+      const finish = http.expectOne(`${API}/api/materials/drive/finish`);
+      expect(finish.request.body).toEqual({ code: '4/0Ab-c', state: 'st.sig' });
+      expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: { drive: null }, replaceUrl: true }));
+      finish.flush(connected);
+
+      expect(success).toHaveBeenCalledWith('materials.drive_connected');
+      http.expectOne(`${API}/api/materials/drive`).flush(connected);
+      http.expectOne(`${API}/api/materials`).flush([]);
+      http.expectOne(`${API}/api/materials/folders`).flush([]);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('sunil@example.com');
+    });
+
+    it('says so when the link was started from another account or is too old', () => {
+      const { error } = returnFromGoogle('code=x&state=y');
+      http.expectOne(`${API}/api/materials/drive/finish`).flush({ code: 'drive_link_expired' }, { status: 400, statusText: 'Bad Request' });
+      expect(error).toHaveBeenCalledWith('error.drive_link_expired');
+    });
   });
 
   it('asks a teacher with no Drive link to connect, and offers no way to add files yet', async () => {

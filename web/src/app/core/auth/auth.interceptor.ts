@@ -24,7 +24,8 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       return from(auth.refresh()).pipe(
         switchMap((ok) => {
           if (!ok) {
-            auth.expire();
+            // Turned down for good: back to sign-in. Only out of reach for now: stay signed in and let this call fail.
+            if (!auth.hasStoredSession()) auth.expire();
             return throwError(() => error);
           }
           return next(withToken(request));

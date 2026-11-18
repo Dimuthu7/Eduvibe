@@ -13,7 +13,7 @@ namespace GuruBook.Modules.Identity.Services;
 public sealed record TokenPair(string AccessToken, string RefreshToken, DateTimeOffset AccessTokenExpiresAt);
 
 /// <summary>Signs users in and issues and rotates tokens.</summary>
-public sealed class AuthService(IdentityDbContext db, PasswordService passwords, IOptions<JwtOptions> jwt, TimeProvider clock)
+public sealed class AuthService(IdentityDbContext db, PasswordService passwords, UnknownSignIns unknown, IOptions<JwtOptions> jwt, TimeProvider clock)
 {
     public const int MaxFailedLogins = 5;
     public static readonly TimeSpan LockDuration = TimeSpan.FromMinutes(15);
@@ -32,9 +32,18 @@ public sealed class AuthService(IdentityDbContext db, PasswordService passwords,
         var user = await db.Users.Include(u => u.Roles).SingleOrDefaultAsync(
             u => u.Username == name || (u.Username == null && phone != null && u.Phone == phone), ct);
 
-        // The same answer for an unknown name and a wrong password, so accounts cannot be probed.
+        // No such account: the same answers, the same time spent checking a password and the same pause after five tries as a real
+        // account, so sign-in cannot be used to find out which names and phone numbers have accounts.
         if (user is null || !user.IsActive)
         {
+            var key = phone ?? name;
+            if (unknown.IsLocked(key, now))
+            {
+                return (null, "locked");
+            }
+
+            passwords.VerifyDecoy(password);
+            unknown.Failed(key, now);
             return (null, "invalid_credentials");
         }
 

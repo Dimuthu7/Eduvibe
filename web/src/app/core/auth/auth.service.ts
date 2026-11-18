@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom, tap } from 'rxjs';
@@ -97,7 +97,10 @@ export class AuthService {
     }
   }
 
-  /** Swaps the refresh token for a new pair. Concurrent callers share one request. */
+  /**
+   * Swaps the refresh token for a new pair. Concurrent callers share one request. Only the server turning the session down signs the
+   * person out: no signal, a busy server or "too many requests" keeps the session for the next try.
+   */
   refresh(): Promise<boolean> {
     if (!this.tokens) return Promise.resolve(false);
     this.refreshing ??= firstValueFrom(
@@ -107,8 +110,8 @@ export class AuthService {
         this.accept(session);
         return true;
       })
-      .catch(() => {
-        this.clear();
+      .catch((error: unknown) => {
+        if (error instanceof HttpErrorResponse && (error.status === 400 || error.status === 401)) this.clear();
         return false;
       })
       .finally(() => (this.refreshing = null));

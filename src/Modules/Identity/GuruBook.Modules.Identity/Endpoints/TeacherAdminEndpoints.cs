@@ -18,7 +18,7 @@ internal static class TeacherAdminEndpoints
         var teachers = group.MapGroup("/teachers").RequireAuthorization(Policies.SuperAdmin);
         teachers.MapGet("", List);
         teachers.MapPost("", Create);
-        teachers.MapPost("/{id:guid}/reset-password", ResetPassword);
+        teachers.MapPost("/{id:guid}/reset-password", ResetPassword).RequireRateLimiting(RateLimits.Passwords);
         teachers.MapPut("/{id:guid}/active", SetActive);
     }
 

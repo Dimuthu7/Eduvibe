@@ -39,7 +39,7 @@ internal static class PayerEndpoints
             Claim(studentId, enrolmentId, request, byParent: true, claims, ct));
 
         // The slip rides on the claim that was just made, so one route serves both: it is the claim's own author who may add it.
-        group.MapPut("/claims/{id:guid}/slip", Slip).RequireAuthorization(Policies.Active);
+        group.MapPut("/claims/{id:guid}/slip", Slip).RequireAuthorization(Policies.Active).RequireRateLimiting(RateLimits.Uploads);
     }
 
     private static async Task<IResult> How(Guid? studentId, Guid enrolmentId, string? month, ClaimService claims, CancellationToken ct)

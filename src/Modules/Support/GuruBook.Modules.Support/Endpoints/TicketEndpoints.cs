@@ -28,7 +28,7 @@ internal static class TicketEndpoints
         mine.MapPost("/tickets", Raise);
         mine.MapPost("/tickets/{id:guid}/replies", Reply);
         mine.MapGet("/tickets/{id:guid}/shot", Shot);
-        mine.MapPut("/tickets/{id:guid}/shot", SaveShot);
+        mine.MapPut("/tickets/{id:guid}/shot", SaveShot).RequireRateLimiting(RateLimits.Uploads);
     }
 
     /// <summary>The picture, with the header that stops a browser guessing its type.</summary>
