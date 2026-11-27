@@ -3,6 +3,14 @@
 - [Requirements and data model](https://claude.ai/code/artifact/3f14c910-0255-48f7-a440-db1953ba76f8) — what GuruBook does, roles, data model, architecture, deployment cost.
 - [Sprint plan](https://claude.ai/code/artifact/47646ddb-8f73-4205-8ae4-af233e3682a9) — 10 MVP sprints and 4 Phase 2 sprints, with tickets and status.
 
+## PDF guides
+
+- [User guide](guides/GuruBook-User-Guide.pdf) — every screen for teachers, students, parents and the Super Admin, step by step with phone screenshots (59 pages).
+- [Technical design](guides/GuruBook-Technical-Design.pdf) — architecture, modules, tenancy, security, data model, API, jobs, integrations, web app, build and deploy, with diagrams (28 pages).
+- [Support handover and production runbook](guides/GuruBook-Support-Handover.pdf) — severity levels, triage, logs, rollback and hotfix, data fixes, backups, SQL cookbook, known issues, error codes and every database table (41 pages).
+
+## Setup and operations
+
 - [Backups](backups.md) — the nightly encrypted database backup and how to restore it.
 - [Free test deployment](deploy-free.md) — web on Azure, API on Render, database on Neon.
 - [Google Drive setup](drive-setup.md) — the Google Cloud client and settings behind class materials.
